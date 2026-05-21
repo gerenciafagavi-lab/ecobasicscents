@@ -1,0 +1,1949 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-title" content="EcobasicScents"/>
+<title>EcobasicScents</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--F:#1b3a2d;--L:#3d8c6e;--G:#b8892a;--I:#1a1a1a;--M:#7a8c83;--W:#fff;--D:#c0392b;--WN:#e67e22;--R:12px}
+body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#f6f1ea;color:var(--I);min-height:100vh}
+.app{max-width:480px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column}
+.tb{background:var(--F);color:#fff;padding:11px 15px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.tb-logo{font-size:19px;font-weight:700;letter-spacing:1px}.tb-logo span{color:#e8c97a}
+.tb-r{display:flex;align-items:center;gap:8px}
+.tb-u{font-size:12px;opacity:.8;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ba{font-size:9px;background:rgba(184,137,42,.3);color:#e8c97a;padding:2px 6px;border-radius:8px;margin-left:4px}
+.btn-o{background:rgba(255,255,255,.15);border:none;color:#fff;padding:5px 10px;border-radius:8px;font-size:12px;cursor:pointer}
+.nav{display:flex;background:#fff;border-bottom:1px solid #e0e8e2;position:sticky;top:52px;z-index:99;overflow-x:auto}
+.nt{flex:1;min-width:50px;padding:9px 3px;border:none;background:none;cursor:pointer;font-size:9px;color:var(--M);border-bottom:2px solid transparent;display:flex;flex-direction:column;align-items:center;gap:2px;white-space:nowrap}
+.nt i{font-size:17px}.nt.on{color:var(--F);border-bottom-color:var(--L)}
+.cnt{flex:1;padding:14px 12px 80px;overflow-y:auto}
+.pt{font-size:20px;font-weight:700;margin-bottom:2px;color:var(--I)}
+.ps{font-size:12px;color:var(--M);margin-bottom:14px}
+.lbl{display:block;font-size:12px;font-weight:600;color:var(--F);margin-bottom:5px}
+.fw{margin-bottom:12px}
+.inp{width:100%;padding:10px 12px;border:1px solid #dde8e2;border-radius:var(--R);font-size:14px;color:var(--I);background:#f8fbf9;outline:none;-webkit-appearance:none;appearance:none}
+.inp:focus{border-color:var(--L);background:#fff}
+select.inp{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%233d8c6e' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:32px;background-color:#f8fbf9}
+select.inp:focus{background-color:#fff}
+textarea.inp{resize:none;height:65px}
+.fr{display:flex;gap:8px}.fr>*{flex:1}
+.btn{width:100%;padding:13px;background:var(--F);color:#fff;border:none;border-radius:var(--R);font-size:14px;font-weight:700;cursor:pointer}
+.btn:active{opacity:.85}.btn:disabled{background:#aaa}
+.btn-add{display:flex;align-items:center;gap:7px;background:var(--F);color:#fff;border:none;padding:10px 16px;border-radius:var(--R);font-size:13px;font-weight:600;cursor:pointer;margin-bottom:14px;width:100%;justify-content:center}
+.card{background:#fff;border-radius:14px;padding:13px;box-shadow:0 1px 6px rgba(27,58,45,.08);margin-bottom:9px}
+.sl{border-left:3px solid var(--L)}
+.sl-g{border-left:3px solid var(--G)}
+.sl-r{border-left:3px solid var(--D)}
+.ch{display:flex;justify-content:space-between;align-items:flex-start}
+.ct{font-weight:700;font-size:13px;color:var(--I)}.cs{font-size:11px;color:var(--M);margin-top:2px}
+.chip{font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px;background:#e8f5ee;color:var(--F);white-space:nowrap}
+.chip-g{background:#fdf5e0;color:var(--G)}.chip-b{background:#e8f0ff;color:#3456a0}
+.chip-r{background:#fdecea;color:var(--D)}.chip-w{background:#fef5e7;color:var(--WN)}
+.mr{display:flex;gap:5px;flex-wrap:wrap;margin-top:7px}
+.eq-list{margin-bottom:12px;background:#f0f7f4;border-radius:var(--R);padding:10px;border:1px solid #d0e8dc}
+.eq-tit{font-size:11px;font-weight:700;color:var(--F);letter-spacing:.5px;text-transform:uppercase;margin-bottom:7px}
+.eq-it{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:10px;cursor:pointer;margin-bottom:4px;background:#fff;border:1px solid #e0ece8}
+.eq-it.sel{background:var(--F);border-color:var(--F)}
+.eq-b{font-size:10px;font-weight:700;padding:2px 7px;border-radius:6px;background:#e8f5ee;color:var(--F);white-space:nowrap}
+.eq-it.sel .eq-b{background:rgba(255,255,255,.2);color:#fff}
+.eq-s{font-size:12px;font-weight:700;flex:1;color:var(--I)}.eq-a{font-size:11px;color:var(--M);text-align:right}
+.eq-it.sel .eq-s,.eq-it.sel .eq-a,.eq-it.sel .eq-ar{color:#fff}
+.eq-ar{font-size:10px;opacity:.65;text-align:right}
+.ah{background:#fff8e8;border:1px solid #e8c97a;border-radius:var(--R);padding:9px 12px;font-size:12px;color:#8a6520;margin-bottom:12px}
+.stats{display:flex;gap:8px;margin-bottom:14px}
+.stat{flex:1;background:#fff;border-radius:12px;padding:12px 8px;text-align:center;box-shadow:0 1px 6px rgba(27,58,45,.08)}
+.sn{font-size:24px;font-weight:700;color:var(--F)}.sl2{font-size:10px;color:var(--M);margin-top:1px}
+.ii{margin-bottom:13px}.ih{display:flex;justify-content:space-between;font-size:12px;margin-bottom:5px}
+.bb{height:8px;background:#e8f0eb;border-radius:4px;overflow:hidden}
+.bar{height:100%;border-radius:4px;background:var(--L);transition:width .5s}
+.bw{background:var(--WN)}.bd{background:var(--D)}
+.si{width:78px;padding:5px 8px;border:1px solid #dde8e2;border-radius:8px;font-size:12px;background:#f8fbf9;color:var(--I)}
+.si-o{border-color:#f5c6a0}
+.del{padding:4px 10px;border-radius:7px;border:none;cursor:pointer;font-size:11px;background:#fdecea;color:var(--D)}
+.sw{position:relative;margin-bottom:10px}
+.sw i{position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:15px;color:var(--M)}
+.si2{width:100%;padding:9px 10px 9px 32px;border:1px solid #dde8e2;border-radius:var(--R);font-size:12px;background:#fff;outline:none;color:var(--I)}
+.lb{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background:linear-gradient(145deg,#0d2018,#1b3a2d 60%,#2a5c45)}
+.lc{background:#fff;border-radius:24px;padding:36px 28px;width:100%;max-width:360px}
+.ll{text-align:center;margin-bottom:24px}
+.lg{font-size:56px;font-weight:700;color:var(--F);line-height:.9;letter-spacing:2px}
+.lg span{color:var(--G);font-size:46px}
+.lg-d{width:36px;height:1px;background:var(--G);margin:10px auto}
+.lg-n{font-size:15px;font-weight:700;letter-spacing:4px;color:var(--F);margin-top:6px}
+.lg-t{font-size:10px;letter-spacing:2px;color:var(--G);text-transform:uppercase;margin-top:5px}
+.rr{display:flex;gap:7px;margin-bottom:18px}
+.rb{flex:1;padding:10px;border:1px solid #dde8e2;border-radius:var(--R);background:none;cursor:pointer;font-size:13px;font-weight:600;color:var(--F)}
+.rb.on{background:var(--F);color:#fff;border-color:var(--F)}
+.err{font-size:12px;color:var(--D);text-align:center;margin-top:8px;min-height:16px}
+.toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:var(--F);color:#fff;padding:10px 22px;border-radius:30px;font-size:13px;font-weight:600;z-index:999;white-space:nowrap;animation:ta 2.6s ease forwards}
+@keyframes ta{0%{opacity:0;transform:translateX(-50%) translateY(8px)}15%{opacity:1;transform:translateX(-50%) translateY(0)}75%{opacity:1}100%{opacity:0}}
+.empty{text-align:center;padding:40px;color:var(--M)}.empty i{font-size:36px;display:block;margin-bottom:8px}
+.mb-bg{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:flex;align-items:flex-end;justify-content:center}
+.mb{background:#fff;border-radius:24px 24px 0 0;padding:24px 20px 36px;width:100%;max-width:480px;max-height:90vh;overflow-y:auto;animation:su .25s ease}
+@keyframes su{from{transform:translateY(40px);opacity:0}to{transform:translateY(0);opacity:1}}
+.mb-t{font-size:18px;font-weight:700;margin-bottom:18px;color:var(--I)}
+.mb-act{display:flex;gap:10px;margin-top:16px}
+.btn-c{flex:1;padding:12px;border:1px solid #dde8e2;border-radius:var(--R);background:none;font-size:14px;cursor:pointer;color:var(--I)}
+.mb-act .btn{flex:2}
+.vc{background:#fff;border-radius:14px;padding:14px;box-shadow:0 1px 6px rgba(27,58,45,.08);margin-bottom:9px;display:flex;align-items:center;justify-content:space-between}
+.vn{font-weight:700;font-size:14px;color:var(--I)}.vs{font-size:12px;color:var(--M);margin-top:2px}
+.va{display:flex;gap:6px}
+.be{background:#e8f5ee;color:var(--F);padding:5px 11px;border:none;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600}
+.boff{background:#fdecea;color:var(--D);padding:5px 11px;border:none;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600}
+.bon{background:#e8f5ee;color:var(--F);padding:5px 11px;border:none;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600}
+.sr{display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid #f0f0f0}
+.sr:last-child{border-bottom:none}
+.sm{font-weight:700;font-size:15px;color:var(--I)}.ss{font-size:12px;color:var(--M);margin-top:2px}
+.qc{display:flex;align-items:center;gap:10px}
+.qb{width:32px;height:32px;border:1px solid #dde8e2;border-radius:8px;background:#f8fbf9;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--F);font-weight:700;border:none}
+.qn{font-size:22px;font-weight:700;color:var(--F);min-width:32px;text-align:center}
+.cer{display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid #f5f5f5;font-size:13px}
+.cer:last-child{border-bottom:none}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+const EQUIPOS_DB={"DIMARTI": [{"id": "eq0001", "modelo": "AE3500", "serie": "ES3500-001", "area": "SHOWROOM", "aroma": "FRESH BLUE"}, {"id": "eq0002", "modelo": "AE301", "serie": "ES301-001", "area": "BANO 1", "aroma": "FRESH BLUE"}, {"id": "eq0003", "modelo": "AE301", "serie": "ES301-002", "area": "BANO 2", "aroma": "FRESH BLUE"}, {"id": "eq0004", "modelo": "AE301", "serie": "ES301-003", "area": "BANO 3", "aroma": "FRESH BLUE"}, {"id": "eq0005", "modelo": "AE301", "serie": "ES301-004", "area": "BANO 4", "aroma": "SPARKLING GOGGY"}, {"id": "eq0006", "modelo": "AE301", "serie": "ES301-005", "area": "Bano Contabili", "aroma": "SPARKLING GOGGY"}], "HOTEL INTERCONTINENTAL": [{"id": "eq0007", "modelo": "AE3500", "serie": "ES3500-002", "area": "Lobby 1", "aroma": "Green Tea"}, {"id": "eq0008", "modelo": "AE3500", "serie": "ES3500-003", "area": "Lobby 2", "aroma": "Green Tea"}, {"id": "eq0009", "modelo": "AE3500", "serie": "ES3500-004", "area": "Pasillo Restaurantes", "aroma": "Green Tea"}, {"id": "eq0010", "modelo": "AE301", "serie": "ES301-006", "area": "ELEVADOR 1", "aroma": "Green Tea"}, {"id": "eq0011", "modelo": "AE301", "serie": "ES301-007", "area": "ELEVADOR 2", "aroma": "Green Tea"}, {"id": "eq0012", "modelo": "AE701", "serie": "ES701-001", "area": "Nivel 1", "aroma": "Fresh Blue"}, {"id": "eq0013", "modelo": "AE701", "serie": "ES701-002", "area": "Nivel 2", "aroma": "Fresh Blue"}, {"id": "eq0014", "modelo": "AE701", "serie": "ES701-003", "area": "Nivel 3", "aroma": "Fresh Blue"}, {"id": "eq0015", "modelo": "AE701", "serie": "ES701-004", "area": "Nivel 4", "aroma": "Fresh Blue"}, {"id": "eq0016", "modelo": "AE701", "serie": "ES701-005", "area": "Nivel 5", "aroma": "Fresh Blue"}, {"id": "eq0017", "modelo": "AE701", "serie": "ES701-006", "area": "Nivel 6", "aroma": "Fresh Blue"}, {"id": "eq0018", "modelo": "AE701", "serie": "ES701-007", "area": "Nivel 7", "aroma": "Fresh Blue"}, {"id": "eq0019", "modelo": "AE701", "serie": "ES701-008", "area": "SPA", "aroma": "CR"}, {"id": "eq0020", "modelo": "AE701", "serie": "ES701-009", "area": "SPA", "aroma": "CR"}], "RESTAURANTE DONDE MIKEL": [{"id": "eq0021", "modelo": "AE3500", "serie": "ES3500-005", "area": "RESTAURANTE PPAL", "aroma": "PureSilver"}, {"id": "eq0022", "modelo": "AE3500", "serie": "ES3500-006", "area": "SALONES LATERAL", "aroma": "PureSIlver"}, {"id": "eq0023", "modelo": "AE301", "serie": "ES301-008", "area": "BANO HOMBRE", "aroma": "Vanilla & Pomegranate"}, {"id": "eq0024", "modelo": "AE301", "serie": "ES301-009", "area": "BANO MUJERES", "aroma": "Vanilla & Pomegranate"}], "BDI BAMBU CITI CENTER": [{"id": "eq0025", "modelo": "AE701", "serie": "ES701-010", "area": "Nivel 1 Hombre", "aroma": "Pure Sunshine"}, {"id": "eq0026", "modelo": "AE701", "serie": "ES701-011", "area": "Nivel 1 Mujer", "aroma": "Royal Palm"}, {"id": "eq0027", "modelo": "AE701", "serie": "ES701-012", "area": "Nivel 2 Hombre", "aroma": "Pure Sunshine"}, {"id": "eq0028", "modelo": "AE701", "serie": "ES701-013", "area": "Nivel 2 Mujer", "aroma": "Royal Palm"}, {"id": "eq0029", "modelo": "AE701", "serie": "ES701-014", "area": "Nivel 3 Hombre", "aroma": "Pure Sunshine"}, {"id": "eq0030", "modelo": "AE701", "serie": "ES701-015", "area": "Nivel 3 Mujer", "aroma": "Royal Palm"}, {"id": "eq0031", "modelo": "AE701", "serie": "ES701-016", "area": "Mercadito H", "aroma": "Pure Sunshine"}, {"id": "eq0032", "modelo": "AE701", "serie": "ES701-017", "area": "Mercadito M", "aroma": "Royal Palm"}, {"id": "eq0033", "modelo": "AE701", "serie": "ES701-018", "area": "GAP", "aroma": "Pure Sunshine"}, {"id": "eq0034", "modelo": "AE301", "serie": "ES301-010", "area": "Bano Sotano M", "aroma": "Royal Palm"}, {"id": "eq0035", "modelo": "AE301", "serie": "ES301-011", "area": "Bano Sotano H", "aroma": "Pure Sunshine"}, {"id": "eq0036", "modelo": "AE301", "serie": "ES301-012", "area": "Mercadito empleados", "aroma": ""}, {"id": "eq0037", "modelo": "AE301", "serie": "ES301-013", "area": "Mercadito Empleados", "aroma": ""}, {"id": "eq0038", "modelo": "AE301", "serie": "ES301-014", "area": "", "aroma": ""}, {"id": "eq0039", "modelo": "AE301", "serie": "ES301-015", "area": "", "aroma": ""}, {"id": "eq0040", "modelo": "AE301", "serie": "ES301-016", "area": "", "aroma": ""}], "ALTA COCINA RESTAURANTE MONARCA": [{"id": "eq0041", "modelo": "AE701", "serie": "ES701-019", "area": "LOBBY/ Entrada", "aroma": "SANTAL"}, {"id": "eq0042", "modelo": "AE701", "serie": "ES701-020", "area": "Lobby Bar", "aroma": "SANTAL"}, {"id": "eq0043", "modelo": "AE701", "serie": "ES701-021", "area": "Cava", "aroma": "Wine"}, {"id": "eq0044", "modelo": "AE301", "serie": "ES301-017", "area": "Bano Hombre", "aroma": "SANTAL"}, {"id": "eq0045", "modelo": "AE301", "serie": "ES301-018", "area": "Bano Mujer", "aroma": "SANTAL"}, {"id": "eq0046", "modelo": "AE301", "serie": "ES301-019", "area": "Bano Salon", "aroma": "SANTAL"}, {"id": "eq0047", "modelo": "AE301", "serie": "ES301-020", "area": "Salon Privado", "aroma": "SANTAL"}, {"id": "eq0048", "modelo": "AE301", "serie": "ES301-021", "area": "", "aroma": "SANTAL"}, {"id": "eq0049", "modelo": "AE301", "serie": "ES301-022", "area": "Bano Hombre", "aroma": "SANTAL"}, {"id": "eq0050", "modelo": "AE301", "serie": "ES301-023", "area": "Bano Mujer", "aroma": "SANTAL"}], "CLUB CAMPESTRE CUSCATLAN": [{"id": "eq0051", "modelo": "AE3500", "serie": "ES3500-007", "area": "LOBBY", "aroma": "NewYork"}, {"id": "eq0052", "modelo": "AE701", "serie": "ES701-022", "area": "Bano Lobby Hombre", "aroma": "Pure Sunshine"}, {"id": "eq0053", "modelo": "AE701", "serie": "ES701-023", "area": "Bano Mujer Lobby", "aroma": "Wite Tea"}, {"id": "eq0054", "modelo": "AE701", "serie": "ES701-024", "area": "Bano Piscina Hombre", "aroma": "Bergamot Ocean"}, {"id": "eq0055", "modelo": "AE701", "serie": "ES701-025", "area": "Bano Piscina Mujer", "aroma": "Bergamot Ocean"}, {"id": "eq0056", "modelo": "AE701", "serie": "ES701-026", "area": "Bano Sopt Mujer", "aroma": "Wite Tea"}, {"id": "eq0057", "modelo": "AE701", "serie": "ES701-027", "area": "Bano Spot Hombre", "aroma": "Pure Sunshine"}, {"id": "eq0058", "modelo": "AE701", "serie": "ES701-028", "area": "Locker Mujer GOLF", "aroma": "White Tea"}, {"id": "eq0059", "modelo": "AE701", "serie": "ES701-029", "area": "BUSINESS CENTER", "aroma": "White Tea"}, {"id": "eq0060", "modelo": "AE701", "serie": "ES701-030", "area": "BUSINESS CENTER", "aroma": "White Tea"}, {"id": "eq0061", "modelo": "AE701", "serie": "ES701-031", "area": "GYM", "aroma": "Pure Sunshine"}, {"id": "eq0062", "modelo": "AE701", "serie": "ES701-032", "area": "GYM", "aroma": "Pure Sunshine"}, {"id": "eq0063", "modelo": "AE701", "serie": "ES701-033", "area": "Bano Tenis Hombre", "aroma": "Pure Sunshine"}, {"id": "eq0064", "modelo": "AE701", "serie": "ES701-034", "area": "Bano Tenis Mujer", "aroma": "White Tea"}, {"id": "eq0065", "modelo": "AE701", "serie": "ES701-035", "area": "Tienda de Golf", "aroma": ""}, {"id": "eq0066", "modelo": "AE301", "serie": "ES301-024", "area": "Bano Admon Hombre", "aroma": "Pure Sunshine"}, {"id": "eq0067", "modelo": "AE301", "serie": "ES301-025", "area": "Bano Admon Mujer", "aroma": "White tea"}, {"id": "eq0068", "modelo": "AE301", "serie": "ES301-026", "area": "Bano Pinata Ninos", "aroma": "Vanilla Cedarwood Sage"}, {"id": "eq0069", "modelo": "AE301", "serie": "ES301-027", "area": "Bano Pinata Ninas", "aroma": "Vanilla Cedarwood Sage"}], "GRUPO Q PORSCHE": [{"id": "eq0070", "modelo": "AE3500", "serie": "ES3500-008", "area": "Show Room", "aroma": "Asian Mint"}], "GRUPO Q HONDA": [{"id": "eq0071", "modelo": "AE3500", "serie": "ES3500-009", "area": "Show Room", "aroma": "Fine suede"}], "GRUPO Q JEEP RAM": [{"id": "eq0072", "modelo": "AE3500", "serie": "ES3500-010", "area": "Show Room", "aroma": "Fine suede"}], "GRUPO Q CHERY": [{"id": "eq0073", "modelo": "Radiant", "serie": "ESRadiant-001", "area": "Show Room", "aroma": "Persuation"}], "GENERAL DE VEHICULOS FORD": [{"id": "eq0074", "modelo": "Radiant", "serie": "ESRadiant-002", "area": "Lobby", "aroma": "Tuluminate"}, {"id": "eq0075", "modelo": "AE701", "serie": "ES701-186", "area": "Showroom", "aroma": "Tuluminate"}], "GENERAL DE VEHICULOS MAZDA": [{"id": "eq0076", "modelo": "Radiant", "serie": "ESRadiant-003", "area": "Loby", "aroma": ""}, {"id": "eq0077", "modelo": "AE701", "serie": "ES701-187", "area": "", "aroma": ""}, {"id": "eq0078", "modelo": "FMATIC", "serie": "ESFMATIC-001", "area": "", "aroma": ""}, {"id": "eq0079", "modelo": "FMATIC", "serie": "ESFMATIC-002", "area": "", "aroma": ""}], "ARMIDA PORTICO": [{"id": "eq0080", "modelo": "AE3500", "serie": "ES3500-011", "area": "San Benito Cocina", "aroma": "SANTAL"}, {"id": "eq0081", "modelo": "AE3500", "serie": "ES3500-012", "area": "PLAZA MADERO", "aroma": ""}, {"id": "eq0082", "modelo": "AE3500", "serie": "ES3500-013", "area": "Escalon 1 nivel", "aroma": "SANTAL"}], "LABORATORIO DE DIAGNOSTICO": [{"id": "eq0083", "modelo": "AE3500", "serie": "ES3500-014", "area": "LOBBY", "aroma": "PURE SUNSHINE"}, {"id": "eq0093", "modelo": "AE701", "serie": "ES701-038", "area": "LobbyLab", "aroma": "ASIAN MINT"}, {"id": "eq0094", "modelo": "AE301", "serie": "ES301-032", "area": "BanoHLab", "aroma": "ASIAN MINT"}, {"id": "eq0095", "modelo": "AE301", "serie": "ES301-033", "area": "BanoMLab", "aroma": "ASIAN MINT"}], "HOSPITAL DE DIAGNOSTICO SANTA ELENA": [{"id": "eq0084", "modelo": "AE3500", "serie": "ES3500-015", "area": "LOBBY", "aroma": "Green Tea"}, {"id": "eq0085", "modelo": "AE301", "serie": "ES301-028", "area": "BANOHMN1", "aroma": "ASIAN MINT"}, {"id": "eq0086", "modelo": "AE301", "serie": "ES301-029", "area": "BANOMJN1", "aroma": "ASIAN MINT"}, {"id": "eq0087", "modelo": "AE301", "serie": "ES301-030", "area": "BanoHomEmer", "aroma": "ASIAN MINT"}, {"id": "eq0088", "modelo": "AE701", "serie": "ES701-036", "area": "ComedorDocts", "aroma": "ASIAN MINT"}, {"id": "eq0089", "modelo": "AE701", "serie": "ES701-037", "area": "Alimentos", "aroma": ""}, {"id": "eq0090", "modelo": "AE701", "serie": "ES701-039", "area": "LobbyLab", "aroma": "ASIAN MINT"}, {"id": "eq0091", "modelo": "AE301", "serie": "ES301-034", "area": "BanoHLab", "aroma": "ASIAN MINT"}, {"id": "eq0092", "modelo": "AE301", "serie": "ES301-035", "area": "BanoMLab", "aroma": "ASIAN MINT"}], "HOSPITAL DE DIAGNOSTICO COLONIA MEDICA": [{"id": "eq0096", "modelo": "AE701", "serie": "ES701-039", "area": "LobbyLab", "aroma": "ASIAN MINT"}, {"id": "eq0097", "modelo": "AE301", "serie": "ES301-034", "area": "BanoHLab", "aroma": "ASIAN MINT"}, {"id": "eq0098", "modelo": "AE301", "serie": "ES301-035", "area": "BanoMLab", "aroma": "ASIAN MINT"}], "MIMIS BOUTIQUE": [{"id": "eq0099", "modelo": "AE701", "serie": "ES701-040", "area": "Entrada Izquierda", "aroma": "SANTAL"}, {"id": "eq0100", "modelo": "AE701", "serie": "ES701-041", "area": "Ent Izq. Fondo", "aroma": "SANTAL"}, {"id": "eq0101", "modelo": "AE701", "serie": "ES701-042", "area": "Entrada Derecha", "aroma": "SANTAL"}, {"id": "eq0102", "modelo": "AE701", "serie": "ES701-043", "area": "Entrada abajo gradas", "aroma": "SANTAL"}], "PRONOVIA": [{"id": "eq0103", "modelo": "AE701", "serie": "ES701-044", "area": "PRONOVIAS 1", "aroma": "SANTAL"}, {"id": "eq0104", "modelo": "AE701", "serie": "ES701-045", "area": "PRONOVIAS 2", "aroma": "SANTAL"}], "FERREIRO HOTEL B LA LIBERTAD": [{"id": "eq0105", "modelo": "AE701", "serie": "ES701-046", "area": "Lobby Hotel B", "aroma": "Bergamot Ocean Arie"}, {"id": "eq0106", "modelo": "AE701", "serie": "ES701-047", "area": "Pasillo Cuartos Hotel B", "aroma": "Bergamot Ocean Arie"}, {"id": "eq0107", "modelo": "AE301", "serie": "ES301-036", "area": "Bano Lobby Hotel B", "aroma": "Bergamot Ocean Arie"}], "FERREIRO BETOS LA LIBERTAD": [{"id": "eq0108", "modelo": "AE301", "serie": "ES301-037", "area": "Bano Hombre Rest", "aroma": "Green tea"}, {"id": "eq0109", "modelo": "AE301", "serie": "ES301-038", "area": "Bano Mujer Rest", "aroma": "Green tea"}, {"id": "eq0110", "modelo": "AE301", "serie": "ES301-039", "area": "Bano Hombre Rest 2do piso", "aroma": "Green tea"}, {"id": "eq0111", "modelo": "AE301", "serie": "ES301-040", "area": "Bano Mujer Rest 2do Piso", "aroma": "Cherry Blossom"}, {"id": "eq0112", "modelo": "AE301", "serie": "ES301-041", "area": "Bano Hombre Rest Nueva area", "aroma": "Cherry Blossom"}, {"id": "eq0113", "modelo": "AE301", "serie": "ES301-042", "area": "Bano Mujer Rest Nueva area", "aroma": "Cherry Blossom"}], "BETOS AVANTE": [{"id": "eq0114", "modelo": "AE301", "serie": "ES301-043", "area": "Bano Hombre", "aroma": "Bergamot Ocean Arie"}, {"id": "eq0115", "modelo": "AE301", "serie": "ES301-044", "area": "Bano Mujer", "aroma": "Bergamot Ocean Arie"}], "BETOS ESCALON": [{"id": "eq0116", "modelo": "AE301", "serie": "ES301-045", "area": "Bano Hombre", "aroma": "Bergamot Ocean Arie"}, {"id": "eq0117", "modelo": "AE301", "serie": "ES301-046", "area": "Bano Mujer", "aroma": "Bergamot Ocean Arie"}], "PALMETTO RAMBLAS SS": [{"id": "eq0118", "modelo": "AE301", "serie": "ES301-049", "area": "Bano 1", "aroma": "White T"}, {"id": "eq0119", "modelo": "AE301", "serie": "ES301-050", "area": "Bano 2", "aroma": "White T"}, {"id": "eq0120", "modelo": "AE301", "serie": "ES301-051", "area": "Bano 3", "aroma": "White T"}, {"id": "eq0121", "modelo": "AE301", "serie": "ES301-052", "area": "Ascensor", "aroma": "White T"}, {"id": "eq0122", "modelo": "AE301", "serie": "ES301-053", "area": "", "aroma": "White T"}, {"id": "eq0123", "modelo": "AE301", "serie": "ES301-054", "area": "", "aroma": "White T"}, {"id": "eq0124", "modelo": "AE301", "serie": "ES301-055", "area": "", "aroma": "White T"}, {"id": "eq0125", "modelo": "AE701", "serie": "ES701-048", "area": "Bano 2", "aroma": "White T"}, {"id": "eq0126", "modelo": "AE701", "serie": "ES701-049", "area": "Bano 3", "aroma": "White T"}, {"id": "eq0127", "modelo": "AE701", "serie": "ES701-050", "area": "Bano 4", "aroma": "White T"}, {"id": "eq0128", "modelo": "AE701", "serie": "ES701-051", "area": "Bano 5", "aroma": "White T"}], "PALMETTO RAMBLAS SANTA ANA": [{"id": "eq0129", "modelo": "AE301", "serie": "ES301-056", "area": "Bano 1", "aroma": "White T"}, {"id": "eq0130", "modelo": "AE301", "serie": "ES301-057", "area": "Bano 2", "aroma": "White T"}, {"id": "eq0131", "modelo": "AE301", "serie": "ES301-058", "area": "Bano 3", "aroma": "White T"}, {"id": "eq0132", "modelo": "AE301", "serie": "ES301-059", "area": "Bano 4", "aroma": "White T"}], "PURIFICACION GARCIA": [{"id": "eq0133", "modelo": "AE3500", "serie": "ES3500-016", "area": "Tienda Multi", "aroma": "Santal"}], "SALON DALI": [{"id": "eq0134", "modelo": "AE701", "serie": "ES701-052", "area": "Salon", "aroma": "Santal"}, {"id": "eq0135", "modelo": "AE701", "serie": "ES701-053", "area": "Salon", "aroma": "Santal"}, {"id": "eq0136", "modelo": "AE701", "serie": "ES701-054", "area": "Bano", "aroma": "goggy berry"}, {"id": "eq0316", "modelo": "AE701", "serie": "ES701-152", "area": "Rest", "aroma": "New York"}], "MOAR MONICA ARGUEDAS": [{"id": "eq0137", "modelo": "AE701", "serie": "ES701-055", "area": "Salon", "aroma": "Santal"}], "COLECCIONES": [{"id": "eq0138", "modelo": "AE701", "serie": "ES701-056", "area": "Lobby", "aroma": "Saffron Suede"}, {"id": "eq0139", "modelo": "AE701", "serie": "ES701-057", "area": "Pasillo Entrada", "aroma": "Saffron Suede"}, {"id": "eq0140", "modelo": "AE3500", "serie": "ES3500-017", "area": "Lobby", "aroma": "Saffron Suede"}], "CHIVO PETS": [{"id": "eq0141", "modelo": "AE3500", "serie": "ES3500-018", "area": "lobby Emergencia", "aroma": "Cuddly y Fresh fur ever"}, {"id": "eq0142", "modelo": "AE3500", "serie": "ES3500-019", "area": "Hospital. Felinos", "aroma": "Cuddly y Fresh fur ever"}, {"id": "eq0143", "modelo": "AE3500", "serie": "ES3500-020", "area": "Hospital. Caninos", "aroma": "Cuddly y Fresh fur ever"}, {"id": "eq0144", "modelo": "AE3500", "serie": "ES3500-021", "area": "Lobby Consulta Externa", "aroma": "Cuddly y Fresh fur ever"}, {"id": "eq0145", "modelo": "AE3500", "serie": "ES3500-022", "area": "Hopitaliz caninos", "aroma": "Cuddly y Fresh fur ever"}, {"id": "eq0146", "modelo": "AE701", "serie": "ES701-058", "area": "Cirujia", "aroma": "Cuddly y Fresh fur ever"}, {"id": "eq0147", "modelo": "AE701", "serie": "ES701-059", "area": "Peluqueria", "aroma": "Cuddly y Fresh fur ever"}, {"id": "eq0148", "modelo": "AE701", "serie": "ES701-060", "area": "Peluqueria", "aroma": "Cuddly y Fresh fur ever"}, {"id": "eq0149", "modelo": "AE701", "serie": "ES701-061", "area": "Rehabilitacion", "aroma": "Cuddly y Fresh fur ever"}, {"id": "eq0150", "modelo": "AE701", "serie": "ES701-062", "area": "Pasillos Externa", "aroma": "Cuddly y Fresh fur ever"}, {"id": "eq0151", "modelo": "AE701", "serie": "ES701-063", "area": "Pasillos Externa", "aroma": "Cuddly y Fresh fur ever"}, {"id": "eq0152", "modelo": "AE701", "serie": "ES701-064", "area": "Pasillos Externa", "aroma": "Cuddly y Fresh fur ever"}, {"id": "eq0153", "modelo": "AE701", "serie": "ES701-065", "area": "Pasillos Externa", "aroma": "Cuddly y Fresh fur ever"}, {"id": "eq0154", "modelo": "AE701", "serie": "ES701-066", "area": "Recepcion Infeccioso", "aroma": "Cuddly y Fresh fur ever"}, {"id": "eq0155", "modelo": "AE701", "serie": "ES701-067", "area": "Hospitalizacion Infeccioso", "aroma": "Cuddly y Fresh fur ever"}, {"id": "eq0156", "modelo": "AE701", "serie": "ES701-068", "area": "????", "aroma": "Cuddly y Fresh fur ever"}], "ATIK PANADERIA": [{"id": "eq0157", "modelo": "AE701", "serie": "ES701-069", "area": "Salon", "aroma": "Grapefruit Vanilla"}], "ALFA ESTUDIO": [{"id": "eq0158", "modelo": "AE3500", "serie": "ES3500-023", "area": "Show Room", "aroma": "Santal"}], "POKA SANTA ANA": [{"id": "eq0159", "modelo": "AE701", "serie": "ES701-070", "area": "Salon", "aroma": "Santal"}, {"id": "eq0160", "modelo": "AE701", "serie": "ES701-071", "area": "Salon", "aroma": "Santal"}], "SARA LUZ HERRERA DENTAL": [{"id": "eq0161", "modelo": "AE301", "serie": "ES301-060", "area": "Sara Luz", "aroma": "Saffron Suede"}, {"id": "eq0162", "modelo": "AE301", "serie": "ES301-061", "area": "Sara Luz", "aroma": "Saffron Suede"}, {"id": "eq0163", "modelo": "AE301", "serie": "ES301-062", "area": "Sara Luz", "aroma": "Saffron Suede"}, {"id": "eq0164", "modelo": "AE301", "serie": "ES301-063", "area": "Sara Luz", "aroma": "Saffron Suede"}, {"id": "eq0165", "modelo": "AE301", "serie": "ES301-064", "area": "Dentalcorp SA de CV", "aroma": "Saffron Suede"}], "GRUINCO": [{"id": "eq0166", "modelo": "AE701", "serie": "ES701-072", "area": "Salon", "aroma": "Saffron Suede"}], "DROGUERIA UNIVERSAL": [{"id": "eq0167", "modelo": "AE3500", "serie": "ES3500-024", "area": "LOBBY", "aroma": "SAFFRON SUEDE"}], "MM PROYECTOS REST LA DONA": [{"id": "eq0168", "modelo": "AE301", "serie": "ES301-065", "area": "", "aroma": ""}, {"id": "eq0169", "modelo": "AE701", "serie": "ES701-073", "area": "", "aroma": ""}, {"id": "eq0170", "modelo": "AE701", "serie": "ES701-074", "area": "", "aroma": ""}, {"id": "eq0171", "modelo": "AE701", "serie": "ES701-075", "area": "", "aroma": ""}, {"id": "eq0172", "modelo": "AE701", "serie": "ES701-076", "area": "", "aroma": ""}, {"id": "eq0173", "modelo": "AE701", "serie": "ES701-077", "area": "", "aroma": ""}, {"id": "eq0174", "modelo": "AE701", "serie": "ES701-078", "area": "", "aroma": ""}, {"id": "eq0175", "modelo": "AE701", "serie": "ES701-079", "area": "", "aroma": "Vanilla Cedar wood"}, {"id": "eq0176", "modelo": "AE701", "serie": "ES701-080", "area": "", "aroma": "Vanilla Cedar wood"}, {"id": "eq0177", "modelo": "AE701", "serie": "ES701-081", "area": "", "aroma": "Vanilla Cedar wood"}], "CONSULTORES EN VIAJES ROYAL CARIBEAN": [{"id": "eq0178", "modelo": "AE701", "serie": "ES701-082", "area": "Salon", "aroma": "Green Tea"}, {"id": "eq0179", "modelo": "AE701", "serie": "ES701-083", "area": "", "aroma": "Green Tea"}], "INDUSTRIAS CAPRI ESCALON": [{"id": "eq0180", "modelo": "AE701", "serie": "ES701-084", "area": "Sala Ventas Escalon", "aroma": ""}, {"id": "eq0181", "modelo": "AE701", "serie": "ES701-085", "area": "Sala Ventas Escalon", "aroma": ""}, {"id": "eq0182", "modelo": "AE701", "serie": "ES701-086", "area": "Sala Ventas San Benito", "aroma": ""}, {"id": "eq0183", "modelo": "AE701", "serie": "ES701-087", "area": "Sala Ventas San Benito", "aroma": ""}], "LUIS GONZALO CISCO": [{"id": "eq0184", "modelo": "AE701", "serie": "ES701-088", "area": "Salon", "aroma": "Green Tea"}], "DIEGO BARAHONA IGLESIA": [{"id": "eq0185", "modelo": "AE3500", "serie": "ES3500-025", "area": "LOBBY", "aroma": "Santal"}], "LEXARTIS ABOGADOS": [{"id": "eq0186", "modelo": "AE3500", "serie": "ES3500-026", "area": "", "aroma": "TABAC NOIR"}, {"id": "eq0187", "modelo": "AE3500", "serie": "ES3500-027", "area": "", "aroma": "TABAC NOIR"}, {"id": "eq0188", "modelo": "AE301", "serie": "ES301-066", "area": "", "aroma": "GREEN TEA"}, {"id": "eq0189", "modelo": "AE301", "serie": "ES301-067", "area": "", "aroma": "GREEN TEA"}], "JOYERIA SANTOS": [{"id": "eq0190", "modelo": "AE301", "serie": "ES301-068", "area": "Joyeria", "aroma": "Santal"}], "CONDOMINIO PUERTA DEL ALMA": [{"id": "eq0191", "modelo": "AE301", "serie": "ES301-069", "area": "Nivel 1", "aroma": "Vanilla Cedar Wood"}, {"id": "eq0192", "modelo": "AE301", "serie": "ES301-070", "area": "Nivel 2", "aroma": "Vanilla Cedar Wood"}, {"id": "eq0193", "modelo": "AE301", "serie": "ES301-071", "area": "Nivel 3", "aroma": "Vanilla Cedar Wood"}, {"id": "eq0194", "modelo": "AE301", "serie": "ES301-072", "area": "Nivel 4", "aroma": "Vanilla Cedar Wood"}, {"id": "eq0195", "modelo": "AE301", "serie": "ES301-073", "area": "Nivel 5", "aroma": "Vanilla Cedar Wood"}, {"id": "eq0196", "modelo": "AE301", "serie": "ES301-074", "area": "Nivel 6", "aroma": "Vanilla Cedar Wood"}, {"id": "eq0197", "modelo": "AE301", "serie": "ES301-075", "area": "Nivel 7", "aroma": "Vanilla Cedar Wood"}, {"id": "eq0198", "modelo": "AE301", "serie": "ES301-076", "area": "Nivel 8", "aroma": "Vanilla Cedar Wood"}, {"id": "eq0199", "modelo": "AE301", "serie": "ES301-077", "area": "Nivel 9", "aroma": "Vanilla Cedar Wood"}, {"id": "eq0200", "modelo": "AE301", "serie": "ES301-078", "area": "Nivel 10", "aroma": "Vanilla Cedar Wood"}, {"id": "eq0201", "modelo": "AE301", "serie": "ES301-079", "area": "Nivel 11", "aroma": "Vanilla Cedar Wood"}, {"id": "eq0202", "modelo": "AE301", "serie": "ES301-080", "area": "Nivel 12", "aroma": "Vanilla Cedar Wood"}, {"id": "eq0203", "modelo": "AE301", "serie": "ES301-081", "area": "Nivel 13", "aroma": "Vanilla Cedar Wood"}, {"id": "eq0204", "modelo": "AE301", "serie": "ES301-082", "area": "Nivel 14", "aroma": "Vanilla Cedar Wood"}, {"id": "eq0205", "modelo": "AE701", "serie": "ES701-089", "area": "Lobby", "aroma": "Tabac Noir"}, {"id": "eq0206", "modelo": "AE701", "serie": "ES701-090", "area": "Lobby", "aroma": "Tabac Noir"}], "EDECSA": [{"id": "eq0207", "modelo": "AE3500", "serie": "ES3500-028", "area": "Nivel 1", "aroma": "Bergamot Ocean Aria"}, {"id": "eq0208", "modelo": "AE3500", "serie": "ES3500-029", "area": "Nivel 2", "aroma": "Bergamot Ocean Aria"}, {"id": "eq0209", "modelo": "AE3500", "serie": "ES3500-030", "area": "Nivel 3", "aroma": "Instalado"}, {"id": "eq0210", "modelo": "AE701", "serie": "ES701-091", "area": "", "aroma": "Bergamot Ocean Aria"}, {"id": "eq0211", "modelo": "AE701", "serie": "ES701-092", "area": "", "aroma": "Bergamot Ocean Aria"}, {"id": "eq0212", "modelo": "AE701", "serie": "ES701-093", "area": "", "aroma": "Bergamot Ocean Aria"}, {"id": "eq0213", "modelo": "AE701", "serie": "ES701-094", "area": "", "aroma": "Bergamot Ocean Aria"}, {"id": "eq0214", "modelo": "AE701", "serie": "ES701-095", "area": "", "aroma": "Instalado"}, {"id": "eq0215", "modelo": "FMATIC", "serie": "ESFMATIC-003", "area": "", "aroma": ""}, {"id": "eq0216", "modelo": "FMATIC", "serie": "ESFMATIC-004", "area": "", "aroma": ""}], "ELECTROLAB MEDIC SAN ANTONIO ABAD": [{"id": "eq0217", "modelo": "AE3500", "serie": "ES3500-031", "area": "San Antonio Abad", "aroma": "Green Tea"}, {"id": "eq0218", "modelo": "AE3500", "serie": "ES3500-032", "area": "San Antonio Abad", "aroma": "Green Tea"}, {"id": "eq0219", "modelo": "AE3500", "serie": "ES3500-033", "area": "San Antonio Abad", "aroma": "Green Tea"}, {"id": "eq0220", "modelo": "AE3500", "serie": "ES3500-034", "area": "El Paseo", "aroma": "Green Tea"}], "CARDEDEU CENTRO HISTORICO": [{"id": "eq0221", "modelo": "AE3500", "serie": "ES3500-035", "area": "LOBBY", "aroma": "Santal"}], "CLINICA LINEA Y FIGURA": [{"id": "eq0222", "modelo": "AE3500", "serie": "ES3500-036", "area": "Salon", "aroma": "Happy Days"}, {"id": "eq0223", "modelo": "AE3500", "serie": "ES3500-037", "area": "Salon", "aroma": "Happy Days"}, {"id": "eq0224", "modelo": "AE701", "serie": "ES701-096", "area": "Salon", "aroma": "Happy Days"}, {"id": "eq0225", "modelo": "AE701", "serie": "ES701-097", "area": "Salon", "aroma": "Happy Days"}, {"id": "eq0226", "modelo": "AE701", "serie": "ES701-098", "area": "Salon", "aroma": "Happy Days"}, {"id": "eq0227", "modelo": "AE701", "serie": "ES701-099", "area": "Apto. Puerta del Alma", "aroma": "Santal"}], "MARKHA CLINICA ANDHER": [{"id": "eq0228", "modelo": "AE701", "serie": "ES701-100", "area": "Lobby", "aroma": "Zen Garden"}, {"id": "eq0229", "modelo": "AE701", "serie": "ES701-101", "area": "Lobby", "aroma": "Zen Garden"}, {"id": "eq0230", "modelo": "AE701", "serie": "ES701-102", "area": "", "aroma": "Zen Garden"}, {"id": "eq0231", "modelo": "AE701", "serie": "ES701-103", "area": "", "aroma": "Zen Garden"}, {"id": "eq0232", "modelo": "AE301", "serie": "ES301-083", "area": "Nivel 1", "aroma": "Santal"}, {"id": "eq0233", "modelo": "AE301", "serie": "ES301-084", "area": "Nivel 2", "aroma": "SAntal"}], "CLINICA MARVIN NUNEZ": [{"id": "eq0234", "modelo": "AE301", "serie": "ES301-085", "area": "Lobby", "aroma": ""}, {"id": "eq0235", "modelo": "AE701", "serie": "ES701-104", "area": "Consultorio", "aroma": ""}, {"id": "eq0236", "modelo": "AE301", "serie": "ES301-086", "area": "Clinica", "aroma": ""}], "CEPA AEROPUERTO": [{"id": "cepa1000", "modelo": "AE3500", "serie": "ES3500-038", "area": "Aduana Llegada (Bandas) (1/3)", "aroma": "SANTAL"}, {"id": "cepa1001", "modelo": "AE3500", "serie": "ES3500-041", "area": "Aduana Llegada (Bandas) (2/3)", "aroma": "SANTAL"}, {"id": "cepa1002", "modelo": "AE3500", "serie": "ES3500-042", "area": "Aduana Llegada (Bandas) (3/3)", "aroma": "SANTAL"}, {"id": "cepa1003", "modelo": "AE3500", "serie": "ES3500-039", "area": "Aduana Salida (1/6)", "aroma": "SANTAL"}, {"id": "cepa1004", "modelo": "AE3500", "serie": "ES3500-043", "area": "Aduana Salida (2/6)", "aroma": "SANTAL"}, {"id": "cepa1005", "modelo": "AE3500", "serie": "ES3500-044", "area": "Aduana Salida (3/6)", "aroma": "SANTAL"}, {"id": "cepa1006", "modelo": "AE3500", "serie": "ES3500-045", "area": "Aduana Salida (4/6)", "aroma": "SANTAL"}, {"id": "cepa1007", "modelo": "AE3500", "serie": "ES3500-046", "area": "Aduana Salida (5/6)", "aroma": "SANTAL"}, {"id": "cepa1008", "modelo": "AE3500", "serie": "ES3500-047", "area": "Aduana Salida (6/6)", "aroma": "SANTAL"}, {"id": "cepa1009", "modelo": "AE3500", "serie": "ES3500-040", "area": "Salas VIP ABC (1/3)", "aroma": "SANTAL"}, {"id": "cepa1010", "modelo": "AE3500", "serie": "ES3500-048", "area": "Salas VIP ABC (2/3)", "aroma": "SANTAL"}, {"id": "cepa1011", "modelo": "AE3500", "serie": "ES3500-049", "area": "Salas VIP ABC (3/3)", "aroma": "SANTAL"}, {"id": "cepa1012", "modelo": "AE701", "serie": "ES701-105", "area": "Banos Sala 16 Nivel 2 Hombre (1/2)", "aroma": "SPARKLING GOGGY"}, {"id": "cepa1013", "modelo": "AE701", "serie": "ES701-121", "area": "Banos Sala 16 Nivel 2 Hombre (2/2)", "aroma": "SPARKLING GOGGY"}, {"id": "cepa1014", "modelo": "AE701", "serie": "ES701-106", "area": "Banos Sala 16 Nivel 2 Mujer (1/2)", "aroma": "SPARKLING GOGGY"}, {"id": "cepa1015", "modelo": "AE701", "serie": "ES701-123", "area": "Banos Sala 16 Nivel 2 Mujer (2/2)", "aroma": "SPARKLING GOGGY"}, {"id": "cepa1016", "modelo": "AE701", "serie": "ES701-107", "area": "Banos Sala 16 Nivel 3 Hombre (1/2)", "aroma": "SPARKLING GOGGY"}, {"id": "cepa1017", "modelo": "AE701", "serie": "ES701-125", "area": "Banos Sala 16 Nivel 3 Hombre (2/2)", "aroma": "SPARKLING GOGGY"}, {"id": "cepa1018", "modelo": "AE701", "serie": "ES701-108", "area": "Banos Sala 16 Nivel 3 Mujer (1/2)", "aroma": "SPARKLING GOGGY"}, {"id": "cepa1019", "modelo": "AE701", "serie": "ES701-127", "area": "Banos Sala 16 Nivel 3 Mujer (2/2)", "aroma": "SPARKLING GOGGY"}, {"id": "cepa1020", "modelo": "AE701", "serie": "ES701-109", "area": "Banos Sala 18 Nivel 2 Hombre (1/2)", "aroma": "SPARKLING GOGGY"}, {"id": "cepa1021", "modelo": "AE701", "serie": "ES701-129", "area": "Banos Sala 18 Nivel 2 Hombre (2/2)", "aroma": "SPARKLING GOGGY"}, {"id": "cepa1022", "modelo": "AE701", "serie": "ES701-110", "area": "Banos Sala 18 Nivel 2 Mujer (1/2)", "aroma": "SPARKLING GOGGY"}, {"id": "cepa1023", "modelo": "AE701", "serie": "ES701-130", "area": "Banos Sala 18 Nivel 2 Mujer (2/2)", "aroma": "SPARKLING GOGGY"}, {"id": "cepa1024", "modelo": "AE701", "serie": "ES701-111", "area": "Banos Sala 18 Nivel 3 Hombre (1/2)", "aroma": "SPARKLING GOGGY"}, {"id": "cepa1025", "modelo": "AE701", "serie": "ES701-131", "area": "Banos Sala 18 Nivel 3 Hombre (2/2)", "aroma": "SPARKLING GOGGY"}, {"id": "cepa1026", "modelo": "AE701", "serie": "ES701-112", "area": "Banos Sala 18 Nivel 3 Mujer (1/2)", "aroma": "SPARKLING GOGGY"}, {"id": "cepa1027", "modelo": "AE701", "serie": "ES701-132", "area": "Banos Sala 18 Nivel 3 Mujer (2/2)", "aroma": "SPARKLING GOGGY"}, {"id": "cepa1028", "modelo": "AE701", "serie": "ES701-113", "area": "Banos Sala 14 Hombre", "aroma": "SPARKLING GOGGY"}, {"id": "cepa1029", "modelo": "AE701", "serie": "ES701-114", "area": "Banos Sala 14 Mujer", "aroma": "SPARKLING GOGGY"}, {"id": "cepa1030", "modelo": "AE701", "serie": "ES701-115", "area": "Banos Sala 14 Pasillo Hombre", "aroma": "SPARKLING GOGGY"}, {"id": "cepa1031", "modelo": "AE701", "serie": "ES701-116", "area": "Banos Sala 14 Pasillo Mujer", "aroma": "SPARKLING GOGGY"}, {"id": "cepa1032", "modelo": "AE701", "serie": "ES701-117", "area": "Banos Sala 11 y 12 Hombre", "aroma": "SPARKLING GOGGY"}, {"id": "cepa1033", "modelo": "AE701", "serie": "ES701-118", "area": "Banos Sala 11 y 12 Mujer", "aroma": "SPARKLING GOGGY"}, {"id": "cepa1034", "modelo": "AE701", "serie": "ES701-119", "area": "Banos Sala 9 y 10 Hombre", "aroma": "SPARKLING GOGGY"}, {"id": "cepa1035", "modelo": "AE701", "serie": "ES701-120", "area": "Banos Sala 9 y 10 Mujer", "aroma": "SPARKLING GOGGY"}, {"id": "cepa1036", "modelo": "AE701", "serie": "ES701-122", "area": "Banos Aduana B Llegada Hombres", "aroma": "SPARKLING GOGGY"}, {"id": "cepa1037", "modelo": "AE701", "serie": "ES701-124", "area": "Banos Aduana B Llegada Mujer", "aroma": "SPARKLING GOGGY"}, {"id": "cepa1038", "modelo": "AE701", "serie": "ES701-126", "area": "Banos Aduana B Salida Hombres", "aroma": "SPARKLING GOGGY"}, {"id": "cepa1039", "modelo": "AE701", "serie": "ES701-128", "area": "Banos Aduana B Salida Mujer", "aroma": "SPARKLING GOGGY"}, {"id": "cepa1040", "modelo": "AE701", "serie": "ES701-134", "area": "Banos Sala 7 y 8 Hombre (1/2)", "aroma": "SPARKLING GOGGY"}, {"id": "cepa1041", "modelo": "AE701", "serie": "ES701-136", "area": "Banos Sala 7 y 8 Hombre (2/2)", "aroma": "SPARKLING GOGGY"}, {"id": "cepa1042", "modelo": "AE701", "serie": "ES701-135", "area": "Banos Sala 7 y 8 Mujer (1/2)", "aroma": "SPARKLING GOGGY"}, {"id": "cepa1043", "modelo": "AE701", "serie": "ES701-138", "area": "Banos Sala 7 y 8 Mujer (2/2)", "aroma": "SPARKLING GOGGY"}, {"id": "cepa1044", "modelo": "AE701", "serie": "ES701-137", "area": "Banos Sala 6 y 7 Pasillo Hombre", "aroma": "SPARKLING GOGGY"}, {"id": "cepa1045", "modelo": "AE701", "serie": "ES701-139", "area": "Banos Sala 6 y 7 Pasillo Mujer", "aroma": "SPARKLING GOGGY"}, {"id": "cepa1046", "modelo": "AE701", "serie": "ES701-141", "area": "Banos Sala 1 y 6 Hombre (1/2)", "aroma": "SPARKLING GOGGY"}, {"id": "cepa1047", "modelo": "AE701", "serie": "ES701-142", "area": "Banos Sala 1 y 6 Hombre (2/2)", "aroma": "SPARKLING GOGGY"}], "CAJAMARCA": [{"id": "eq0265", "modelo": "AE301", "serie": "ES301-087", "area": "", "aroma": ""}, {"id": "eq0266", "modelo": "AE301", "serie": "ES301-088", "area": "", "aroma": ""}, {"id": "eq0267", "modelo": "AE301", "serie": "ES301-089", "area": "", "aroma": ""}, {"id": "eq0268", "modelo": "AE301", "serie": "ES301-090", "area": "", "aroma": ""}, {"id": "eq0269", "modelo": "AE301", "serie": "ES301-091", "area": "", "aroma": ""}, {"id": "eq0270", "modelo": "AE701", "serie": "ES701-121", "area": "", "aroma": ""}, {"id": "eq0271", "modelo": "AE701", "serie": "ES701-123", "area": "", "aroma": ""}, {"id": "eq0272", "modelo": "AE701", "serie": "ES701-125", "area": "", "aroma": ""}, {"id": "eq0273", "modelo": "AE701", "serie": "ES701-127", "area": "", "aroma": ""}, {"id": "eq0274", "modelo": "AE701", "serie": "ES701-129", "area": "", "aroma": ""}, {"id": "eq0275", "modelo": "AE701", "serie": "ES701-130", "area": "", "aroma": ""}], "VIDA Y LUJO JOYERIA": [{"id": "eq0276", "modelo": "AE701", "serie": "ES701-131", "area": "", "aroma": "Santal"}], "DIANA RIVERA TIENDA REGALOS": [{"id": "eq0277", "modelo": "AE701", "serie": "ES701-132", "area": "", "aroma": "Santal"}], "PORTAL DEL CASCO NORTE GIMNASIO": [{"id": "eq0278", "modelo": "AE301", "serie": "ES301-092", "area": "", "aroma": "Zen Garden"}], "TORRE HUMANA": [{"id": "eq0279", "modelo": "AE301", "serie": "ES301-093", "area": "", "aroma": ""}, {"id": "eq0280", "modelo": "AE301", "serie": "ES301-094", "area": "", "aroma": ""}, {"id": "eq0281", "modelo": "AE301", "serie": "ES301-095", "area": "", "aroma": ""}, {"id": "eq0282", "modelo": "AE301", "serie": "ES301-096", "area": "", "aroma": ""}, {"id": "eq0283", "modelo": "AE701", "serie": "ES701-188", "area": "", "aroma": ""}], "GRUPO H&H CLINICA HASBUN": [{"id": "eq0284", "modelo": "AE301", "serie": "ES301-097", "area": "", "aroma": ""}, {"id": "eq0285", "modelo": "AE701", "serie": "ES701-133", "area": "", "aroma": ""}], "INVERCON Y CRIO BARCA PENYA": [{"id": "eq0286", "modelo": "AE701", "serie": "ES701-136", "area": "", "aroma": ""}, {"id": "eq0287", "modelo": "AE701", "serie": "ES701-138", "area": "", "aroma": ""}], "LA CURACAO": [{"id": "eq0288", "modelo": "Radiant", "serie": "ESRadiant-004", "area": "Gran Via", "aroma": "Goji Berry"}, {"id": "eq0289", "modelo": "Radiant", "serie": "ESRadiant-005", "area": "Gran Via", "aroma": "Goji Berry"}, {"id": "eq0290", "modelo": "Radiant", "serie": "ESRadiant-006", "area": "Gran Via", "aroma": "Goji Berry"}, {"id": "eq0291", "modelo": "Radiant", "serie": "ESRadiant-007", "area": "Paseo", "aroma": "Goji Berry"}, {"id": "eq0292", "modelo": "Radiant", "serie": "ESRadiant-008", "area": "Paseo", "aroma": "Goji Berry"}, {"id": "eq0293", "modelo": "Radiant", "serie": "ESRadiant-009", "area": "Paseo", "aroma": "Goji Berry"}, {"id": "eq0294", "modelo": "AE301", "serie": "ES301-105", "area": "Paseo", "aroma": "Pure Sunshine"}, {"id": "eq0295", "modelo": "AE301", "serie": "ES301-106", "area": "Paseo", "aroma": "Pure Sunshine"}, {"id": "eq0296", "modelo": "AE301", "serie": "ES301-107", "area": "Paseo", "aroma": "Pure Sunshine"}], "COMO EN CASA RECIEN HORNEADO": [{"id": "eq0297", "modelo": "AE301", "serie": "ES301-098", "area": "", "aroma": ""}, {"id": "eq0298", "modelo": "AE301", "serie": "ES301-099", "area": "", "aroma": ""}, {"id": "eq0299", "modelo": "AE701", "serie": "ES701-189", "area": "", "aroma": ""}, {"id": "eq0300", "modelo": "AE701", "serie": "ES701-190", "area": "", "aroma": ""}, {"id": "eq0301", "modelo": "AE701", "serie": "ES701-191", "area": "", "aroma": ""}, {"id": "eq0302", "modelo": "AE701", "serie": "ES701-192", "area": "", "aroma": ""}, {"id": "eq0303", "modelo": "AE701", "serie": "ES701-193", "area": "", "aroma": ""}, {"id": "eq0304", "modelo": "AE701", "serie": "ES701-194", "area": "", "aroma": ""}], "ARGENIS ORTIZ CLINICA DENTAL": [{"id": "eq0305", "modelo": "AE701", "serie": "ES701-140", "area": "", "aroma": "Santal"}, {"id": "eq0306", "modelo": "AE701", "serie": "ES701-142", "area": "", "aroma": "Santal"}], "RENE VALDIVIESO SALON": [{"id": "eq0307", "modelo": "AE701", "serie": "ES701-143", "area": "Salon", "aroma": "Bergamot Ocean"}], "CORPORACION PIRAMIDE BENNIGANS": [{"id": "eq0308", "modelo": "AE701", "serie": "ES701-144", "area": "Bennigans H", "aroma": "Goggy"}, {"id": "eq0309", "modelo": "AE701", "serie": "ES701-145", "area": "Bennigans M", "aroma": "Goggy"}], "CORPORACION PIRAMIDE TONY ROMAS SB": [{"id": "eq0310", "modelo": "AE701", "serie": "ES701-146", "area": "Tony R H SB", "aroma": "Goggy"}, {"id": "eq0311", "modelo": "AE701", "serie": "ES701-147", "area": "Tony R M SB", "aroma": "Goggy"}], "CORPORACION PIRAMIDE TONY ROMAS MET": [{"id": "eq0312", "modelo": "AE701", "serie": "ES701-148", "area": "Tony R H Met", "aroma": "Goggy"}, {"id": "eq0313", "modelo": "AE701", "serie": "ES701-149", "area": "Tony R M Met", "aroma": "Goggy"}], "KOMPAU LA ROKA EL ZONTE": [{"id": "eq0314", "modelo": "AE701", "serie": "ES701-150", "area": "Konpau  ZONTE", "aroma": ""}, {"id": "eq0315", "modelo": "AE701", "serie": "ES701-151", "area": "Konpau  ZONTE", "aroma": ""}], "LIBRERIA CERVANTES": [{"id": "eq0317", "modelo": "AE701", "serie": "ES701-153", "area": "CC Espazio", "aroma": ""}, {"id": "eq0318", "modelo": "AE701", "serie": "ES701-154", "area": "Ramblas", "aroma": ""}], "HACIENDA REAL": [{"id": "eq0319", "modelo": "AE701", "serie": "ES701-155", "area": "Bano Mujer", "aroma": "Goggy"}, {"id": "eq0320", "modelo": "AE701", "serie": "ES701-156", "area": "Bano Hombre", "aroma": "Goggy"}, {"id": "eq0321", "modelo": "AE701", "serie": "ES701-157", "area": "SalaBanos", "aroma": "Vanilla"}], "HILTON HOTEL": [{"id": "eq0322", "modelo": "AE3500", "serie": "ES3500-041", "area": "Lobby", "aroma": "New York"}, {"id": "eq0323", "modelo": "AE701", "serie": "ES701-158", "area": "Bano M Psillo / Americas", "aroma": "Royal Palm"}, {"id": "eq0324", "modelo": "AE701", "serie": "ES701-159", "area": "Bano M Discap / Caribe", "aroma": "Royal Palm"}, {"id": "eq0325", "modelo": "AE701", "serie": "ES701-160", "area": "Bano Mujeres / Restaurante", "aroma": "Royal Palm"}, {"id": "eq0326", "modelo": "AE701", "serie": "ES701-161", "area": "Bano Mujeres/Pacifico", "aroma": "Royal Palm"}, {"id": "eq0327", "modelo": "AE701", "serie": "ES701-162", "area": "Bano Hombres/Suramerica", "aroma": "Royal Palm"}, {"id": "eq0328", "modelo": "AE701", "serie": "ES701-163", "area": "Bano Hombres/El Salvador", "aroma": "Royal Palm"}, {"id": "eq0329", "modelo": "AE701", "serie": "ES701-164", "area": "Bano Hombres/Terra Bar", "aroma": "Royal Palm"}, {"id": "eq0330", "modelo": "AE701", "serie": "ES701-165", "area": "Bano Hombres/Pacifica", "aroma": "Royal Palm"}, {"id": "eq0331", "modelo": "AE701", "serie": "ES701-166", "area": "Bano Volcanes H / PB", "aroma": "Royal Palm"}, {"id": "eq0332", "modelo": "AE701", "serie": "ES701-167", "area": "Bano Volcanes M / PB", "aroma": "Royal Palm"}, {"id": "eq0333", "modelo": "AE701", "serie": "ES701-168", "area": "Nivel 2 / Torre Hilton", "aroma": "New York"}, {"id": "eq0334", "modelo": "AE701", "serie": "ES701-169", "area": "Nivel 3 / Torre Hilton", "aroma": "New York"}, {"id": "eq0335", "modelo": "AE701", "serie": "ES701-170", "area": "Nivel 4 / Torre Hilton", "aroma": "New York"}, {"id": "eq0336", "modelo": "AE701", "serie": "ES701-171", "area": "Nivel 5 / Torre Hilton", "aroma": "New York"}, {"id": "eq0337", "modelo": "AE701", "serie": "ES701-172", "area": "Nivel 6 / Torre Hilton", "aroma": "New York"}, {"id": "eq0338", "modelo": "AE701", "serie": "ES701-173", "area": "Nivel 7 / Torre Hilton", "aroma": "New York"}, {"id": "eq0339", "modelo": "AE701", "serie": "ES701-174", "area": "Nivel 2 / Torre Plaza", "aroma": "New York"}, {"id": "eq0340", "modelo": "AE701", "serie": "ES701-202", "area": "Nivel 3 / Torre Plaza", "aroma": "New York"}, {"id": "eq0341", "modelo": "AE701", "serie": "ES701-204", "area": "Nivel 4 / Torre Plaza", "aroma": "New York"}, {"id": "eq0342", "modelo": "AE701", "serie": "ES701-206", "area": "Nivel 5 / Torre Plaza", "aroma": "New York"}, {"id": "eq0343", "modelo": "AE701", "serie": "ES701-208", "area": "Nivel 6 / Torre Plaza", "aroma": "New York"}, {"id": "eq0344", "modelo": "AE701", "serie": "ES701-210", "area": "Gym", "aroma": "New York"}, {"id": "eq0345", "modelo": "AE701", "serie": "ES701-222", "area": "Area publica Volcanes", "aroma": "New York"}, {"id": "eq0346", "modelo": "FMATIC", "serie": "ESFMATIC-001", "area": "Bno Col H / Back of house", "aroma": "sweet Lemon"}, {"id": "eq0347", "modelo": "FMATIC", "serie": "ESFMATIC-002", "area": "Bno Col H / Back of house", "aroma": "sweet Lemon"}, {"id": "eq0348", "modelo": "FMATIC", "serie": "ESFMATIC-003", "area": "Bno Col H / Back of house", "aroma": "sweet Lemon"}], "HILTON RESTAURANTE Y LOUNGE": [{"id": "eq0349", "modelo": "AE3500", "serie": "ES3500-042", "area": "", "aroma": ""}, {"id": "eq0350", "modelo": "AE701", "serie": "ES701-195", "area": "", "aroma": ""}, {"id": "eq0351", "modelo": "AE701", "serie": "ES701-196", "area": "", "aroma": ""}, {"id": "eq0352", "modelo": "AE701", "serie": "ES701-197", "area": "", "aroma": ""}, {"id": "eq0353", "modelo": "AE701", "serie": "ES701-198", "area": "", "aroma": ""}, {"id": "eq0354", "modelo": "AE701", "serie": "ES701-199", "area": "", "aroma": ""}, {"id": "eq0355", "modelo": "AE701", "serie": "ES701-200", "area": "", "aroma": ""}], "RESTAURANTE ACAJUTLA": [{"id": "eq0356", "modelo": "AE701", "serie": "ES701-175", "area": "Centro Com Nvo Cusca", "aroma": ""}], "RESTAURANTE MOLA MOLA": [{"id": "eq0357", "modelo": "AE701", "serie": "ES701-201", "area": "", "aroma": ""}, {"id": "eq0358", "modelo": "AE701", "serie": "ES701-203", "area": "", "aroma": ""}, {"id": "eq0359", "modelo": "AE701", "serie": "ES701-205", "area": "", "aroma": ""}, {"id": "eq0360", "modelo": "AE701", "serie": "ES701-207", "area": "", "aroma": ""}, {"id": "eq0361", "modelo": "AE701", "serie": "ES701-209", "area": "", "aroma": ""}], "HOTEL KALI SANTA ANA": [{"id": "eq0362", "modelo": "Radiant", "serie": "ESRadiant-010", "area": "Gran Via", "aroma": "Goji Berry"}], "DERMALASER SPA": [{"id": "eq0363", "modelo": "AE701", "serie": "ES701-211", "area": "SPA", "aroma": "Goji Berry"}, {"id": "eq0364", "modelo": "FMATIC", "serie": "ESFMATIC-005", "area": "Banos", "aroma": ""}, {"id": "eq0365", "modelo": "FMATIC", "serie": "ESFMATIC-006", "area": "banos", "aroma": ""}], "SANTEIN HABIT PILATES": [{"id": "eq0366", "modelo": "AE701", "serie": "ES701-212", "area": "", "aroma": "Tabac Noir"}, {"id": "eq0367", "modelo": "AE701", "serie": "ES701-213", "area": "", "aroma": "Tabac Noir"}, {"id": "eq0368", "modelo": "AE701", "serie": "ES701-214", "area": "", "aroma": "Tabac Noir"}, {"id": "eq0369", "modelo": "AE701", "serie": "ES701-215", "area": "", "aroma": "Tabac Noir"}], "NATALIA GUTIERREZ DE GARCIA MANZO": [{"id": "eq0370", "modelo": "Radiant", "serie": "ESRadiant-011", "area": "Carret Libert", "aroma": "Santal"}], "CASA 5": [{"id": "eq0371", "modelo": "AE701", "serie": "ES701-176", "area": "", "aroma": "Persuation"}, {"id": "eq0372", "modelo": "AE701", "serie": "ES701-177", "area": "", "aroma": "Persuation"}, {"id": "eq0373", "modelo": "AE701", "serie": "ES701-178", "area": "", "aroma": "Persuation"}, {"id": "eq0374", "modelo": "AE301", "serie": "ES301-100", "area": "", "aroma": "Persuation"}, {"id": "eq0375", "modelo": "AE301", "serie": "ES301-101", "area": "", "aroma": "Persuation"}, {"id": "eq0376", "modelo": "AE301", "serie": "ES301-102", "area": "", "aroma": "Persuation"}], "RESTAURANT KUSKATAN": [{"id": "eq0377", "modelo": "AE301", "serie": "ES301-103", "area": "", "aroma": "Persuation"}, {"id": "eq0378", "modelo": "AE301", "serie": "ES301-104", "area": "", "aroma": "Persuation"}], "PAOLA ARRIAZA JOYERIAS": [{"id": "eq0379", "modelo": "AE701", "serie": "ES701-216", "area": "", "aroma": "Tabac Noir"}, {"id": "eq0380", "modelo": "AE701", "serie": "ES701-217", "area": "", "aroma": "Tabac Noir"}], "COFINO STAHL AUDI": [{"id": "eq0381", "modelo": "Radiant", "serie": "ESRadiant-012", "area": "", "aroma": ""}, {"id": "eq0382", "modelo": "AE701", "serie": "ES701-218", "area": "", "aroma": ""}], "FLEXIPLAN FINANCIERA AUDI": [{"id": "eq0383", "modelo": "AE701", "serie": "ES701-219", "area": "Loby", "aroma": "Goji Berry"}, {"id": "eq0384", "modelo": "AE701", "serie": "ES701-220", "area": "Loby", "aroma": "Goji Berry"}, {"id": "eq0385", "modelo": "FMATIC", "serie": "ESFMATIC-007", "area": "Bano", "aroma": ""}, {"id": "eq0386", "modelo": "FMATIC", "serie": "ESFMATIC-008", "area": "Bano", "aroma": ""}], "INVERSIONES ODONTOLOGICAS DR PALOMO": [{"id": "eq0387", "modelo": "AE701", "serie": "ES701-221", "area": "", "aroma": "Tabac Noir"}, {"id": "eq0388", "modelo": "AE701", "serie": "ES701-223", "area": "", "aroma": "Tabac Noir"}, {"id": "eq0389", "modelo": "AE701", "serie": "ES701-224", "area": "", "aroma": "Bergamot ocean aria"}], "EMASAL": [{"id": "eq0390", "modelo": "AE701", "serie": "ES701-225", "area": "Loby", "aroma": ""}, {"id": "eq0391", "modelo": "AE701", "serie": "ES701-226", "area": "Loby", "aroma": ""}, {"id": "eq0392", "modelo": "AE701", "serie": "ES701-227", "area": "", "aroma": ""}, {"id": "eq0393", "modelo": "AE701", "serie": "ES701-228", "area": "", "aroma": ""}, {"id": "eq0394", "modelo": "AE701", "serie": "ES701-229", "area": "", "aroma": ""}, {"id": "eq0395", "modelo": "AE701", "serie": "ES701-230", "area": "", "aroma": ""}, {"id": "eq0396", "modelo": "AE701", "serie": "ES701-231", "area": "", "aroma": ""}, {"id": "eq0397", "modelo": "FMATIC", "serie": "ESFMATIC-009", "area": "Bano", "aroma": ""}, {"id": "eq0398", "modelo": "FMATIC", "serie": "ESFMATIC-010", "area": "Bano", "aroma": ""}, {"id": "eq0399", "modelo": "FMATIC", "serie": "ESFMATIC-011", "area": "", "aroma": ""}, {"id": "eq0400", "modelo": "FMATIC", "serie": "ESFMATIC-012", "area": "", "aroma": ""}, {"id": "eq0401", "modelo": "FMATIC", "serie": "ESFMATIC-013", "area": "", "aroma": ""}], "NEUROLAB": [{"id": "eq0402", "modelo": "AE701", "serie": "ES701-232", "area": "Loby", "aroma": ""}, {"id": "eq0403", "modelo": "AE701", "serie": "ES701-233", "area": "Loby", "aroma": ""}, {"id": "eq0404", "modelo": "AE701", "serie": "ES701-234", "area": "", "aroma": ""}, {"id": "eq0405", "modelo": "AE701", "serie": "ES701-235", "area": "", "aroma": ""}, {"id": "eq0406", "modelo": "AE701", "serie": "ES701-236", "area": "", "aroma": ""}], "LOVABLE": [{"id": "eq0407", "modelo": "Radiant", "serie": "ESRadiant-013", "area": "", "aroma": ""}, {"id": "eq0408", "modelo": "Radiant", "serie": "ESRadiant-014", "area": "", "aroma": ""}, {"id": "eq0409", "modelo": "Radiant", "serie": "ESRadiant-015", "area": "", "aroma": ""}], "CICLO STUDIO PILATES": [{"id": "eq0410", "modelo": "AE701", "serie": "ES701-237", "area": "Loby", "aroma": "Tabac Noir"}, {"id": "eq0411", "modelo": "AE701", "serie": "ES701-238", "area": "Salon Ejercicio", "aroma": "Green Tea"}, {"id": "eq0412", "modelo": "AE701", "serie": "ES701-239", "area": "Salon Ejercicio", "aroma": "Green tea"}, {"id": "eq0413", "modelo": "AE701", "serie": "ES701-240", "area": "Bano", "aroma": "Goggy Berry"}, {"id": "eq0414", "modelo": "AE701", "serie": "ES701-241", "area": "Bano", "aroma": "Goggy Berry"}], "CORPORACION HOTELERA INTERNACIONAL QUALITY": [{"id": "eq0415", "modelo": "Radiant", "serie": "ESRadiant-016", "area": "Lobby", "aroma": "Fresh Blue"}, {"id": "eq0416", "modelo": "AE701", "serie": "ES701-179", "area": "Pasillos", "aroma": "Fresh Blue"}, {"id": "eq0417", "modelo": "AE701", "serie": "ES701-180", "area": "Pasillos", "aroma": "Fresh Blue"}, {"id": "eq0418", "modelo": "AE701", "serie": "ES701-181", "area": "Pasillos", "aroma": "Fresh Blue"}, {"id": "eq0419", "modelo": "AE701", "serie": "ES701-182", "area": "Pasillos", "aroma": "Fresh Blue"}, {"id": "eq0420", "modelo": "AE701", "serie": "ES701-183", "area": "Pasillos", "aroma": "Fresh Blue"}, {"id": "eq0421", "modelo": "AE701", "serie": "ES701-184", "area": "Banos Principales", "aroma": "New York"}, {"id": "eq0422", "modelo": "AE701", "serie": "ES701-185", "area": "Banos Principales", "aroma": "New York"}, {"id": "eq0423", "modelo": "FMATIC", "serie": "ESFMATIC-014", "area": "Bno Col H / Back of house", "aroma": "sweet Lemon"}, {"id": "eq0424", "modelo": "FMATIC", "serie": "ESFMATIC-015", "area": "Bno Col H / Back of house", "aroma": "sweet Lemon"}, {"id": "eq0425", "modelo": "FMATIC", "serie": "ESFMATIC-016", "area": "Bno Col H / Back of house", "aroma": "sweet Lemon"}, {"id": "eq0426", "modelo": "FMATIC", "serie": "ESFMATIC-017", "area": "Bno Col M / Back of house", "aroma": "sweet Lemon"}], "NATALIA CORADO": [{"id": "eq0427", "modelo": "Radiant", "serie": "ESRadiant-017", "area": "", "aroma": ""}], "IFS INTERNATIONAL FACILITY SERVICES": [{"id": "eq0428", "modelo": "AE701", "serie": "ES701-242", "area": "Loby", "aroma": "Bergamot Ocean Aria"}, {"id": "eq0429", "modelo": "AE701", "serie": "ES701-243", "area": "Salon Ejercicio", "aroma": "Bergamot Ocean Aria"}, {"id": "eq0430", "modelo": "AE701", "serie": "ES701-244", "area": "Salon Ejercicio", "aroma": "Bergamot Ocean Aria"}, {"id": "eq0431", "modelo": "AE701", "serie": "ES701-245", "area": "Bano", "aroma": "Bergamot Ocean Aria"}]};
+
+const ALL_CLIENTS=["ALTA COCINA RESTAURANTE MONARCA","ALFA ESTUDIO","ARGENIS ORTIZ CLINICA DENTAL","ARMIDA PORTICO","ATIK PANADERIA","BDI BAMBU CITI CENTER","BETOS AVANTE","BETOS ESCALON","CAJAMARCA","CARDEDEU CENTRO HISTORICO","CASA 5","CEPA AEROPUERTO","CHIVO PETS","CICLO STUDIO PILATES","CLINICA DIAGNOSTICO STA ELENA","CLINICA LINEA Y FIGURA","CLINICA MARVIN NUNEZ","CLINICA RAMIREZ PACHECO","CLUB CAMPESTRE CUSCATLAN","COFINO STAHL AUDI","COLECCIONES","COMO EN CASA RECIEN HORNEADO","CONDOMINIO PUERTA DEL ALMA","CONSULTORES EN VIAJES ROYAL CARIBEAN","CORPORACION HOTELERA INTERNACIONAL QUALITY","CORPORACION PIRAMIDE BENNIGANS","CORPORACION PIRAMIDE TONY ROMAS MET","CORPORACION PIRAMIDE TONY ROMAS SB","DERMALASER SPA","DIANA RIVERA TIENDA REGALOS","DIEGO BARAHONA IGLESIA","DIMARTI","DROGUERIA UNIVERSAL","EDECSA","ELECTROLAB MEDIC PASEO","ELECTROLAB MEDIC SAN ANTONIO ABAD","EMASAL","FERREIRO BETOS LA LIBERTAD","FERREIRO HOTEL B LA LIBERTAD","FLEXIPLAN FINANCIERA AUDI","GENERAL DE VEHICULOS FORD","GENERAL DE VEHICULOS MAZDA","GRUINCO","GRUPO H&H CLINICA HASBUN","GRUPO Q CHERY","GRUPO Q HONDA","GRUPO Q JEEP RAM","GRUPO Q PORSCHE","HACIENDA REAL","HILTON HOTEL","HILTON RESTAURANTE Y LOUNGE","HOSPITAL DE DIAGNOSTICO COLONIA MEDICA","HOSPITAL DE DIAGNOSTICO SANTA ELENA","HOTEL INTERCONTINENTAL","HOTEL KALI SANTA ANA","IFS INTERNATIONAL FACILITY SERVICES","INDUSTRIAS CAPRI ESCALON","INVERSIONES ODONTOLOGICAS DR PALOMO","INVERCON Y CRIO BARCA PENYA","JOYERIA SANTOS","KOMPAU LA ROKA EL ZONTE","LA CURACAO","LABORATORIO DE DIAGNOSTICO","LEXARTIS ABOGADOS","LIBRERIA CERVANTES","LOVABLE","LUIS GONZALO CISCO","MARKHA CLINICA ANDHER","MIMIS BOUTIQUE","MM PROYECTOS REST LA DONA","MOAR MONICA ARGUEDAS","NATALIA CORADO","NATALIA GUTIERREZ DE GARCIA MANZO","NEUROLAB","OMR DESARROLLOS LA ROKA SAN BENITO","PALMETTO RAMBLAS SANTA ANA","PALMETTO RAMBLAS SS","PAOLA ARRIAZA JOYERIAS","POKA SANTA ANA","PORTAL DEL CASCO NORTE GIMNASIO","PRONOVIA","PURIFICACION GARCIA","RENE VALDIVIESO SALON","RESTAURANTE ACAJUTLA","RESTAURANTE DONDE MIKEL","RESTAURANTE MOLA MOLA","SALON DALI","SANTEIN HABIT PILATES","SARA LUZ HERRERA DENTAL","TORRE HUMANA","VIDA Y LUJO JOYERIA"];
+
+const VC={"Kelvin":["CEPA AEROPUERTO","CLUB CAMPESTRE CUSCATLAN","HOSPITAL DE DIAGNOSTICO SANTA ELENA","HOSPITAL DE DIAGNOSTICO COLONIA MEDICA","RESTAURANTE DONDE MIKEL","FERREIRO BETOS LA LIBERTAD","FERREIRO HOTEL B LA LIBERTAD","CLINICA DIAGNOSTICO STA ELENA","GRUPO Q HONDA","GRUPO Q PORSCHE","GRUPO Q JEEP RAM","GRUPO Q CHERY","GENERAL DE VEHICULOS FORD","GENERAL DE VEHICULOS MAZDA","PURIFICACION GARCIA","LABORATORIO DE DIAGNOSTICO","SALON DALI","BETOS AVANTE","BETOS ESCALON","CONDOMINIO PUERTA DEL ALMA","ELECTROLAB MEDIC SAN ANTONIO ABAD","ELECTROLAB MEDIC PASEO","EDECSA","COMO EN CASA RECIEN HORNEADO","ARGENIS ORTIZ CLINICA DENTAL","RENE VALDIVIESO SALON","LIBRERIA CERVANTES","HOTEL KALI SANTA ANA","DERMALASER SPA","CASA 5","PAOLA ARRIAZA JOYERIAS","EMASAL","NEUROLAB","LOVABLE","INVERCON Y CRIO BARCA PENYA","DIEGO BARAHONA IGLESIA","SARA LUZ HERRERA DENTAL"],"Noe":["CHIVO PETS","DIMARTI","PALMETTO RAMBLAS SS","PALMETTO RAMBLAS SANTA ANA","MOAR MONICA ARGUEDAS","CLINICA MARVIN NUNEZ","CLINICA RAMIREZ PACHECO","BDI BAMBU CITI CENTER","GRUINCO","POKA SANTA ANA","ATIK PANADERIA","CAJAMARCA","CARDEDEU CENTRO HISTORICO","CLINICA LINEA Y FIGURA","VIDA Y LUJO JOYERIA","GRUPO H&H CLINICA HASBUN","LA CURACAO","DIANA RIVERA TIENDA REGALOS","CORPORACION PIRAMIDE TONY ROMAS SB","CORPORACION PIRAMIDE TONY ROMAS MET","KOMPAU LA ROKA EL ZONTE","OMR DESARROLLOS LA ROKA SAN BENITO","HACIENDA REAL","CONSULTORES EN VIAJES ROYAL CARIBEAN","PORTAL DEL CASCO NORTE GIMNASIO","NATALIA CORADO","IFS INTERNATIONAL FACILITY SERVICES"],"Angel":["HOTEL INTERCONTINENTAL","ALTA COCINA RESTAURANTE MONARCA","ARMIDA PORTICO","MIMIS BOUTIQUE","COLECCIONES","DROGUERIA UNIVERSAL","ALFA ESTUDIO","MM PROYECTOS REST LA DONA","INDUSTRIAS CAPRI ESCALON","LUIS GONZALO CISCO","LEXARTIS ABOGADOS","MARKHA CLINICA ANDHER","JOYERIA SANTOS","TORRE HUMANA","PRONOVIA","RESTAURANTE ACAJUTLA","RESTAURANTE MOLA MOLA","SANTEIN HABIT PILATES","NATALIA GUTIERREZ DE GARCIA MANZO","FLEXIPLAN FINANCIERA AUDI","COFINO STAHL AUDI","INVERSIONES ODONTOLOGICAS DR PALOMO","CICLO STUDIO PILATES","CORPORACION HOTELERA INTERNACIONAL QUALITY","CORPORACION PIRAMIDE BENNIGANS","HILTON HOTEL","HILTON RESTAURANTE Y LOUNGE"]};
+
+const SCENTS=["FRESH BLUE","GREEN TEA","PERSUATION","PURESILVER","SANTAL","SPARKLING GOGGY","VANILLA & POMEGRANATE","VERBENA","ASIAN MINT","PURE SUNSHINE","BERGAMOT AMBER","BERGAMOT OCEAN ARIA","BERGAMOT ORANGE","BERGAMOT SPICE","BLACK TEA AND FIG","BLOOD WOOD","CITY DELIGHT","CRIMSON SILK","DUBAI CHOCOLATE","GLACIAL MIST","GOLDEN GROOVE","GRAPEFRUIT VANILLA","HAPPY DAYS","INSPIRATION","LITTLE ANGELS","LE NOIR","NEW YORK","PALO SANTO","SAFFRON SUEDE","SAHARA NIGHTS","SPICED TEA","TABAC NOIR","TULUMINATE","WHITE TEA","WHITE TEA AND THYME","ZEN GARDEN","RED WINE"];
+const MODS_DEFAULT=["AE301","AE701","AE3500","Radiant","FMATIC Blanco","FMATIC Negro","Equipo de Goteo","AirFin Urinal"];
+const ADMIN_PIN="admin123";
+const STOCK_INI={"BERGAMOT OCEAN ARIA":4000,"TULUMINATE":7000,"GRAPEFRUIT VANILLA":3000,"NEW YORK":2000,"TABAC NOIR":2000,"WHITE TEA":2000,"ZEN GARDEN":2000,"BLOOD WOOD":2000,"DUBAI CHOCOLATE":1000,"PALO SANTO":1000,"SAHARA NIGHTS":1000,"WHITE TEA AND THYME":1000,"RED WINE":1000,"BERGAMOT AMBER":1000,"BERGAMOT ORANGE":500,"INSPIRATION":500,"PERSUATION":2000,"SPARKLING GOGGY":1000,"VERBENA":1000,"ASIAN MINT":2000,"PURE SUNSHINE":2000,"BERGAMOT SPICE":100,"BLACK TEA AND FIG":100,"CITY DELIGHT":100,"CRIMSON SILK":100,"GLACIAL MIST":100,"GOLDEN GROOVE":100,"LITTLE ANGELS":100,"LE NOIR":100,"SPICED TEA":100};
+
+const uid=()=>Math.random().toString(36).slice(2,9);
+function getAllScents(modelo){
+  // Merge original SCENTS with custom esencias
+  const all=[...SCENTS];
+  Object.keys(inv||{}).forEach(s=>{if(!all.includes(s))all.push(s);});
+  // Only FMATIC Blanco and FMATIC Negro use cartuchos
+  if(modelo&&(modelo==="FMATIC Blanco"||modelo==="FMATIC Negro")){
+    Object.keys(cartuchos||{}).forEach(c=>{if(!all.includes(c))all.push(c);});
+  } else if(!modelo){
+    // No model specified - include all for general selectors
+    Object.keys(cartuchos||{}).forEach(c=>{if(!all.includes(c))all.push(c);});
+  }
+  return all.sort();
+}
+
+// ── SUPABASE SYNC ──────────────────────────────────────
+const SB_URL="https://bdyuhphgqehnzputlgiy.supabase.co";
+const SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJkeXVocGhncWVobnpwdXRsZ2l5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkxOTk0NjUsImV4cCI6MjA5NDc3NTQ2NX0.gJ8JQb2dHIbupktg1ags10uYXfepAE6ou3Da6EAra9M";
+const SB_KEYS=["vis","inv","demos","eqs","movs","eqgrades","ceq","bajas","nvm","vnd","modelos","stkseries","cartuchos"];
+
+async function sbGet(key){
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/app_data?key=eq.${key}&select=value`,{
+      headers:{"apikey":SB_KEY,"Authorization":`Bearer ${SB_KEY}`}
+    });
+    const d=await r.json();
+    return d&&d[0]?JSON.parse(d[0].value):null;
+  }catch{return null;}
+}
+
+async function sbSet(key,value){
+  try{
+    await fetch(`${SB_URL}/rest/v1/app_data`,{
+      method:"POST",
+      headers:{"apikey":SB_KEY,"Authorization":`Bearer ${SB_KEY}`,"Content-Type":"application/json","Prefer":"resolution=merge-duplicates"},
+      body:JSON.stringify({key,value:JSON.stringify(value),updated_at:new Date().toISOString()})
+    });
+  }catch{}
+}
+
+async function syncDown(){
+  // Load all keys from Supabase
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/app_data?key=in.(${SB_KEYS.map(k=>`"${k}"`).join(",")})&select=key,value`,{
+      headers:{"apikey":SB_KEY,"Authorization":`Bearer ${SB_KEY}`}
+    });
+    const rows=await r.json();
+    if(!Array.isArray(rows)||rows.length===0)return false;
+    rows.forEach(row=>{
+      try{
+        const val=JSON.parse(row.value);
+        localStorage.setItem("eco_"+row.key,JSON.stringify(val));
+        // Update in-memory state
+        if(row.key==="vis")visits=val;
+        if(row.key==="inv")inv=val;
+        if(row.key==="demos")demos=val;
+        if(row.key==="eqs")eqStk=val;
+        if(row.key==="movs")movs=val;
+        if(row.key==="eqgrades")eqGrades=val;
+        if(row.key==="ceq")ceq=val;
+        if(row.key==="bajas")bajas=val;
+        if(row.key==="nvm")nivMin=val;
+        if(row.key==="vnd")vendors=val;
+        if(row.key==="modelos")modelos=val;
+        if(row.key==="stkseries")stkSeries=val;
+        if(row.key==="cartuchos")cartuchos=val;
+      }catch{}
+    });
+    return true;
+  }catch{return false;}
+}
+
+
+// ──────────────────────────────────────────────────────
+const fmt=d=>{try{return new Date(d).toLocaleString("es-SV",{dateStyle:"short",timeStyle:"short"})}catch{return d}};
+const fmtD=d=>{try{return new Date(d).toLocaleDateString("es-SV")}catch{return d}};
+const ld=(k,fb)=>{try{const v=localStorage.getItem("eco_"+k);return v?JSON.parse(v):fb}catch{return fb}};
+const sv=(k,v)=>{
+  try{localStorage.setItem("eco_"+k,JSON.stringify(v))}catch{}
+  if(SB_KEYS.includes(k))sbSet(k,v);
+};
+const today=()=>new Date().toISOString().split("T")[0];
+const daysDiff=(a,b)=>Math.round((new Date(b)-new Date(a))/(864e5));
+
+// State
+let sess=ld("sess",null);
+let inv=ld("inv",Object.fromEntries(SCENTS.map(s=>[s,STOCK_INI[s]||0])));
+let visits=ld("vis",[]);
+let vendors=ld("vnd",[{id:"v1",name:"Kelvin",pin:"1111",role:"vendor",active:true},{id:"v2",name:"Noe",pin:"2222",role:"vendor",active:true},{id:"v3",name:"Angel",pin:"3333",role:"vendor",active:true},{id:"v4",name:"Gerardo",pin:"4444",role:"admin",active:true},{id:"v5",name:"Francisco",pin:"5555",role:"admin",active:true}]);
+// Load custom clients added by admin
+const _customClients=ld("customclients",null);
+if(_customClients){
+  _customClients.clients.forEach(c=>{if(!ALL_CLIENTS.includes(c))ALL_CLIENTS.push(c);});
+  Object.keys(_customClients.vc||{}).forEach(v=>{
+    if(VC[v]){_customClients.vc[v].forEach(c=>{if(!VC[v].includes(c))VC[v].push(c);});}
+  });
+}
+let ceq=ld("ceq",{}); // custom client equipment overrides
+let demos=ld("demos",[]);
+let eqStk=ld("eqs",{"AE301":0,"AE701":0,"AE3500":0,"Radiant":0,"FMATIC":0});
+let stkSeries=ld("stkseries",{});
+let cartuchos=ld("cartuchos",{"Cartucho Sweet Lemon":0,"Cartucho Tropical Paradise":0,"Cartucho Mountain Breeze":0});
+let movs=ld("movs",[]);
+let bajas=ld("bajas",[]);
+let solicitudes=ld("sols",[]);
+let eqGrades=ld("eqgrades",{});
+let modelos=ld("modelos",["AE301","AE701","AE3500","Radiant","FMATIC Blanco","FMATIC Negro","Equipo de Goteo","AirFin Urinal"]); // {serie: {grade, gradeCotizado, fechaCambio, changedBy}}
+
+// Consumption tables ml/month by grade
+const CONSUME={
+  "AE701":{1:26.0,2:28.9,3:32.5,4:37.1,5:43.3,6:51.8,7:64.6,8:85.7,9:127.4,10:248.1},
+  "AE301":{1:20.9,2:23.3,3:26.2,4:29.9,5:34.8,6:41.7,7:52.1,8:69.3,9:103.3,10:203.3}
+};
+// AE3500 uses On/Off time directly (seconds)
+// ml/sec = 0.00099537 (Inspiration), hours per day = 10
+const AE3500_ML_PER_SEC=0.00099537;
+const AE3500_HOURS=10;
+function calcAE3500(onSec,offSec){
+  if(!onSec||!offSec||onSec<=0||offSec<=0)return null;
+  const mlPerDay=(onSec/(onSec+offSec))*AE3500_HOURS*3600*AE3500_ML_PER_SEC;
+  return Math.round(mlPerDay*31*10)/10;
+}
+let nivMin=ld("nvm",Object.fromEntries(SCENTS.map(s=>[s,500])));
+let tab="visit",toast=null,sq="";
+let selC="",selEq=null,selS="",mlV="",notV="";
+let modal=null,expC=null;
+
+function showToast(m){toast=m;render();setTimeout(()=>{toast=null;render()},2700)}
+function logout(){sess=null;sv("sess",null);tab="visit";render()}
+function doSync(){
+  showToast("Sincronizando...");
+  syncDown().then(ok=>{
+    if(ok){render();showToast("Datos actualizados");}
+    else showToast("Error de conexion");
+  });
+}
+function saveSess(s){
+  sess=s;
+  sv("sess",s);
+  // Sync latest data from Supabase on login
+  syncDown().then(ok=>{
+    if(ok)render();
+    else render();
+  });
+}
+
+// Login
+function doLogin(){
+  const pin=document.getElementById("lpin").value.trim();
+  const role=document.getElementById("lrole").value;
+  if(role==="admin"){
+    // Check master admin PIN first
+    if(pin===ADMIN_PIN){saveSess({role:"admin",name:"Admin"});return;}
+    // Check admin vendors
+    const adminVnd=vendors.find(x=>x.pin===pin&&x.active!==false&&x.role==="admin");
+    if(adminVnd){saveSess({role:"admin",name:adminVnd.name});return;}
+    document.getElementById("lerr").textContent="PIN incorrecto";
+  } else {
+    const vid=document.getElementById("lvnd").value;
+    const v=vendors.find(x=>x.id===vid&&x.pin===pin&&x.active!==false);
+    if(v){
+      const r=v.role==="admin"?"admin":"vendor";
+      saveSess({role:r,name:v.name});
+    } else {
+      document.getElementById("lerr").textContent="PIN incorrecto";
+    }
+  }
+}
+function setRole(r){
+  document.getElementById("lrole").value=r;
+  document.getElementById("vwrap").style.display=r==="vendor"?"block":"none";
+  document.querySelectorAll(".rb").forEach(b=>b.classList.remove("on"));
+  event.target.classList.add("on");
+}
+
+// Visit
+function onCChange(v){selC=v;selEq=null;selS="";mlV="";notV="";render()}
+function onEqSel(i){
+  const eq=getClientEqs(selC)[i];
+  selEq=eq;if(eq&&eq.aroma)selS=eq.aroma.toUpperCase();render();
+}
+function getClientEqs(c){
+  if(!c)return[];
+  const custom=ceq[c]||[];
+  const base=EQUIPOS_DB[c]||[];
+  const extra=base.filter(b=>!custom.find(x=>x.serie===b.serie));
+  return [...custom,...extra];
+}
+function regVisit(){
+  const esProblem=!!(window._prob);
+  // If problem visit, esencia and ML are optional
+  if(!selC){showToast("Selecciona un cliente");return;}
+  if(!esProblem&&(!selS||!mlV||parseInt(mlV)<=0)){showToast("Completa esencia y ML consumidos");return;}
+  if(esProblem&&selS&&mlV&&parseInt(mlV)<=0){showToast("Si ingresas esencia, los ML deben ser mayor a 0");return;}
+  const ml=parseInt(mlV)||0;
+  if(selS&&ml>0&&(inv[selS]||0)<ml){showToast("Stock insuficiente");return;}
+  const v={id:uid(),fecha:new Date().toISOString(),vnd:sess.name,cliente:selC,modelo:selEq?.modelo||"",serie:selEq?.serie||"",area:selEq?.area||"",esencia:selS||"",ml,notas:notV,prob:!!(window._prob)};
+  visits=[v,...visits];
+  if(selS&&ml>0)inv={...inv,[selS]:(inv[selS]||0)-ml};
+  sv("vis",visits);sv("inv",inv);
+  selC="";selEq=null;selS="";mlV="";notV="";window._prob=false;
+  showToast("Visita registrada");
+}
+function delVisit(id){
+  const v=visits.find(x=>x.id===id);
+  if(v)inv={...inv,[v.esencia]:(inv[v.esencia]||0)+v.ml};
+  visits=visits.filter(x=>x.id!==id);sv("vis",visits);sv("inv",inv);render();
+}
+function updStock(s,v){const n=parseInt(v);if(isNaN(n)||n<0)return;inv={...inv,[s]:n};sv("inv",inv);render()}
+function updMin(s,v){const n=parseInt(v);if(isNaN(n)||n<0)return;nivMin={...nivMin,[s]:n};sv("nvm",nivMin);render()}
+
+// Client equipment
+function togC(n){expC=expC===n?null:n;render()}
+function openAddCEq(c){modal={t:"addCEq",c};render()}
+function getStockSeries(modelo){
+  return stkSeries[modelo]||[];
+}
+function getNextSerie(modelo){
+  const prefix="ES"+modelo.replace(/^AE/,"")+"-";
+  const allSeries=[];
+  // From EQUIPOS_DB
+  Object.values(EQUIPOS_DB).forEach(eqs=>eqs.forEach(eq=>{if(eq.modelo===modelo)allSeries.push(eq.serie)}));
+  // From custom ceq
+  Object.values(ceq).forEach(eqs=>eqs.forEach(eq=>{if(eq.modelo===modelo&&!eq._del)allSeries.push(eq.serie)}));
+  // From demos (active and retired)
+  demos.forEach(d=>{if(d.modelo===modelo&&d.serie)allSeries.push(d.serie);});
+  // From movimientos
+  movs.forEach(m=>{if(m.modelo===modelo&&m.serie)allSeries.push(m.serie);});
+  // Extract numbers
+  const nums=allSeries.map(s=>{const m=s.match(/(\d+)$/);return m?parseInt(m[1]):0;}).filter(n=>n>0);
+  const nextNum=nums.length>0?Math.max(...nums)+1:1;
+  return prefix+String(nextNum).padStart(3,"0");
+}
+function onCEqModelChange(m){
+  const next=getNextSerie(m);
+  const el=document.getElementById("ceq_s");
+  if(el)el.value=next;
+}
+function saveCEq(){saveCEqFull();}
+function saveCEqFull(){
+  const m=document.getElementById("ceq_m").value;
+  const ceq_s_el=document.getElementById("ceq_s");
+  const s=ceq_s_el?ceq_s_el.value.trim():getNextSerie(m);
+  const a=document.getElementById("ceq_a").value.trim();
+  const ar=document.getElementById("ceq_ar").value;
+  const src=modal.src||"new";
+  if(!m||!s){showToast("Modelo y serie requeridos");return;}
+  // Check duplicate
+  const allEqsFlat=[...Object.values(EQUIPOS_DB).flat(),...Object.values(ceq).flat().filter(e=>!e._del)];
+  if(src==="new"&&allEqsFlat.find(e=>e.serie===s)){showToast("Ya existe un equipo con esa serie");return;}
+  // Add to client
+  ceq={...ceq,[modal.c]:[...(ceq[modal.c]||[]),{id:uid(),modelo:m,serie:s,area:a,aroma:ar}]};
+  sv("ceq",ceq);
+  // If from stock: remove from stock series and reduce count
+  if(src==="stock"){
+    if(stkSeries[m])stkSeries[m]=stkSeries[m].filter(x=>x!==s);
+    sv("stkseries",stkSeries);
+    eqStk={...eqStk,[m]:Math.max(0,(eqStk[m]||0)-1)};
+    sv("eqs",eqStk);
+    // Register movement
+    movs=[{id:uid(),fecha:new Date().toISOString(),tipo:"salida",modelo:m,cant:1,motivo:"Instalacion en cliente",serie:s,cliente:modal.c,notas:"Desde stock",vnd:sess.name},...movs];
+    sv("movs",movs);
+    showToast("Equipo instalado desde stock");
+  } else {
+    showToast("Equipo nuevo agregado");
+  }
+  modal=null;
+}
+function openEditCEq(c,eqId,serie){
+  // Find the equipo
+  const allEqs=getClientEqs(c).filter(e=>!e._del);
+  const eq=allEqs.find(e=>e.id===eqId||e.serie===serie);
+  if(!eq)return;
+  modal={t:"editCEq",c,eq};render();
+}
+function saveEditCEq(){
+  const newSerie=document.getElementById("ece_s").value.trim();
+  const newArea=document.getElementById("ece_a").value.trim();
+  const newAroma=document.getElementById("ece_ar").value;
+  const newModelo=document.getElementById("ece_m").value;
+  if(!newSerie){showToast("La serie es requerida");return;}
+  const c=modal.c;
+  const oldSerie=modal.eq.serie;
+  const oldId=modal.eq.id;
+  // Check duplicate serie (ignore self)
+  const allEqsFlat=[...Object.values(EQUIPOS_DB).flat(),...Object.values(ceq).flat().filter(e=>!e._del&&e.serie!==oldSerie)];
+  if(allEqsFlat.find(e=>e.serie===newSerie&&e.serie!==oldSerie)){showToast("Ya existe un equipo con esa serie");return;}
+  // Update in ceq
+  const existing=ceq[c]||[];
+  const inCustom=existing.find(e=>e.id===oldId||e.serie===oldSerie);
+  if(inCustom){
+    ceq={...ceq,[c]:existing.map(e=>(e.id===oldId||e.serie===oldSerie)?{...e,modelo:newModelo,serie:newSerie,area:newArea,aroma:newAroma}:e)};
+  } else {
+    // It's a base equipo - create custom override and mark base as deleted
+    const baseEq=modal.eq;
+    ceq={...ceq,[c]:[...existing,{...baseEq,modelo:newModelo,serie:newSerie,area:newArea,aroma:newAroma},{id:uid(),serie:oldSerie,_del:true}]};
+  }
+  // Update eqGrades if serie changed
+  if(oldSerie!==newSerie&&eqGrades[oldSerie]){
+    eqGrades={...eqGrades,[newSerie]:{...eqGrades[oldSerie]}};
+    delete eqGrades[oldSerie];
+    sv("eqgrades",eqGrades);
+  }
+  sv("ceq",ceq);modal=null;showToast("Equipo actualizado");
+}
+function delCEq(c,id,serie){
+  // Remove custom eq by id
+  const updated=(ceq[c]||[]).filter(e=>e.id!==id);
+  // If it was a base eq (from EQUIPOS_DB), mark it deleted
+  const isBase=(EQUIPOS_DB[c]||[]).find(e=>e.serie===serie);
+  if(isBase){updated.push({id:uid(),serie,_del:true});}
+  ceq={...ceq,[c]:updated};
+  sv("ceq",ceq);render();
+}
+
+// Demos
+function openAddDemo(){modal={t:"addDemo"};render()}
+function saveDemo(){
+  const c=document.getElementById("dm_c").value.trim();
+  const m=document.getElementById("dm_m").value;
+  const s=document.getElementById("dm_s").value.trim();
+  const d=parseInt(document.getElementById("dm_d").value)||0;
+  const n=document.getElementById("dm_n").value.trim();
+  if(!c||!m||!s||d<=0){showToast("Completa todos los campos");return;}
+  demos=[{id:uid(),c,vnd:sess.name,modelo:m,serie:s,fecha:today(),dias:d,notas:n,ret:false},...demos];
+  sv("demos",demos);modal=null;showToast("Demo registrada");
+}
+function openRetDemo(id){modal={t:"retDemo",id};render()}
+function confRetDemo(id,res,motivo,notas){
+  demos=demos.map(d=>d.id===id?{...d,ret:true,retFecha:today(),res,motivoRetiro:motivo||"",notasRetiro:notas||""}:d);
+  sv("demos",demos);modal=null;
+  showToast(res==="cerrado"?"Negocio cerrado!":res==="fallida"?"Demo fallida":"Demo retirada");
+}
+function delDemo(id){demos=demos.filter(d=>d.id!==id);sv("demos",demos);render()}
+
+// Equipment stock
+function openMov(tipo){modal={t:"mov",tipo,motivo:tipo==="entrada"?"Compra nueva":"Instalacion en cliente"};render()}
+function onMotChange(v){modal={...modal,motivo:v};if(v==="Retiro de cliente")modal.retC="";render()}
+function onRetCChange(v){modal={...modal,retC:v};render()}
+function saveMov(){
+  const tipo=modal.tipo;
+  const mot=document.getElementById("mv_mot").value;
+  const notas=document.getElementById("mv_n").value.trim();
+  if(tipo==="entrada"&&mot==="Retiro de cliente"){
+    const checks=[...document.querySelectorAll(".ceq-chk:checked")];
+    if(!checks.length){showToast("Selecciona equipos");return;}
+    const retC=document.getElementById("mv_retc")?.value||"";
+    checks.forEach(cb=>{
+      const eqId=cb.dataset.id;const eqM=cb.dataset.m;const eqS=cb.dataset.s;
+      if(retC){
+        // Remove from client - mark base as deleted, remove from custom
+        ceq={...ceq,[retC]:(ceq[retC]||[]).filter(e=>e.id!==eqId)};
+        // If it's a base equipo, mark deleted
+        const isBase=(EQUIPOS_DB[retC]||[]).find(e=>e.serie===eqS);
+        if(isBase){ceq={...ceq,[retC]:[...(ceq[retC]||[]),{id:uid(),serie:eqS,_del:true}]};}
+      }
+      eqStk={...eqStk,[eqM]:(eqStk[eqM]||0)+1};
+      // Track serie back in stock
+      if(!stkSeries[eqM])stkSeries[eqM]=[];
+      if(eqS&&!stkSeries[eqM].includes(eqS))stkSeries[eqM].push(eqS);
+      sv("stkseries",stkSeries);
+      movs=[{id:uid(),fecha:new Date().toISOString(),tipo:"entrada",modelo:eqM,cant:1,motivo:"Retiro de cliente",serie:eqS,cliente:retC,notas,vnd:sess.name},...movs];
+    });
+    sv("ceq",ceq);sv("eqs",eqStk);sv("movs",movs);
+    modal=null;showToast(`${checks.length} equipo(s) retirado(s)`);return;
+  }
+  const m=document.getElementById("mv_mod").value;
+  const c=parseInt(document.getElementById("mv_cant").value)||0;
+  const cl=document.getElementById("mv_cl")?.value?.trim()||"";
+  if(!m||c<=0){showToast("Completa modelo y cantidad");return;}
+  if(tipo==="salida"&&c>(eqStk[m]||0)){showToast("Stock insuficiente");return;}
+  eqStk={...eqStk,[m]:(eqStk[m]||0)+(tipo==="entrada"?c:-c)};
+  movs=[{id:uid(),fecha:new Date().toISOString(),tipo,modelo:m,cant:c,motivo:mot,cliente:cl,notas,vnd:sess.name},...movs];
+  sv("eqs",eqStk);sv("movs",movs);modal=null;
+  showToast(tipo==="entrada"?"Entrada registrada":"Salida registrada");
+}
+
+// Vendors
+function openAddVnd(){modal={t:"addVnd"};render()}
+function openEditVnd(id){modal={t:"editVnd",v:{...vendors.find(x=>x.id===id)}};render()}
+function togVnd(id){vendors=vendors.map(v=>v.id===id?{...v,active:!v.active}:v);sv("vnd",vendors);render()}
+function saveVnd(){
+  const n=document.getElementById("vn_n").value.trim();
+  const p=document.getElementById("vn_p").value.trim();
+  const r=document.getElementById("vn_r")?.value||"vendor";
+  if(!n||!p||p.length<4){showToast("Nombre y PIN (min 4) requeridos");return;}
+  if(modal.t==="addVnd"){vendors=[...vendors,{id:uid(),name:n,pin:p,role:r,active:true}];}
+  else{vendors=vendors.map(v=>v.id===modal.v.id?{...v,name:n,pin:p,role:r}:v);}
+  sv("vnd",vendors);modal=null;showToast("Guardado");
+}
+
+// BAJAS
+function openAddBaja(){modal={t:"addBaja"};render()}
+function saveBaja(){
+  const c=document.getElementById("bj_c").value.trim();
+  const motivo=document.getElementById("bj_mot").value;
+  const notas=document.getElementById("bj_n").value.trim();
+  if(!c||!motivo){showToast("Completa cliente y motivo");return;}
+  bajas=[{id:uid(),fecha:today(),c,vnd:sess.name,motivo,notas},...bajas];
+  sv("bajas",bajas);modal=null;showToast("Baja registrada");
+}
+function delBaja(id){bajas=bajas.filter(b=>b.id!==id);sv("bajas",bajas);render()}
+
+function openCambioAroma(cliente){modal={t:"cambioAroma",c:cliente};render()}
+function saveCambioAroma(){
+  const eqId=document.getElementById("ca_eq").value;
+  const newAroma=document.getElementById("ca_aroma").value;
+  const notas=document.getElementById("ca_n").value.trim();
+  if(!eqId||!newAroma){showToast("Selecciona equipo y aroma");return;}
+  // Find the equipo - could be in ceq or EQUIPOS_DB
+  const cliente=modal.c;
+  const allEqs=getClientEqs(cliente).filter(e=>!e._del);
+  const eq=allEqs.find(e=>e.id===eqId||e.serie===eqId);
+  if(!eq){showToast("Equipo no encontrado");return;}
+  const oldAroma=eq.aroma||"Sin aroma";
+  // Update in ceq - if custom already exists update it, else add override
+  const existing=ceq[cliente]||[];
+  const inCustom=existing.find(e=>e.id===eq.id||e.serie===eq.serie);
+  if(inCustom){
+    ceq={...ceq,[cliente]:existing.map(e=>(e.id===eq.id||e.serie===eq.serie)?{...e,aroma:newAroma}:e)};
+  } else {
+    // Create custom override for base equipo
+    ceq={...ceq,[cliente]:[...existing,{...eq,id:eq.id||uid(),aroma:newAroma}]};
+    // Mark the original base as overridden (delete it so it doesnt show twice)
+    const isBase=(EQUIPOS_DB[cliente]||[]).find(e=>e.serie===eq.serie);
+    if(isBase){
+      // Already added the override above, now remove the base duplicate
+      // The getClientEqs function merges custom + base, so we need to prevent base from showing
+      ceq={...ceq,[cliente]:ceq[cliente].filter(e=>!e._del)};
+    }
+  }
+  sv("ceq",ceq);
+  // Register cambio as a visit record for history
+  const reg={id:uid(),fecha:new Date().toISOString(),vnd:sess.name,cliente,modelo:eq.modelo,serie:eq.serie,area:eq.area||"",esencia:newAroma,ml:0,notas:`Cambio de aroma: ${oldAroma} → ${newAroma}${notas?" · "+notas:""}`,cambioAroma:true,aromaAnterior:oldAroma};
+  visits=[reg,...visits];
+  sv("vis",visits);
+  modal=null;
+  showToast(`Aroma cambiado a ${newAroma}`);
+}
+
+function openGradeChange(cliente, eq){
+  const tipo=eq.modelo==="AE3500"?"gradeOnOff":"gradeChange";
+  modal={t:tipo, c:cliente, eq};render();
+}
+function saveGradeChange(){
+  const newGrade=parseInt(document.getElementById("gr_grade").value);
+  const notas=document.getElementById("gr_n").value.trim();
+  if(!newGrade||newGrade<1||newGrade>10){showToast("Selecciona un grado del 1 al 10");return;}
+  const eq=modal.eq;
+  const serie=eq.serie;
+  const prev=eqGrades[serie];
+  const prevGrade=prev?.grade||eq.gradeCotizado||null;
+  const cotizado=prev?.gradeCotizado||eq.gradeCotizado||newGrade;
+  const changed=prevGrade&&prevGrade!==newGrade;
+  eqGrades={...eqGrades,[serie]:{
+    grade:newGrade,
+    gradeCotizado:cotizado,
+    fechaCambio:new Date().toISOString(),
+    changedBy:sess.name,
+    history:[...((prev?.history)||[]),{grade:newGrade,fecha:new Date().toISOString(),by:sess.name,notas}]
+  }};
+  sv("eqgrades",eqGrades);
+  // Register in visit history
+  const modelo=eq.modelo;
+  const consumeNow=CONSUME[modelo]?CONSUME[modelo][newGrade]:null;
+  const consumePrev=CONSUME[modelo]&&prevGrade?CONSUME[modelo][prevGrade]:null;
+  const reg={id:uid(),fecha:new Date().toISOString(),vnd:sess.name,cliente:modal.c,modelo,serie,area:eq.area||"",esencia:eq.aroma||"",ml:0,notas:`Grado ${prevGrade?prevGrade+"→":""}${newGrade}${notas?" · "+notas:""}${consumeNow?` (${consumeNow}ml/mes estimado)`:""}`,gradeCambio:true,gradeAnterior:prevGrade,gradeNuevo:newGrade,alerta:changed&&newGrade>(prevGrade||cotizado)};
+  visits=[reg,...visits];sv("vis",visits);
+  modal=null;
+  if(changed&&newGrade>cotizado){showToast("Alerta: grado subio del cotizado!");}
+  else{showToast(`Grado actualizado a ${newGrade}`);}
+}
+
+function saveGradeOnOff(){
+  const onSec=parseInt(document.getElementById("go_on").value)||0;
+  const offSec=parseInt(document.getElementById("go_off").value)||0;
+  const hours=parseInt(document.getElementById("go_hrs").value)||10;
+  const notas=document.getElementById("go_n").value.trim();
+  if(!onSec||!offSec){showToast("Ingresa los tiempos On y Off");return;}
+  const eq=modal.eq;
+  const serie=eq.serie;
+  const prev=eqGrades[serie];
+  const mlMes=calcAE3500(onSec,offSec);
+  const mlMesCotizado=prev?.mlMesCotizado||mlMes;
+  const alerta=mlMes>mlMesCotizado*1.1; // 10% tolerance
+  eqGrades={...eqGrades,[serie]:{
+    tipo:"onoff",
+    onSec,offSec,hours,mlMes,
+    mlMesCotizado,
+    fechaCambio:new Date().toISOString(),
+    changedBy:sess.name,
+    history:[...((prev?.history)||[]),{onSec,offSec,mlMes,fecha:new Date().toISOString(),by:sess.name,notas}]
+  }};
+  sv("eqgrades",eqGrades);
+  const prevOn=prev?.onSec;const prevOff=prev?.offSec;
+  const reg={id:uid(),fecha:new Date().toISOString(),vnd:sess.name,cliente:modal.c,modelo:eq.modelo,serie,area:eq.area||"",esencia:eq.aroma||"",ml:0,
+    notas:`Intensidad AE3500: On ${onSec}s / Off ${offSec}s${prevOn?` (antes: On ${prevOn}s / Off ${prevOff}s)`:""}${notas?" · "+notas:""} → ${mlMes}ml/mes estimado`,
+    gradeCambio:true,alerta};
+  visits=[reg,...visits];sv("vis",visits);
+  modal=null;
+  if(alerta)showToast("⚠ Consumo supera el cotizado!");
+  else showToast("Intensidad AE3500 guardada");
+}
+
+function updateAE3500Preview(){
+  const on=parseInt(document.getElementById("go_on")?.value)||0;
+  const off=parseInt(document.getElementById("go_off")?.value)||0;
+  const hrs=parseInt(document.getElementById("go_hrs")?.value)||10;
+  const prev=document.getElementById("go_preview");
+  if(!prev)return;
+  if(on>0&&off>0){
+    const ml=Math.round(((on/(on+off))*hrs*3600*0.00099537)*31*10)/10;
+    prev.innerHTML="Consumo estimado: <strong>"+ml+"ml/mes</strong>";
+    prev.style.background=ml>235?"#fdecea":"#f0f7f4";
+    prev.style.color=ml>235?"var(--D)":"var(--F)";
+  }
+}
+
+function openAddModelo(){modal={t:"addModelo"};render()}
+function saveModelo(){
+  const n=document.getElementById("mod_n").value.trim().toUpperCase();
+  const tipo=document.getElementById("mod_tipo").value;
+  const cap=parseInt(document.getElementById("mod_cap").value)||0;
+  if(!n){showToast("Ingresa el nombre del modelo");return;}
+  if(modelos.includes(n)){showToast("Ese modelo ya existe");return;}
+  modelos=[...modelos,n];
+  sv("modelos",modelos);
+  // Add to CONSUME if grades
+  if(tipo==="grades10"){
+    // Will be handled manually - just save the model
+  }
+  modal=null;showToast("Modelo "+n+" agregado");
+}
+function delModelo(m){
+  if(["AE301","AE701","AE3500","Radiant","FMATIC"].includes(m)){showToast("No se puede eliminar un modelo original");return;}
+  modelos=modelos.filter(x=>x!==m);
+  sv("modelos",modelos);render();
+}
+
+function onDemoModChange(m){
+  const next=getNextSerie(m);
+  const el=document.getElementById("dm_s");
+  if(el)el.value=next;
+}
+
+function openAddEsencia(){modal={t:"addEsencia"};render()}
+function openEditEsencia(nombre){modal={t:"editEsencia",nombre};render()}
+function saveEditEsencia(){
+  const newNombre=document.getElementById("ees_n").value.trim().toUpperCase();
+  const oldNombre=modal.nombre;
+  if(!newNombre){showToast("Ingresa el nombre");return;}
+  if(newNombre!==oldNombre&&inv.hasOwnProperty(newNombre)){showToast("Ya existe una esencia con ese nombre");return;}
+  if(newNombre===oldNombre){modal=null;render();return;}
+  // Rename: copy value, delete old
+  const newInv={};
+  const newMin={};
+  Object.keys(inv).forEach(k=>{
+    const key=k===oldNombre?newNombre:k;
+    newInv[key]=inv[k];
+    newMin[key]=nivMin[k]||500;
+  });
+  inv=newInv;nivMin=newMin;
+  sv("inv",inv);sv("nvm",nivMin);
+  modal=null;showToast("Esencia renombrada a "+newNombre);
+}
+function saveEsencia(){
+  const n=document.getElementById("es_n").value.trim().toUpperCase();
+  const stock=parseInt(document.getElementById("es_stock").value)||0;
+  const min=parseInt(document.getElementById("es_min").value)||500;
+  if(!n){showToast("Ingresa el nombre de la esencia");return;}
+  // Check if already exists in SCENTS or inv
+  if(Object.keys(inv).map(k=>k.toUpperCase()).includes(n.toUpperCase())){showToast("Esa esencia ya existe");return;}
+  inv={...inv,[n]:stock};
+  nivMin={...nivMin,[n]:min};
+  sv("inv",inv);sv("nvm",nivMin);
+  modal=null;showToast("Esencia "+n+" agregada");
+}
+function delEsencia(n){
+  const isOriginal=["FRESH BLUE","GREEN TEA","PERSUATION","PURESILVER","SANTAL","SPARKLING GOGGY","VANILLA & POMEGRANATE","VERBENA","ASIAN MINT","PURE SUNSHINE","BERGAMOT AMBER","BERGAMOT OCEAN ARIA","BERGAMOT ORANGE","BERGAMOT SPICE","BLACK TEA AND FIG","BLOOD WOOD","CITY DELIGHT","CRIMSON SILK","DUBAI CHOCOLATE","GLACIAL MIST","GOLDEN GROOVE","GRAPEFRUIT VANILLA","HAPPY DAYS","INSPIRATION","LITTLE ANGELS","LE NOIR","NEW YORK","PALO SANTO","SAFFRON SUEDE","SAHARA NIGHTS","SPICED TEA","TABAC NOIR","TULUMINATE","WHITE TEA","WHITE TEA AND THYME","ZEN GARDEN","RED WINE"].includes(n);
+  if((inv[n]||0)>0){showToast("Esta esencia tiene "+inv[n]+"ml en stock. Primero ponla en 0.");return;}
+  const newInv={...inv};delete newInv[n];
+  const newMin={...nivMin};delete newMin[n];
+  inv=newInv;nivMin=newMin;
+  sv("inv",inv);sv("nvm",nivMin);
+  render();showToast("Esencia eliminada");
+}
+
+// Store eq references for grade button
+const _eqMap={};
+function regEq(eq){_eqMap[eq.serie]=eq;return eq.serie;}
+function openGradeFromClients(c,serie){
+  const eq=_eqMap[serie];
+  if(!eq)return;
+  openGradeChange(c,eq);
+}
+
+function getGradeDisplay(serie){
+  const gi=eqGrades[serie];
+  if(!gi)return"";
+  if(gi.tipo==="onoff")return' <span style="font-size:10px;color:#3456a0;font-weight:600">On:'+gi.onSec+'s Off:'+gi.offSec+'s</span>';
+  if(gi.grade){
+    const alerta=gi.gradeCotizado&&gi.grade>gi.gradeCotizado;
+    return' <span style="font-size:10px;font-weight:700;color:'+(alerta?'var(--D)':'#3456a0')+'">G'+gi.grade+(alerta?' ⚠':'')+'</span>';
+  }
+  return"";
+}
+
+// AGREGAR CLIENTE
+function openAddCliente(){modal={t:"addCliente"};render()}
+function saveCliente(){
+  const nombre=document.getElementById("cl_n").value.trim().toUpperCase();
+  const vendedor=document.getElementById("cl_v").value;
+  const zona=document.getElementById("cl_z").value.trim();
+  if(!nombre){showToast("Ingresa el nombre del cliente");return;}
+  if(ALL_CLIENTS.includes(nombre)){showToast("Ese cliente ya existe");return;}
+  ALL_CLIENTS.push(nombre);
+  // Assign to vendor
+  if(vendedor&&VC[vendedor]){VC[vendedor].push(nombre);}
+  sv("customclients",{clients:ALL_CLIENTS,vc:VC});
+  modal=null;showToast("Cliente "+nombre+" agregado");
+}
+
+// SOLICITUDES
+function openAddSolicitud(){modal={t:"addSolicitud"};render()}
+function saveSolicitud(){
+  const nombre=document.getElementById("sol_n").value.trim();
+  const vendedor=document.getElementById("sol_v").value;
+  const notas=document.getElementById("sol_notas").value.trim();
+  if(!nombre||!vendedor){showToast("Nombre y vendedor requeridos");return;}
+  solicitudes=[{id:uid(),nombre,vendedor,notas,fecha:today(),estado:"pendiente"},...solicitudes];
+  sv("sols",solicitudes);modal=null;showToast("Solicitud enviada a "+vendedor);
+}
+function convertirCliente(id){
+  const sol=solicitudes.find(s=>s.id===id);
+  if(!sol)return;
+  modal={t:"convertirCliente",sol};render();
+}
+function saveConvertir(){
+  const nombre=document.getElementById("cc_n").value.trim().toUpperCase();
+  const vendedor=document.getElementById("cc_v").value;
+  if(!nombre){showToast("Ingresa el nombre del cliente");return;}
+  if(ALL_CLIENTS.includes(nombre)){showToast("Ese cliente ya existe");return;}
+  ALL_CLIENTS.push(nombre);
+  if(vendedor&&VC[vendedor]){VC[vendedor].push(nombre);}
+  sv("customclients",{clients:ALL_CLIENTS,vc:VC});
+  // Update solicitud status
+  solicitudes=solicitudes.map(s=>s.id===modal.sol.id?{...s,estado:"convertido",clienteCreado:nombre}:s);
+  sv("sols",solicitudes);
+  modal=null;showToast("Cliente "+nombre+" creado y asignado a "+vendedor);
+}
+function delSolicitud(id){solicitudes=solicitudes.filter(s=>s.id!==id);sv("sols",solicitudes);render()}
+
+function updCartucho(nombre,val){
+  const n=parseInt(val);
+  if(isNaN(n)||n<0)return;
+  cartuchos={...cartuchos,[nombre]:n};
+  sv("cartuchos",cartuchos);render();
+}
+function addCartucho(){
+  const nombre=document.getElementById("cart_n")?.value?.trim();
+  if(!nombre){showToast("Ingresa el nombre del cartucho");return;}
+  const nombreFull="Cartucho "+nombre.toUpperCase();
+  if(cartuchos.hasOwnProperty(nombreFull)){showToast("Ya existe ese cartucho");return;}
+  cartuchos={...cartuchos,[nombreFull]:0};
+  sv("cartuchos",cartuchos);modal=null;showToast("Cartucho agregado");
+}
+function delCartucho(nombre){
+  if(cartuchos[nombre]>0){showToast("Tiene "+cartuchos[nombre]+" unidades. Primero ponlo en 0.");return;}
+  const nc={...cartuchos};delete nc[nombre];
+  cartuchos=nc;sv("cartuchos",cartuchos);render();
+}
+
+function render(){
+  const root=document.getElementById("root");
+  const isA=sess?.role==="admin";
+  const actVnd=vendors.filter(v=>v.active!==false&&v.role!=="admin");
+
+  if(!sess){
+    root.innerHTML=`<div class="lb"><div class="lc">
+      <div class="ll"><div class="lg">E<span>s</span></div><div class="lg-d"></div>
+        <div class="lg-n">ECOBASICS SCENTS</div><div class="lg-t">Fragancias que elevan tu experiencia</div>
+      </div>
+      <input type="hidden" id="lrole" value="vendor"/>
+      <div class="rr">
+        <button class="rb on" onclick="setRole('vendor')">Vendedor</button>
+        <button class="rb" onclick="setRole('admin')">Admin</button>
+      </div>
+      <div id="vwrap" class="fw"><label class="lbl">Vendedor</label>
+        <select class="inp" id="lvnd">${actVnd.map(v=>`<option value="${v.id}">${v.name}</option>`).join("")}</select>
+      </div>
+      <div class="fw"><label class="lbl">PIN</label>
+        <input type="password" class="inp" id="lpin" placeholder="••••" maxlength="20" onkeydown="if(event.key==='Enter')doLogin()"/>
+      </div>
+      <button class="btn" onclick="doLogin()">Ingresar</button>
+      <div class="err" id="lerr"></div>
+    </div></div>`;
+    return;
+  }
+
+  const myC=isA?ALL_CLIENTS:(VC[sess.name]||ALL_CLIENTS);
+  const myV=isA?visits:visits.filter(v=>v.vnd===sess.name);
+  const eqsC=selC?getClientEqs(selC).filter(e=>!e._del):[];
+  const totML=Object.values(inv).reduce((a,b)=>a+b,0);
+  const lowC=Object.entries(inv).filter(([s,ml])=>ml>0&&ml<=(nivMin[s]||500)).length;
+  const zeroC=Object.entries(inv).filter(([,ml])=>ml===0).length;
+  const totEq=Object.values(eqStk).reduce((a,b)=>a+b,0);
+
+  const tabs=isA
+    ?[{k:"visit",i:"ti-clipboard-plus",l:"Registrar"},{k:"hist",i:"ti-list",l:"Visitas"},{k:"inv",i:"ti-box",l:"Esencias"},{k:"demos",i:"ti-eye",l:"Demos"},{k:"eqs",i:"ti-device-ipad",l:"Equipos"},{k:"clts",i:"ti-building",l:"Clientes"},{k:"sols",i:"ti-bell",l:"Solicitudes"},{k:"usrs",i:"ti-users",l:"Usuarios"},{k:"bajas",i:"ti-user-minus",l:"Bajas"},{k:"lost",i:"ti-trending-down",l:"Perdidos"},{k:"grades",i:"ti-gauge",l:"Intensidad"},{k:"config",i:"ti-settings",l:"Config"}]
+    :[{k:"visit",i:"ti-clipboard-plus",l:"Registrar"},{k:"hist",i:"ti-list",l:"Mis Visitas"},{k:"inv",i:"ti-box",l:"Esencias"},{k:"demos",i:"ti-eye",l:"Demos"},{k:"eqs",i:"ti-device-ipad",l:"Equipos"},{k:"bajas",i:"ti-user-minus",l:"Bajas"},{k:"sols",i:"ti-bell",l:"Solicitudes"}];
+
+  let con="";
+
+  // REGISTRAR
+  if(tab==="visit"){
+    const eqHTML=eqsC.length>0
+      ?`<div class="eq-list"><div class="eq-tit">Equipos instalados (${eqsC.length})</div>${eqsC.map((eq,i)=>{
+        const gradeInfo=eqGrades[eq.serie];
+        const curGrade=gradeInfo?.grade||null;
+        const cotGrade=gradeInfo?.gradeCotizado||null;
+        const hasGrade=CONSUME[eq.modelo];
+        const alerta=curGrade&&cotGrade&&curGrade>cotGrade;
+        return`<div class="eq-it ${selEq?.serie===eq.serie?"sel":""}" onclick="onEqSel(${i})">
+          <span class="eq-b">${eq.modelo}</span>
+          <span class="eq-s">${eq.serie}</span>
+          <div style="text-align:right">
+            <div class="eq-a">${eq.area||""}</div>
+            <div class="eq-ar">${eq.aroma||""}</div>
+            ${hasGrade||eq.modelo==="AE3500"?`<div style="margin-top:3px">
+              ${eq.modelo==="AE3500"?
+                (eqGrades[eq.serie]?.onSec?`<span style="font-size:10px;padding:1px 6px;border-radius:10px;font-weight:700;background:${eqGrades[eq.serie]?.alerta?"#c0392b":selEq?.serie===eq.serie?"rgba(255,255,255,.25)":"#e8f5ee"};color:${eqGrades[eq.serie]?.alerta?"#fff":selEq?.serie===eq.serie?"#fff":"var(--F)"}">On:${eqGrades[eq.serie].onSec}s Off:${eqGrades[eq.serie].offSec}s${eqGrades[eq.serie]?.alerta?" ⚠":""}</span>`:`<span style="font-size:10px;color:${selEq?.serie===eq.serie?"rgba(255,255,255,.6)":"var(--M)"}">sin config</span>`)
+                :curGrade?`<span style="font-size:10px;padding:1px 6px;border-radius:10px;font-weight:700;background:${alerta?"#c0392b":selEq?.serie===eq.serie?"rgba(255,255,255,.25)":"#e8f5ee"};color:${alerta?"#fff":selEq?.serie===eq.serie?"#fff":"var(--F)"}">G${curGrade}${alerta?" ⚠":""}</span>`:`<span style="font-size:10px;color:${selEq?.serie===eq.serie?"rgba(255,255,255,.6)":"var(--M)"}">sin grado</span>`}
+            </div>`:""}
+          </div>
+        </div>`;
+      }).join("")}</div>`
+      :(selC?`<div style="background:#fffbe8;border:1px solid #ffe;border-radius:var(--R);padding:10px 12px;font-size:12px;color:#856404;margin-bottom:12px">Sin equipos registrados. El admin puede agregarlos en Clientes.</div><div class="fw"><div class="fr"><div><label class="lbl">Modelo</label><select class="inp" id="mmm">${modelos.map(m=>`<option>${m}</option>`).join("")}</select></div><div><label class="lbl">Serie</label><input class="inp" placeholder="Nro serie" oninput="selEq={modelo:document.getElementById('mmm').value,serie:this.value,area:'',aroma:''}"/></div></div></div>`:"");
+    const aH=selEq?.aroma?`<div class="ah" style="display:flex;align-items:center;justify-content:space-between">
+      <span>Aroma asignado: <strong>${selEq.aroma}</strong></span>
+    </div>`:"";
+    const probBtnStyle=window._prob?"background:#c0392b;border-color:#c0392b;color:#fff":"background:#fdecea;border-color:#f5c6c6;color:#c0392b";
+    con=`<p class="pt">Registrar visita</p><p class="ps">Selecciona cliente y equipo visitado</p>
+    <div class="fw"><label class="lbl">Cliente *</label>
+      <select class="inp" onchange="onCChange(this.value)"><option value="">Selecciona cliente...</option>
+        ${myC.map(c=>`<option value="${c}" ${c===selC?"selected":""}>${c}</option>`).join("")}
+      </select>
+    </div>
+    ${eqHTML}${aH}
+    <div class="fr">
+      <div class="fw"><label class="lbl">Esencia *</label>
+        <select class="inp" onchange="selS=this.value"><option value="">Selecciona...</option>
+          ${getAllScents().map(s=>`<option value="${s}" ${s===selS?"selected":""}>${s} (${inv[s]||0}ml)</option>`).join("")}
+        </select>
+      </div>
+      <div class="fw"><label class="lbl">ML *</label>
+        <input type="number" class="inp" placeholder="100" min="1" value="${mlV}" oninput="mlV=this.value"/>
+      </div>
+    </div>
+    <div class="fw"><label class="lbl">Notas</label>
+      <textarea class="inp" placeholder="Estado del equipo..." oninput="notV=this.value">${notV}</textarea>
+    </div>
+    ${selC?`<div style="display:flex;gap:8px;margin-bottom:12px">
+      <button onclick="openCambioAroma('${selC}')" style="flex:1;display:flex;align-items:center;gap:6px;padding:10px 12px;border:1px solid #dde8e2;border-radius:var(--R);background:none;font-size:12px;font-weight:600;color:var(--G);cursor:pointer;justify-content:center">
+        <i class="ti ti-refresh" style="font-size:15px"></i>Cambio de aroma
+      </button>
+      <button onclick="openGradeChange('${selC}',${JSON.stringify(selEq||eqsC[0]||{}).replace(/"/g,'&quot;')})" style="flex:1;display:flex;align-items:center;gap:6px;padding:10px 12px;border:1px solid #dde8e2;border-radius:var(--R);background:none;font-size:12px;font-weight:600;color:#3456a0;cursor:pointer;justify-content:center">
+        <i class="ti ti-gauge" style="font-size:15px"></i>Cambiar intensidad
+      </button>
+    </div>`:""}
+    <div style="display:flex;align-items:center;gap:10px;border:1px solid;border-radius:var(--R);padding:11px 14px;margin-bottom:${window._prob?'4px':'12px'};cursor:pointer;${probBtnStyle}" onclick="window._prob=!window._prob;render()">
+      <i class="ti ti-alert-triangle" style="font-size:18px"></i>
+      <span style="font-size:13px;font-weight:600;flex:1">Visita por problema en equipo</span>
+      ${window._prob?`<i class="ti ti-check" style="font-size:16px"></i>`:`<div style="width:18px;height:18px;border:2px solid currentColor;border-radius:50%"></div>`}
+    </div>
+    ${window._prob?`<div style="background:#fff8e8;border:1px solid #ffe;border-radius:var(--R);padding:8px 12px;font-size:12px;color:#856404;margin-bottom:12px">
+      <i class="ti ti-info-circle" style="font-size:13px;vertical-align:-1px"></i>
+      Esencia y ML son <strong>opcionales</strong> en visitas por problema. Solo completa si hubo recarga.
+    </div>`:""}
+    <button class="btn" onclick="regVisit()">Guardar visita</button>`;
+  }
+
+  // VISITAS
+  else if(tab==="hist"){
+    const sd=window._hd||"";
+    const fp=!!(window._fp);
+    let fv=(sd?myV.filter(v=>v.fecha&&v.fecha.startsWith(sd)):myV).filter(v=>fp?v.prob:true);
+    fv=fv.filter(v=>!sq||v.cliente.toLowerCase().includes(sq.toLowerCase())||v.esencia.toLowerCase().includes(sq.toLowerCase()));
+    con=`<p class="pt">${isA?"Todas las visitas":"Mis visitas"}</p>
+    ${isA?`<div class="card" style="margin-bottom:12px">
+      <div class="fr" style="margin-bottom:8px">
+        <div><label class="lbl" style="margin-bottom:5px">Filtrar por dia</label>
+          <input type="date" class="inp" style="font-size:13px" value="${sd}" onchange="window._hd=this.value;render()"/>
+        </div>
+        ${sd?`<div style="display:flex;align-items:flex-end;padding-bottom:2px"><button onclick="window._hd='';render()" style="padding:8px 12px;border:1px solid #dde8e2;border-radius:8px;background:none;font-size:12px;cursor:pointer;color:var(--M)">Ver todo</button></div>`:""}
+      </div>
+      <button onclick="window._fp=!window._fp;render()" style="display:flex;align-items:center;gap:6px;padding:7px 12px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;width:100%;justify-content:center;border:1px solid ${fp?"#c0392b":"#dde8e2"};background:${fp?"#c0392b":"none"};color:${fp?"#fff":"#c0392b"}"><i class="ti ti-alert-triangle" style="font-size:14px"></i>${fp?"Mostrando solo problemas":"Filtrar: solo problemas"}</button>
+    </div>`:""}
+    <p class="ps">${fv.length} registros${sd?` · ${new Date(sd+"T12:00").toLocaleDateString("es-SV",{weekday:"long",day:"numeric",month:"long"})}`:""}</p>
+    ${!isA||!sd?`<div class="sw"><i class="ti ti-search"></i><input class="si2" placeholder="Buscar..." value="${sq}" oninput="sq=this.value;render()"/></div>`:""}
+    ${fv.length===0?`<div class="empty"><i class="ti ti-clipboard-off"></i>Sin visitas</div>`
+    :isA&&sd
+      ?[...new Set(fv.map(v=>v.vnd))].sort().map(vnd=>{
+          const vv=fv.filter(v=>v.vnd===vnd);
+          const tot=vv.reduce((a,v)=>a+v.ml,0);
+          return`<div style="margin-bottom:14px">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+              <div style="font-weight:700;font-size:14px;color:var(--F)">${vnd}</div>
+              <div style="display:flex;gap:5px"><span class="chip">${vv.length} visita${vv.length!==1?"s":""}</span><span class="chip chip-g">${tot}ml</span></div>
+            </div>
+            ${vv.map(v=>`<div class="card sl" style="padding:10px 12px;margin-bottom:6px">
+              <div class="ch"><div><div class="ct" style="font-size:12px">${v.cliente}</div><div class="cs">${fmt(v.fecha)}</div></div><span class="chip" style="font-size:10px">${v.ml}ml</span></div>
+              <div class="mr"><span class="chip chip-g" style="font-size:10px">${v.esencia}</span>${v.serie?`<span class="chip chip-b" style="font-size:10px">${v.modelo}·${v.serie}</span>`:""}${v.prob?`<span class="chip chip-r" style="font-size:10px"><i class="ti ti-alert-triangle" style="font-size:11px"></i> Problema</span>`:""}</div>
+              ${v.notas?`<div style="font-size:11px;color:var(--M);margin-top:5px">${v.notas}</div>`:""}
+            </div>`).join("")}
+          </div>`;
+        }).join(`<div style="height:1px;background:#eee;margin:4px 0 14px"></div>`)
+      :fv.slice(0,40).map(v=>`<div class="card sl">
+        <div class="ch"><div><div class="ct">${v.cliente}</div><div class="cs">${fmt(v.fecha)}</div></div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">${v.prob&&v.ml===0?`<span class="chip chip-w" style="font-size:10px">Sin recarga</span>`:`<span class="chip">${v.ml}ml</span>`}${isA?`<button class="del" onclick="delVisit('${v.id}')">Eliminar</button>`:""}</div>
+        </div>
+        <div class="mr"><span class="chip chip-g">${v.esencia}</span>${v.serie?`<span class="chip chip-b">${v.modelo}·${v.serie}</span>`:""} ${isA?`<span class="chip" style="background:#f0f7f3">${v.vnd}</span>`:""} ${v.prob?`<span class="chip chip-r" style="font-size:10px"><i class="ti ti-alert-triangle" style="font-size:11px"></i> Problema</span>`:""}</div>
+        ${v.notas?`<div style="font-size:11px;color:var(--M);margin-top:6px">${v.notas}</div>`:""}
+      </div>`).join("")}`;
+  }
+
+  // ESENCIAS
+  else if(tab==="inv"){
+    const ents=Object.entries(inv).sort((a,b)=>b[1]-a[1]);
+    const maxML=Math.max(...Object.values(inv),1);
+    const totCart=Object.values(cartuchos).reduce((a,b)=>a+b,0);
+    const zeroCart=Object.values(cartuchos).filter(v=>v===0).length;
+    con=`<p class="pt">Inventario de esencias</p><p class="ps">Stock actual · ${Object.keys(inv).length} esencias</p>
+    <div class="stats">
+      <div class="stat"><div class="sn">${totML.toLocaleString()}</div><div class="sl2">Total ml</div></div>
+      <div class="stat"><div class="sn" style="color:var(--WN)">${lowC}</div><div class="sl2">Stock bajo</div></div>
+      <div class="stat"><div class="sn" style="color:var(--D)">${zeroC}</div><div class="sl2">Sin stock</div></div>
+    </div>
+    <div style="background:var(--F);border-radius:var(--R);padding:12px 14px;margin-bottom:14px;color:#fff">
+      <div style="font-size:12px;font-weight:700;letter-spacing:1px;margin-bottom:10px;opacity:.8">CARTUCHOS FMATIC</div>
+      <div style="display:flex;gap:8px;margin-bottom:10px">
+        <div style="flex:1;background:rgba(255,255,255,.15);border-radius:10px;padding:10px;text-align:center">
+          <div style="font-size:22px;font-weight:700">${totCart}</div>
+          <div style="font-size:10px;opacity:.75">Total unidades</div>
+        </div>
+        <div style="flex:1;background:rgba(255,255,255,.15);border-radius:10px;padding:10px;text-align:center">
+          <div style="font-size:22px;font-weight:700;color:#e8c97a">${zeroCart}</div>
+          <div style="font-size:10px;opacity:.75">Sin stock</div>
+        </div>
+      </div>
+      ${Object.entries(cartuchos).map(([n,u])=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.1)">
+        <span style="font-size:13px;font-weight:500">${n}</span>
+        <div style="display:flex;align-items:center;gap:8px">
+          ${isA?`<button onclick="updCartucho('${n}',${u-1})" style="width:28px;height:28px;border:1px solid rgba(255,255,255,.3);border-radius:7px;background:none;color:#fff;font-size:16px;cursor:pointer;font-weight:700">−</button>`:""}
+          <span style="font-size:18px;font-weight:700;min-width:28px;text-align:center;color:${u===0?"#e8c97a":"#fff"}">${u}</span>
+          ${isA?`<button onclick="updCartucho('${n}',${u+1})" style="width:28px;height:28px;border:1px solid rgba(255,255,255,.3);border-radius:7px;background:none;color:#fff;font-size:16px;cursor:pointer;font-weight:700">+</button>`:""}
+          ${isA?`<button onclick="delCartucho('${n.replace(/'/g,"\'")}') " style="width:28px;height:28px;border:none;border-radius:7px;background:rgba(255,255,255,.15);color:#fff;font-size:12px;cursor:pointer">✕</button>`:""}
+        </div>
+      </div>`).join("")}
+      ${isA?`<button onclick="modal={t:'addCartucho'};render()" style="display:flex;align-items:center;gap:6px;width:100%;margin-top:10px;padding:9px;background:rgba(255,255,255,.15);border:none;border-radius:10px;color:#fff;font-size:12px;font-weight:600;cursor:pointer;justify-content:center"><i class="ti ti-plus" style="font-size:15px"></i> Agregar cartucho</button>`:""}
+    </div>
+    ${ents.map(([s,ml])=>{
+      const min=nivMin[s]||500;
+      const pct=Math.round((ml/maxML)*100);
+      const cls=ml===0?"bd":ml<=min?"bw":"";
+      const col=ml===0?"var(--D)":ml<=min?"var(--WN)":"var(--F)";
+      return`<div class="ii">
+        <div class="ih"><span style="font-weight:700">${s}</span><span style="font-weight:700;color:${col}">${ml.toLocaleString()}ml</span></div>
+        <div class="bb"><div class="bar ${cls}" style="width:${pct}%"></div></div>
+        ${isA?`<div style="margin-top:6px;display:flex;gap:6px;align-items:center">
+          <input type="number" min="0" value="${ml}" class="si" onblur="updStock('${s}',this.value)" title="Stock actual"/>
+          <span style="font-size:11px;color:var(--M)">stock</span>
+          <input type="number" min="0" value="${min}" class="si si-o" onblur="updMin('${s}',this.value)" title="Stock minimo"/>
+          <span style="font-size:11px;color:var(--WN)">min</span>
+        </div>`:""}
+      </div>`;
+    }).join("")}`;
+  }
+
+  // DEMOS
+  else if(tab==="demos"){
+    const myD=demos; // All users see all demos
+    const act=myD.filter(d=>!d.ret);
+    const done=myD.filter(d=>d.ret);
+    const cerr=done.filter(d=>d.res==="cerrado");
+    const fall=done.filter(d=>d.res==="fallida");
+    const conv=done.length>0?Math.round((cerr.length/done.length)*100):0;
+    const df=window._df||null;
+    con=`<p class="pt">Demos</p><p class="ps">${act.length} activa${act.length!==1?"s":""}</p>
+    ${done.length>0||act.length>0?`<div class="stats">
+      <div class="stat"><div class="sn">${act.length}</div><div class="sl2">Activas</div></div>
+      <div class="stat"><div class="sn" style="color:var(--F)">${cerr.length}</div><div class="sl2">Cerradas</div></div>
+      <div class="stat"><div class="sn" style="color:var(--D)">${fall.length}</div><div class="sl2">Fallidas</div></div>
+      <div class="stat"><div class="sn" style="color:var(--G)">${conv}%</div><div class="sl2">Conversion</div></div>
+    </div>`:""}
+    <button class="btn-add" onclick="openAddDemo()"><i class="ti ti-plus"></i> Registrar demo</button>
+    ${act.length===0?`<div class="empty"><i class="ti ti-eye-off"></i>Sin demos activas</div>`
+    :act.map(d=>{
+      const du=daysDiff(d.fecha,today());
+      const dr=d.dias-du;
+      const ov=dr<0;
+      return`<div class="card ${ov?"sl-r":"sl"}">
+        <div class="ch">
+          <div><div class="ct">${d.c}</div><div class="cs">Desde ${fmtD(d.fecha)} · ${d.vnd}</div></div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+            <span class="chip ${ov?"chip-r":"chip-w"}">${ov?Math.abs(dr)+"d vencida":dr+"d restantes"}</span>
+            <button class="be" onclick="openRetDemo('${d.id}')">Retirar</button>
+          </div>
+        </div>
+        <div class="mr"><span class="chip chip-b">${d.modelo}${d.serie?" · "+d.serie:""}</span><span class="chip">${d.dias}d acordados</span></div>
+        ${d.notas?`<div style="font-size:11px;color:var(--M);margin-top:5px">${d.notas}</div>`:""}
+      </div>`;
+    }).join("")}
+    ${done.length>0?`<div style="display:flex;align-items:center;justify-content:space-between;margin:16px 0 10px">
+      <p style="font-size:12px;color:var(--M);font-weight:700">DEMOS RETIRADAS (${done.length})</p>
+      <div style="display:flex;gap:5px">
+        <button onclick="window._df=window._df==='cerrado'?null:'cerrado';render()" style="padding:3px 9px;border-radius:20px;border:1px solid ${df==="cerrado"?"var(--F)":"#dde8e2"};background:${df==="cerrado"?"var(--F)":"none"};color:${df==="cerrado"?"#fff":"var(--F)"};font-size:11px;cursor:pointer">Cerradas</button>
+        <button onclick="window._df=window._df==='fallida'?null:'fallida';render()" style="padding:3px 9px;border-radius:20px;border:1px solid ${df==="fallida"?"var(--D)":"#dde8e2"};background:${df==="fallida"?"var(--D)":"none"};color:${df==="fallida"?"#fff":"var(--D)"};font-size:11px;cursor:pointer">Fallidas</button>
+      </div>
+    </div>
+    ${(df?done.filter(d=>d.res===df):done).slice(0,20).map(d=>`<div class="card" style="opacity:.75">
+      <div class="ch">
+        <div><div class="ct" style="color:#999">${d.c}</div><div class="cs">${d.vnd} · ${d.retFecha?fmtD(d.retFecha):""}</div></div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+          ${d.res==="cerrado"?`<span class="chip" style="font-size:10px"><i class="ti ti-circle-check" style="font-size:11px"></i> Cerrado</span>`:d.res==="fallida"?`<span class="chip chip-r" style="font-size:10px"><i class="ti ti-circle-x" style="font-size:11px"></i> Fallida</span>`:`<span class="chip chip-w" style="font-size:10px">Retirada</span>`}
+          ${isA?`<button class="del" onclick="delDemo('${d.id}')">Eliminar</button>`:""}
+        </div>
+      </div>
+      <div class="mr"><span class="chip chip-b" style="font-size:10px">${d.modelo}${d.serie?" · "+d.serie:""}</span>${d.motivoRetiro?`<span class="chip chip-r" style="font-size:10px">${d.motivoRetiro}</span>`:""}</div>
+      ${d.notasRetiro?`<div style="font-size:11px;color:var(--M);margin-top:5px;font-style:italic">${d.notasRetiro}</div>`:""}
+    </div>`).join("")}`:""}`;
+  }
+
+  // EQUIPOS
+  else if(tab==="eqs"){
+    const mf=window._mf||"todos";
+    con=`<p class="pt">Equipos en oficina</p><p class="ps">Total: ${totEq} unidades</p>
+    <div class="card" style="margin-bottom:14px">
+      ${modelos.map(m=>{
+        const q=eqStk[m]||0;
+        const col=q===0?"var(--D)":q<=2?"var(--WN)":"var(--F)";
+        const mDisplay=m.replace(/^AE/,"");
+        return`<div class="sr">
+          <div><div class="sm">${mDisplay}</div><div class="ss" style="color:${col}">${q} unidad${q!==1?"es":""} disponible${q!==1?"s":""}</div></div>
+          <div class="qn" style="color:${col}">${q}</div>
+        </div>`;
+      }).join("")}
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:16px">
+      <button class="btn-add" style="flex:1;margin-bottom:0;background:var(--F)" onclick="openMov('entrada')"><i class="ti ti-arrow-down-circle"></i> Entrada</button>
+      <button class="btn-add" style="flex:1;margin-bottom:0;background:var(--D)" onclick="openMov('salida')"><i class="ti ti-arrow-up-circle"></i> Salida</button>
+    </div>
+    ${isA?`<p style="font-size:12px;font-weight:700;color:var(--M);margin-bottom:10px">MOVIMIENTOS</p>
+    <div style="display:flex;gap:6px;margin-bottom:12px">
+      ${["todos","entrada","salida"].map(f=>`<button onclick="window._mf='${f}';render()" style="padding:4px 12px;border-radius:20px;border:1px solid ${mf===f?"var(--F)":"#dde8e2"};background:${mf===f?"var(--F)":"none"};color:${mf===f?"#fff":"var(--M)"};font-size:12px;cursor:pointer">${f.charAt(0).toUpperCase()+f.slice(1)}</button>`).join("")}
+    </div>
+    ${(()=>{const ml=isA?movs:movs.filter(m=>m.vnd===sess.name);const mf2=window._mf||"todos";const ms=mf2==="todos"?ml:ml.filter(m=>m.tipo===mf2);
+    return ms.length===0?`<div class="empty" style="padding:24px"><i class="ti ti-arrow-right-circle"></i>Sin movimientos</div>`
+    :ms.slice(0,40).map(m=>`<div class="card ${m.tipo==="entrada"?"sl":"sl-r"}" style="margin-bottom:8px">
+      <div class="ch">
+        <div><div class="ct" style="font-size:13px">${m.modelo} · <span style="color:${m.tipo==="entrada"?"var(--F)":"var(--D)"}">${m.tipo==="entrada"?"↓ Entrada":"↑ Salida"}</span></div>
+          <div class="cs">${fmt(m.fecha)} · ${m.vnd}</div></div>
+        <span class="chip ${m.tipo==="entrada"?"":"chip-r"}" style="font-size:13px;font-weight:700">${m.tipo==="entrada"?"+":"-"}${m.cant}</span>
+      </div>
+      <div class="mr"><span class="chip chip-g" style="font-size:10px">${m.motivo}</span>${m.serie?`<span class="chip" style="font-size:10px;background:#f0f7f3">${m.serie}</span>`:""} ${m.cliente?`<span class="chip chip-b" style="font-size:10px">${m.cliente}</span>`:""}</div>
+      ${m.notas?`<div style="font-size:11px;color:var(--M);margin-top:5px">${m.notas}</div>`:""}
+    </div>`).join("");})()}`:""}`;
+  }
+
+  // CLIENTES
+  else if(tab==="clts"&&isA){
+    const fc=ALL_CLIENTS.filter(c=>!sq||c.toLowerCase().includes(sq.toLowerCase()));
+    con=`<p class="pt">Clientes</p><p class="ps">${ALL_CLIENTS.length} clientes</p>
+    ${isA?`<button class="btn-add" onclick="openAddCliente()"><i class="ti ti-user-plus"></i> Agregar cliente</button>`:""}
+    <div class="sw"><i class="ti ti-search"></i><input class="si2" placeholder="Buscar..." value="${sq}" oninput="sq=this.value;render()"/></div>
+    ${fc.map(c=>{
+      const cv=visits.filter(v=>v.cliente===c);
+      const allEq=getClientEqs(c).filter(e=>!e._del);
+      const vn=Object.entries(VC).find(([,a])=>a.includes(c))?.[0]||"Sin asignar";
+      const exp=expC===c;
+      return`<div class="card">
+        <div class="ch" onclick="togC('${c.replace(/'/g,"\'")}')" style="cursor:pointer">
+          <div><div class="ct" style="font-size:12px">${c}</div><div class="cs">${vn}</div></div>
+          <div style="display:flex;align-items:center;gap:5px">
+            <span class="chip">${cv.length}v</span>
+            <span class="chip chip-b">${allEq.length}eq</span>
+            <i class="ti ti-chevron-${exp?"up":"down"}" style="font-size:15px;color:var(--M)"></i>
+          </div>
+        </div>
+        ${exp?`<div style="margin-top:10px;border-top:1px solid #f0f0f0;padding-top:10px">
+          ${allEq.length>0?allEq.map(eq=>`<div class="cer">
+            <div style="flex:1">
+              <span style="font-weight:700">${eq.serie}</span>${eq.area?` · <span style="color:var(--M)">${eq.area}</span>`:""}${eq.aroma?` · <span style="color:var(--G)">${eq.aroma}</span>`:""}
+              ${getGradeDisplay(eq.serie)}
+            </div>
+            <div style="display:flex;gap:4px">
+              <button style="padding:3px 8px;font-size:11px;background:#e8f0ff;color:#3456a0;border:none;border-radius:7px;cursor:pointer;font-weight:700" onclick="openGradeFromClients('${c.replace(/'/g,"\'")}','${regEq(eq)}');event.stopPropagation()">⚡</button>
+              <button class="be" style="padding:3px 8px;font-size:11px" onclick="openEditCEq('${c.replace(/'/g,"\'")}','${eq.id}','${eq.serie}');event.stopPropagation()">✏️</button>
+              <button class="del" onclick="delCEq('${c.replace(/'/g,"\'")}','${eq.id}','${eq.serie}');event.stopPropagation()">✕</button>
+            </div>
+          </div>`).join(""):`<div style="font-size:12px;color:var(--M);margin-bottom:8px">Sin equipos</div>`}
+          <button onclick="openAddCEq('${c.replace(/'/g,"\'")}');event.stopPropagation()" style="margin-top:8px;display:flex;align-items:center;gap:5px;background:#e8f5ee;color:var(--F);border:none;padding:7px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;width:100%;justify-content:center"><i class="ti ti-plus" style="font-size:14px"></i> Agregar equipo</button>
+        </div>`:""}`
+    }).join("")}`;
+  }
+
+  // USUARIOS
+  else if(tab==="usrs"&&isA){
+    con=`<p class="pt">Vendedores</p><p class="ps">${vendors.length} usuarios</p>
+    <button class="btn-add" onclick="openAddVnd()"><i class="ti ti-user-plus"></i> Agregar vendedor</button>
+    ${vendors.map(v=>`<div class="vc">
+      <div>
+        <div class="vn">${v.name} ${v.role==="admin"?`<span class="ba" style="background:rgba(184,137,42,.2);color:var(--G)">Admin</span>`:`<span class="ba" style="background:#e8f5ee;color:var(--F)">Vendedor</span>`}</div>
+        <div class="vs">${v.active!==false?`<span style="color:var(--F)">● Activo</span>`:`<span style="color:var(--D)">● Inactivo</span>`} · PIN: ${"•".repeat(v.pin.length)}</div>
+      </div>
+      <div class="va">
+        <button class="be" onclick="openEditVnd('${v.id}')"><i class="ti ti-edit" style="font-size:13px"></i></button>
+        <button class="${v.active!==false?"boff":"bon"}" onclick="togVnd('${v.id}')">${v.active!==false?"Inactivar":"Activar"}</button>
+      </div>
+    </div>`).join("")}`;
+  }
+
+  // BAJAS
+  else if(tab==="bajas"){
+    const myB=isA?bajas:bajas.filter(b=>b.vnd===sess.name);
+    const sqB=window._sqB||"";
+    const filtB=myB.filter(b=>!sqB||b.c.toLowerCase().includes(sqB.toLowerCase())||(b.motivo||"").toLowerCase().includes(sqB.toLowerCase()));
+    con=`<p class="pt">Bajas de clientes</p><p class="ps">${myB.length} baja${myB.length!==1?"s":""} registrada${myB.length!==1?"s":""}</p>
+    <button class="btn-add" onclick="openAddBaja()"><i class="ti ti-user-minus"></i> Registrar baja</button>
+    <div class="sw"><i class="ti ti-search"></i><input class="si2" placeholder="Buscar cliente o motivo..." value="${sqB}" oninput="window._sqB=this.value;render()"/></div>
+    ${filtB.length===0?`<div class="empty"><i class="ti ti-user-check"></i>Sin bajas registradas</div>`
+    :filtB.map(b=>`<div class="card sl-r">
+      <div class="ch">
+        <div><div class="ct">${b.c}</div><div class="cs">${b.vnd} · ${fmtD(b.fecha)}</div></div>
+        ${isA?`<button class="del" onclick="delBaja('${b.id}')">Eliminar</button>`:""}
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;margin-top:8px;background:#fdecea;border-radius:8px;padding:7px 10px">
+        <i class="ti ti-alert-circle" style="font-size:16px;color:var(--D)"></i>
+        <span style="font-size:13px;font-weight:700;color:var(--D)">${b.motivo}</span>
+      </div>
+      ${b.notas?`<div style="font-size:12px;color:var(--M);margin-top:6px;font-style:italic">${b.notas}</div>`:""}
+    </div>`).join("")}`;
+  }
+
+  // PERDIDOS
+  else if(tab==="lost"&&isA){
+    const fallidas=demos.filter(d=>d.ret&&d.res==="fallida");
+    const allPerdidos=[
+      ...fallidas.map(d=>({tipo:"Demo",c:d.c,vnd:d.vnd,fecha:d.retFecha||d.fecha,motivo:d.motivoRetiro||"Sin motivo",notas:d.notasRetiro||"",modelo:d.modelo,serie:d.serie})),
+      ...bajas.map(b=>({tipo:"Baja",c:b.c,vnd:b.vnd,fecha:b.fecha,motivo:b.motivo,notas:b.notas,modelo:"",serie:""}))
+    ].sort((a,b)=>new Date(b.fecha)-new Date(a.fecha));
+    const byMotivo={};
+    allPerdidos.forEach(d=>{const m=d.motivo||"Sin motivo";byMotivo[m]=(byMotivo[m]||0)+1;});
+    const motivosSorted=Object.entries(byMotivo).sort((a,b)=>b[1]-a[1]);
+    const sqL=window._sqL||"";
+    const filtF=allPerdidos.filter(d=>!sqL||d.c.toLowerCase().includes(sqL.toLowerCase())||(d.motivo||"").toLowerCase().includes(sqL.toLowerCase())||(d.vnd||"").toLowerCase().includes(sqL.toLowerCase()));
+    con=`<p class="pt">Clientes perdidos</p><p class="ps">${allPerdidos.length} en total · ${fallidas.length} demos · ${bajas.length} bajas</p>
+    ${fallidas.length>0?`<div class="card" style="margin-bottom:14px">
+      <p style="font-size:12px;font-weight:700;color:var(--M);margin-bottom:10px">MOTIVOS DE PERDIDA</p>
+      ${motivosSorted.map(([m,c])=>{
+        const pct=Math.round((c/fallidas.length)*100);
+        return`<div style="margin-bottom:10px">
+          <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px">
+            <span style="font-weight:600">${m}</span>
+            <span style="font-weight:700;color:var(--D)">${c} (${pct}%)</span>
+          </div>
+          <div class="bb"><div class="bar bd" style="width:${pct}%"></div></div>
+        </div>`;
+      }).join("")}
+    </div>`:""}
+    <div class="sw"><i class="ti ti-search"></i><input class="si2" placeholder="Buscar cliente, motivo, vendedor..." value="${sqL}" oninput="window._sqL=this.value;render()"/></div>
+    ${filtF.length===0?`<div class="empty"><i class="ti ti-mood-sad"></i>Sin demos perdidas</div>`
+    :filtF.map(d=>`<div class="card sl-r">
+      <div class="ch">
+        <div><div class="ct">${d.c}</div><div class="cs">${d.vnd} · ${fmtD(d.fecha)}</div></div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+          <span class="chip ${d.tipo==='Baja'?'chip-r':'chip-w'}" style="font-size:10px">${d.tipo}</span>
+          ${d.modelo?`<span class="chip chip-b" style="font-size:10px">${d.modelo}${d.serie?" · "+d.serie:""}</span>`:""}
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;margin-top:8px;background:#fdecea;border-radius:8px;padding:7px 10px">
+        <i class="ti ti-alert-circle" style="font-size:16px;color:var(--D)"></i>
+        <span style="font-size:13px;font-weight:700;color:var(--D)">${d.motivo}</span>
+      </div>
+      ${d.notas?`<div style="font-size:12px;color:var(--M);margin-top:5px;font-style:italic">${d.notas}</div>`:""}
+    </div>`).join("")}`;
+  }
+
+  // INTENSIDAD
+  else if(tab==="grades"&&isA){
+    // All equipos with grades
+    const allEqsWithGrades=[];
+    ALL_CLIENTS.forEach(c=>{
+      const eqs=getClientEqs(c).filter(e=>!e._del&&(CONSUME[e.modelo]||e.modelo==="AE3500"));
+      eqs.forEach(eq=>{
+        const gi=eqGrades[eq.serie];
+        if(eq.modelo==="AE3500"){
+          const consumeActual=gi?.mlMes||null;
+          const consumeCotizado=gi?.mlMesCotizado||null;
+          const alerta=consumeActual&&consumeCotizado&&consumeActual>consumeCotizado*1.1;
+          const curG=gi?.onSec?`On:${gi.onSec}s Off:${gi.offSec}s`:null;
+          allEqsWithGrades.push({c,eq,curG,cotG:null,alerta,consumeActual,consumeCotizado,gi,isOnOff:true});
+        } else {
+          const curG=gi?.grade||null;
+          const cotG=gi?.gradeCotizado||null;
+          const alerta=curG&&cotG&&curG>cotG;
+          const consumeActual=curG?CONSUME[eq.modelo][curG]:null;
+          const consumeCotizado=cotG?CONSUME[eq.modelo][cotG]:null;
+          allEqsWithGrades.push({c,eq,curG,cotG,alerta,consumeActual,consumeCotizado,gi,isOnOff:false});
+        }
+      });
+    });
+    const alertas=allEqsWithGrades.filter(x=>x.alerta);
+    const sinGrade=allEqsWithGrades.filter(x=>!x.curG);
+    const sqGr=window._sqGr||"";
+    const showFilter=window._grFilter||"alertas";
+    const filtered=allEqsWithGrades.filter(x=>{
+      if(showFilter==="alertas")return x.alerta;
+      if(showFilter==="sin_grado")return !x.curG;
+      return true;
+    }).filter(x=>!sqGr||x.c.toLowerCase().includes(sqGr.toLowerCase())||x.eq.serie.toLowerCase().includes(sqGr.toLowerCase()));
+    con=`<p class="pt">Control de Intensidad</p><p class="ps">Grados por equipo · Solo AE701 y AE301</p>
+    <div class="stats">
+      <div class="stat"><div class="sn">${allEqsWithGrades.length}</div><div class="sl2">Equipos c/grado</div></div>
+      <div class="stat"><div class="sn" style="color:var(--D)">${alertas.length}</div><div class="sl2">Alertas</div></div>
+      <div class="stat"><div class="sn" style="color:var(--WN)">${sinGrade.length}</div><div class="sl2">Sin registrar</div></div>
+    </div>
+    ${alertas.length>0?`<div style="background:#fdecea;border:1px solid #f5c6c6;border-radius:var(--R);padding:12px 14px;margin-bottom:14px;display:flex;align-items:center;gap:10px">
+      <i class="ti ti-alert-triangle" style="font-size:22px;color:var(--D)"></i>
+      <div><div style="font-weight:700;color:var(--D);font-size:14px">${alertas.length} equipo${alertas.length!==1?"s":""} con grado por encima del cotizado</div>
+      <div style="font-size:12px;color:var(--D);opacity:.8">Estos equipos consumen mas de lo presupuestado</div></div>
+    </div>`:""}
+    <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">
+      ${[{k:"alertas",l:"⚠ Alertas",c:alertas.length},{k:"sin_grado",l:"Sin grado",c:sinGrade.length},{k:"todos",l:"Todos",c:allEqsWithGrades.length}].map(f=>`<button onclick="window._grFilter='${f.k}';render()" style="padding:4px 12px;border-radius:20px;border:1px solid ${showFilter===f.k?"var(--F)":"#dde8e2"};background:${showFilter===f.k?"var(--F)":"none"};color:${showFilter===f.k?"#fff":"var(--M)"};font-size:12px;cursor:pointer">${f.l} (${f.c})</button>`).join("")}
+    </div>
+    <div class="sw"><i class="ti ti-search"></i><input class="si2" placeholder="Buscar cliente o serie..." value="${sqGr}" oninput="window._sqGr=this.value;render()"/></div>
+    ${filtered.length===0?`<div class="empty"><i class="ti ti-gauge"></i>Sin resultados</div>`
+    :filtered.map(({c,eq,curG,cotG,alerta,consumeActual,consumeCotizado,gi})=>`<div class="card ${alerta?"sl-r":"sl"}">
+      <div class="ch">
+        <div><div class="ct" style="font-size:12px">${c}</div><div class="cs">${eq.modelo} · ${eq.serie}${eq.area?" · "+eq.area:""}</div></div>
+        <div style="text-align:right">
+          ${isOnOff?
+            (gi?.onSec?`<div style="font-size:13px;font-weight:700;color:${alerta?"var(--D)":"var(--F)"}">On:${gi.onSec}s<br/>Off:${gi.offSec}s</div>`:`<span class="chip chip-w" style="font-size:10px">Sin config</span>`)
+            :curG?`<div style="font-size:20px;font-weight:700;color:${alerta?"var(--D)":"var(--F)"}">G${curG}</div>
+          ${cotG&&cotG!==curG?`<div style="font-size:10px;color:var(--M)">Cotizado: G${cotG}</div>`:""}`:
+          `<span class="chip chip-w" style="font-size:10px">Sin grado</span>`}
+        </div>
+      </div>
+      ${curG||isOnOff?`<div class="mr" style="margin-top:8px">
+        ${consumeActual?`<span class="chip ${alerta?"chip-r":""}" style="font-size:10px">${consumeActual}ml/mes actual</span>`:""}
+        ${consumeCotizado&&consumeCotizado!==consumeActual?`<span class="chip" style="font-size:10px">${consumeCotizado}ml/mes cotizado</span>`:""}
+        ${alerta?`<span class="chip chip-r" style="font-size:10px">+${(consumeActual-consumeCotizado).toFixed(1)}ml/mes extra</span>`:""}
+      </div>`:""}
+      ${gi?.changedBy?`<div style="font-size:11px;color:var(--M);margin-top:5px">Ultima actualización: ${gi.changedBy} · ${fmtD(gi.fechaCambio)}</div>`:""}
+    </div>`).join("")}`;
+  }
+
+  // CONFIG
+  else if(tab==="config"&&isA){
+    con=`<p class="pt">Configuracion</p><p class="ps">Modelos de equipos y ajustes generales</p>
+    <p style="font-size:12px;font-weight:700;color:var(--M);margin-bottom:10px">MODELOS DE EQUIPOS</p>
+    <button class="btn-add" onclick="openAddModelo()"><i class="ti ti-plus"></i> Agregar modelo</button>
+    ${modelos.map(m=>{
+      const isOriginal=["AE301","AE701","AE3500","Radiant","FMATIC"].includes(m);
+      const tipoIntensidad=CONSUME[m]?"Grados 1-10":m==="AE3500"?"On/Off":"Sin control";
+      const totalUnits=Object.values(eqStk).reduce((a,b)=>a+b,0);
+      const unitsInStock=eqStk[m]||0;
+      const unitsInstalled=ALL_CLIENTS.reduce((acc,c)=>acc+getClientEqs(c).filter(e=>!e._del&&e.modelo===m).length,0);
+      return`<div class="card" style="margin-bottom:8px">
+        <div class="ch">
+          <div>
+            <div class="ct">${m} ${isOriginal?`<span style="font-size:10px;color:var(--M);font-weight:400">(original)</span>`:""}</div>
+            <div class="cs">Intensidad: ${tipoIntensidad}</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <div style="text-align:right">
+              <div style="font-size:11px;color:var(--M)">${unitsInstalled} instalados</div>
+              <div style="font-size:11px;color:var(--F)">${unitsInStock} en stock</div>
+            </div>
+            ${!isOriginal?`<button class="del" onclick="delModelo('${m}')">✕</button>`:""}
+          </div>
+        </div>
+      </div>`;
+    }).join("")}
+    <div style="margin-top:20px">
+      <p style="font-size:12px;font-weight:700;color:var(--M);margin-bottom:10px">ESENCIAS</p>
+      <div style="display:flex;gap:8px;margin-bottom:12px">
+        <button class="btn-add" style="margin-bottom:0;flex:1" onclick="openAddEsencia()"><i class="ti ti-plus"></i> Agregar esencia</button>
+      </div>
+      <div class="sw" style="margin-bottom:10px">
+        <i class="ti ti-search"></i>
+        <input class="si2" placeholder="Buscar esencia..." value="${window._sqEs||''}" oninput="window._sqEs=this.value;render()"/>
+      </div>
+      <div class="card" style="margin-bottom:14px">
+        <div style="font-size:11px;color:var(--M);margin-bottom:8px">${Object.keys(inv).length} esencias en total</div>
+        ${Object.keys(inv).sort().filter(n=>!(window._sqEs)||n.toLowerCase().includes((window._sqEs||'').toLowerCase())).map(n=>{
+          const isOriginal=["FRESH BLUE","GREEN TEA","PERSUATION","PURESILVER","SANTAL","SPARKLING GOGGY","VANILLA & POMEGRANATE","VERBENA","ASIAN MINT","PURE SUNSHINE","BERGAMOT AMBER","BERGAMOT OCEAN ARIA","BERGAMOT ORANGE","BERGAMOT SPICE","BLACK TEA AND FIG","BLOOD WOOD","CITY DELIGHT","CRIMSON SILK","DUBAI CHOCOLATE","GLACIAL MIST","GOLDEN GROOVE","GRAPEFRUIT VANILLA","HAPPY DAYS","INSPIRATION","LITTLE ANGELS","LE NOIR","NEW YORK","PALO SANTO","SAFFRON SUEDE","SAHARA NIGHTS","SPICED TEA","TABAC NOIR","TULUMINATE","WHITE TEA","WHITE TEA AND THYME","ZEN GARDEN","RED WINE"].includes(n);
+          return`<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid #f0f0f0">
+            <div>
+              <span style="font-weight:600;font-size:13px">${n}</span>
+              ${isOriginal?`<span style="font-size:10px;color:var(--M);margin-left:6px">(original)</span>`:""}
+            </div>
+            <div style="display:flex;align-items:center;gap:6px">
+              <span style="font-size:12px;color:var(--F);font-weight:500">${inv[n]||0}ml</span>
+              <button class="be" style="padding:3px 8px;font-size:11px" onclick="openEditEsencia('${n.replace(/'/g,"\'")}')" title="Editar nombre">✏️</button>
+              <button class="del" onclick="delEsencia('${n.replace(/'/g,"\'")}')">✕</button>
+            </div>
+          </div>`;
+        }).join("")}
+      </div>
+    </div>
+    <div style="margin-top:20px">
+      <p style="font-size:12px;font-weight:700;color:var(--M);margin-bottom:10px">CONTROL DE INTENSIDAD</p>
+      <div class="card">
+        <div style="font-size:13px;color:var(--I);margin-bottom:8px;font-weight:600">Modelos con grados 1-10</div>
+        <div class="mr">${Object.keys(CONSUME).map(m=>`<span class="chip chip-b" style="font-size:11px">${m}</span>`).join("")}</div>
+        <div style="font-size:13px;color:var(--I);margin-top:12px;margin-bottom:8px;font-weight:600">Modelos con On/Off</div>
+        <div class="mr"><span class="chip chip-g" style="font-size:11px">AE3500</span></div>
+        <div style="font-size:11px;color:var(--M);margin-top:10px">Para agregar tablas de consumo a nuevos modelos, contacta al desarrollador.</div>
+      </div>
+    </div>`;
+  }
+
+  // SOLICITUDES
+  else if(tab==="sols"){
+    const mySols=isA?solicitudes:solicitudes.filter(s=>s.vendedor===sess.name);
+    const pendientes=mySols.filter(s=>s.estado==="pendiente");
+    const convertidas=mySols.filter(s=>s.estado==="convertido");
+    con=`<p class="pt">Solicitudes de instalacion</p>
+    <p class="ps">${pendientes.length} pendiente${pendientes.length!==1?"s":""} · ${convertidas.length} convertida${convertidas.length!==1?"s":""}</p>
+    ${isA?`<button class="btn-add" onclick="openAddSolicitud()"><i class="ti ti-plus"></i> Nueva solicitud</button>`:""}
+    ${pendientes.length===0?`<div class="empty"><i class="ti ti-bell-off"></i>Sin solicitudes pendientes</div>`
+    :pendientes.map(s=>`<div class="card sl" style="border-left-color:#3456a0">
+      <div class="ch">
+        <div>
+          <div class="ct">${s.nombre}</div>
+          <div class="cs">Asignado a: <strong>${s.vendedor}</strong> · ${fmtD(s.fecha)}</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">
+          <span class="chip chip-b" style="font-size:10px">Pendiente</span>
+          ${isA?`<button class="be" style="font-size:11px;padding:4px 8px" onclick="convertirCliente('${s.id}')">Convertir a cliente</button>`:""}
+        </div>
+      </div>
+      ${s.notas?`<div style="font-size:12px;color:var(--M);margin-top:6px">${s.notas}</div>`:""}
+      ${isA?`<div style="display:flex;justify-content:flex-end;margin-top:6px"><button class="del" onclick="delSolicitud('${s.id}')">Eliminar</button></div>`:""}
+    </div>`).join("")}
+    ${convertidas.length>0?`<p style="font-size:12px;font-weight:700;color:var(--M);margin:16px 0 10px">CONVERTIDAS (${convertidas.length})</p>
+    ${convertidas.map(s=>`<div class="card" style="opacity:.75">
+      <div class="ch">
+        <div><div class="ct" style="color:#999">${s.nombre}</div>
+          <div class="cs">${s.vendedor} · ${fmtD(s.fecha)}</div>
+        </div>
+        <span class="chip" style="font-size:10px;background:#e8f5ee;color:var(--F)">✓ ${s.clienteCreado||"Convertido"}</span>
+      </div>
+    </div>`).join("")}`:""}`;
+  }
+
+  // MODAL
+  let mHTML="";
+  if(modal){
+    const t=modal.t;
+    if(t==="addVnd"||t==="editVnd"){
+      const v=modal.v||{};
+      mHTML=`<div class="mb-bg" onclick="if(event.target===this){modal=null;render()}"><div class="mb">
+        <div class="mb-t">${t==="addVnd"?"Nuevo usuario":"Editar usuario"}</div>
+        <div class="fw"><label class="lbl">Nombre completo *</label>
+          <input class="inp" id="vn_n" value="${v.name||""}" placeholder="Nombre completo"/>
+        </div>
+        <div class="fw"><label class="lbl">PIN de acceso * (min 4 digitos)</label>
+          <input class="inp" id="vn_p" value="${v.pin||""}" placeholder="Ej: 4444" type="text" inputmode="numeric"/>
+        </div>
+        <div class="fw"><label class="lbl">Rol</label>
+          <select class="inp" id="vn_r">
+            <option value="vendor" ${(v.role||"vendor")==="vendor"?"selected":""}>Vendedor</option>
+            <option value="admin" ${v.role==="admin"?"selected":""}>Administrador</option>
+          </select>
+        </div>
+        <div class="mb-act">
+          <button class="btn-c" onclick="modal=null;render()">Cancelar</button>
+          <button class="btn" onclick="saveVnd()">${t==="addVnd"?"Agregar":"Guardar"}</button>
+        </div>
+      </div></div>`;
+    }
+    else if(t==="cambioAroma"){
+      const eqsC2=getClientEqs(modal.c).filter(e=>!e._del);
+      mHTML=`<div class="mb-bg" onclick="if(event.target===this){modal=null;render()}"><div class="mb">
+        <div class="mb-t" style="color:var(--G)"><i class="ti ti-refresh" style="font-size:20px;vertical-align:-3px"></i> Cambio de aroma</div>
+        <p class="ps" style="margin-top:-10px;margin-bottom:16px">${modal.c}</p>
+        <div class="fw"><label class="lbl">Equipo *</label>
+          <select class="inp" id="ca_eq">
+            <option value="">Selecciona el equipo...</option>
+            ${eqsC2.map(eq=>`<option value="${eq.id||eq.serie}">${eq.modelo} · ${eq.serie}${eq.area?" · "+eq.area:""}${eq.aroma?" ("+eq.aroma+")":""}</option>`).join("")}
+          </select>
+        </div>
+        <div class="fw"><label class="lbl">Nuevo aroma *</label>
+          <select class="inp" id="ca_aroma">
+            <option value="">Selecciona aroma...</option>
+            ${getAllScents().map(s=>`<option>${s}</option>`).join("")}
+          </select>
+        </div>
+        <div class="fw"><label class="lbl">Notas (opcional)</label>
+          <textarea class="inp" id="ca_n" placeholder="Motivo del cambio, observaciones..."></textarea>
+        </div>
+        <div style="background:#fdf5e0;border:1px solid #e8c97a;border-radius:var(--R);padding:10px 12px;font-size:12px;color:#8a6520;margin-bottom:14px">
+          <i class="ti ti-info-circle" style="font-size:13px;vertical-align:-1px"></i>
+          El cambio quedara registrado en el historial de visitas y se actualizara el aroma del equipo.
+        </div>
+        <div class="mb-act">
+          <button class="btn-c" onclick="modal=null;render()">Cancelar</button>
+          <button class="btn" style="background:var(--G)" onclick="saveCambioAroma()">Confirmar cambio</button>
+        </div>
+      </div></div>`;
+    }
+    else if(t==="gradeChange"){
+      const eq=modal.eq||{};
+      const hasGrade=CONSUME[eq.modelo];
+      const gi=eqGrades[eq.serie]||{};
+      const curGrade=gi.grade||null;
+      const cotGrade=gi.gradeCotizado||null;
+      if(!hasGrade){
+        mHTML=`<div class="mb-bg" onclick="if(event.target===this){modal=null;render()}"><div class="mb">
+          <div class="mb-t">Intensidad</div>
+          <p style="font-size:14px;color:var(--M);text-align:center;padding:20px">El modelo ${eq.modelo} no tiene control de intensidad por grado.</p>
+          <button class="btn" onclick="modal=null;render()">Cerrar</button>
+        </div></div>`;
+      } else {
+        const grades=[1,2,3,4,5,6,7,8,9,10];
+        mHTML=`<div class="mb-bg" onclick="if(event.target===this){modal=null;render()}"><div class="mb">
+          <div class="mb-t" style="color:#3456a0"><i class="ti ti-gauge" style="font-size:20px;vertical-align:-3px"></i> Cambiar intensidad</div>
+          <p class="ps" style="margin-top:-10px;margin-bottom:6px">${eq.modelo} · ${eq.serie}${eq.area?" · "+eq.area:""}</p>
+          ${curGrade?`<div style="display:flex;gap:8px;margin-bottom:14px">
+            <div style="flex:1;background:#e8f0ff;border-radius:10px;padding:10px;text-align:center">
+              <div style="font-size:11px;color:#3456a0;font-weight:600">GRADO ACTUAL</div>
+              <div style="font-size:28px;font-weight:700;color:#3456a0">G${curGrade}</div>
+              ${CONSUME[eq.modelo][curGrade]?`<div style="font-size:11px;color:var(--M)">${CONSUME[eq.modelo][curGrade]}ml/mes</div>`:""}
+            </div>
+            ${cotGrade&&cotGrade!==curGrade?`<div style="flex:1;background:#e8f5ee;border-radius:10px;padding:10px;text-align:center">
+              <div style="font-size:11px;color:var(--F);font-weight:600">COTIZADO</div>
+              <div style="font-size:28px;font-weight:700;color:var(--F)">G${cotGrade}</div>
+              ${CONSUME[eq.modelo][cotGrade]?`<div style="font-size:11px;color:var(--M)">${CONSUME[eq.modelo][cotGrade]}ml/mes</div>`:""}
+            </div>`:""}
+          </div>`:""}
+          <div class="fw"><label class="lbl">Nuevo grado *</label>
+            <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:6px">
+              ${grades.map(g=>{
+                const ml=CONSUME[eq.modelo][g];
+                const isCur=curGrade===g;
+                const isCot=cotGrade===g&&!isCur;
+                const isHigh=cotGrade&&g>cotGrade;
+                return`<button onclick="document.querySelectorAll('.gb').forEach(b=>{b.style.background='none';b.style.color='var(--M)';b.style.borderColor='#dde8e2';});this.style.background='var(--F)';this.style.color='#fff';this.style.borderColor='var(--F)';document.getElementById('gr_grade').value='${g}'" class="gb" style="padding:8px 4px;border:2px solid ${isCur?"var(--F)":isHigh?"#f5c6c6":"#dde8e2"};border-radius:8px;background:${isCur?"var(--F)":"none"};color:${isCur?"#fff":isHigh?"var(--D)":"var(--M)"};cursor:pointer;font-weight:700;font-size:12px">
+                  <div>G${g}</div>
+                  <div style="font-size:9px;font-weight:400">${ml}ml</div>
+                </button>`;
+              }).join("")}
+            </div>
+            <input type="hidden" id="gr_grade" value="${curGrade||''}"/>
+          </div>
+          ${cotGrade?`<div style="font-size:11px;color:var(--M);background:#f8fbf9;border-radius:8px;padding:8px 10px;margin-bottom:12px"><i class="ti ti-info-circle" style="font-size:12px;vertical-align:-1px"></i> Grados en rojo superan el cotizado (G${cotGrade}). Se generará alerta al admin.</div>`:""}
+          <div class="fw"><label class="lbl">Notas (opcional)</label>
+            <textarea class="inp" id="gr_n" placeholder="Motivo del cambio de intensidad..."></textarea>
+          </div>
+          <div class="mb-act">
+            <button class="btn-c" onclick="modal=null;render()">Cancelar</button>
+            <button class="btn" style="background:#3456a0" onclick="saveGradeChange()">Guardar intensidad</button>
+          </div>
+        </div></div>`;
+      }
+    }
+    else if(t==="gradeOnOff"){
+      const eq=modal.eq||{};
+      const gi=eqGrades[eq.serie]||{};
+      const curOn=gi.onSec||10;
+      const curOff=gi.offSec||55;
+      const curHrs=gi.hours||10;
+      const curML=gi.mlMes||null;
+      const cotML=gi.mlMesCotizado||null;
+      mHTML=`<div class="mb-bg" onclick="if(event.target===this){modal=null;render()}"><div class="mb">
+        <div class="mb-t" style="color:#3456a0"><i class="ti ti-gauge" style="font-size:20px;vertical-align:-3px"></i> Intensidad AE3500</div>
+        <p class="ps" style="margin-top:-10px;margin-bottom:14px">${eq.serie}${eq.area?" · "+eq.area:""}</p>
+        ${curML?`<div style="display:flex;gap:8px;margin-bottom:14px">
+          <div style="flex:1;background:#e8f0ff;border-radius:10px;padding:10px;text-align:center">
+            <div style="font-size:11px;color:#3456a0;font-weight:600">ACTUAL</div>
+            <div style="font-size:20px;font-weight:700;color:#3456a0">${curML}ml</div>
+            <div style="font-size:10px;color:var(--M)">por mes</div>
+          </div>
+          ${cotML&&cotML!==curML?`<div style="flex:1;background:#e8f5ee;border-radius:10px;padding:10px;text-align:center">
+            <div style="font-size:11px;color:var(--F);font-weight:600">COTIZADO</div>
+            <div style="font-size:20px;font-weight:700;color:var(--F)">${cotML}ml</div>
+            <div style="font-size:10px;color:var(--M)">por mes</div>
+          </div>`:""}
+        </div>`:""}
+        <div style="background:#e8f0ff;border-radius:var(--R);padding:12px 14px;margin-bottom:14px;font-size:12px;color:#3456a0">
+          <i class="ti ti-info-circle" style="font-size:13px;vertical-align:-1px"></i>
+          Ingresa los tiempos configurados en el equipo. El sistema calcula el consumo estimado automaticamente.
+        </div>
+        <div class="fr">
+          <div class="fw">
+            <label class="lbl">Tiempo ON (segundos) *</label>
+            <input type="number" class="inp" id="go_on" value="${curOn}" min="1" placeholder="Ej: 10" oninput="updateAE3500Preview()"/>
+            <div style="font-size:10px;color:var(--M);margin-top:3px">Cuanto tiempo sopla</div>
+          </div>
+          <div class="fw">
+            <label class="lbl">Tiempo OFF (segundos) *</label>
+            <input type="number" class="inp" id="go_off" value="${curOff}" min="1" placeholder="Ej: 55" oninput="updateAE3500Preview()"/>
+            <div style="font-size:10px;color:var(--M);margin-top:3px">Cuanto tiempo pausa</div>
+          </div>
+        </div>
+        <div class="fw">
+          <label class="lbl">Horas por dia activo</label>
+          <input type="number" class="inp" id="go_hrs" value="${curHrs}" min="1" max="24" placeholder="10" oninput="updateAE3500Preview()"/>
+        </div>
+        <div id="go_preview" style="background:#f0f7f4;border-radius:var(--R);padding:10px 12px;font-size:13px;color:var(--F);margin-bottom:14px;text-align:center">
+          Consumo estimado: calculando...
+        </div>
+
+        <div class="fw"><label class="lbl">Notas (opcional)</label>
+          <textarea class="inp" id="go_n" placeholder="Motivo del cambio, observaciones..."></textarea>
+        </div>
+        <div class="mb-act">
+          <button class="btn-c" onclick="modal=null;render()">Cancelar</button>
+          <button class="btn" style="background:#3456a0" onclick="saveGradeOnOff()">Guardar configuracion</button>
+        </div>
+      </div></div>`;
+    }
+    else if(t==="addBaja"){
+      const mc=isA?ALL_CLIENTS:(VC[sess.name]||ALL_CLIENTS);
+      mHTML=`<div class="mb-bg" onclick="if(event.target===this){modal=null;render()}"><div class="mb">
+        <div class="mb-t">Registrar baja de cliente</div>
+        <div class="fw"><label class="lbl">Cliente *</label>
+          <input class="inp" id="bj_c" placeholder="Nombre del cliente" list="bj_cl"/>
+          <datalist id="bj_cl">${mc.map(c=>`<option>${c}</option>`).join("")}</datalist>
+        </div>
+        <div class="fw"><label class="lbl">Motivo de baja *</label>
+          <select class="inp" id="bj_mot">
+            <option value="">Selecciona motivo...</option>
+            <option>Precio muy alto</option>
+            <option>No le gusto el aroma</option>
+            <option>Problemas con el equipo</option>
+            <option>Cierre del negocio</option>
+            <option>Cambio de proveedor</option>
+            <option>No vio resultados</option>
+            <option>Presupuesto reducido</option>
+            <option>Decision del cliente sin motivo claro</option>
+            <option>Otro</option>
+          </select>
+        </div>
+        <div class="fw"><label class="lbl">Notas adicionales</label>
+          <textarea class="inp" id="bj_n" placeholder="Detalla el motivo, que dijo el cliente..."></textarea>
+        </div>
+        <div class="mb-act"><button class="btn-c" onclick="modal=null;render()">Cancelar</button>
+          <button class="btn" style="background:var(--D)" onclick="saveBaja()">Registrar baja</button>
+        </div>
+      </div></div>`;
+    }
+    else if(t==="editEsencia"){
+      mHTML=`<div class="mb-bg" onclick="if(event.target===this){modal=null;render()}"><div class="mb">
+        <div class="mb-t">Editar nombre de esencia</div>
+        <div class="fw"><label class="lbl">Nombre actual</label>
+          <div style="padding:10px 12px;background:#f0f7f4;border-radius:var(--R);font-weight:600;color:var(--F);font-size:14px">${modal.nombre}</div>
+        </div>
+        <div class="fw"><label class="lbl">Nuevo nombre *</label>
+          <input class="inp" id="ees_n" value="${modal.nombre}" style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()"/>
+        </div>
+        <div class="mb-act">
+          <button class="btn-c" onclick="modal=null;render()">Cancelar</button>
+          <button class="btn" onclick="saveEditEsencia()">Guardar cambio</button>
+        </div>
+      </div></div>`;
+    }
+    else if(t==="addCliente"){
+      const activeVnds=vendors.filter(v=>v.active!==false);
+      mHTML=`<div class="mb-bg" onclick="if(event.target===this){modal=null;render()}"><div class="mb">
+        <div class="mb-t">Agregar cliente</div>
+        <div class="fw"><label class="lbl">Nombre del cliente *</label>
+          <input class="inp" id="cl_n" placeholder="Ej: HOTEL SHERATON" style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()"/>
+        </div>
+        <div class="fw"><label class="lbl">Asignar a vendedor</label>
+          <select class="inp" id="cl_v">
+            <option value="">Sin asignar</option>
+            ${activeVnds.filter(v=>v.role!=="admin").map(v=>`<option value="${v.name}">${v.name}</option>`).join("")}
+          </select>
+        </div>
+        <div class="fw"><label class="lbl">Zona / Referencia (opcional)</label>
+          <input class="inp" id="cl_z" placeholder="Ej: Zona Rosa, Santa Elena..."/>
+        </div>
+        <div class="mb-act">
+          <button class="btn-c" onclick="modal=null;render()">Cancelar</button>
+          <button class="btn" onclick="saveCliente()">Agregar cliente</button>
+        </div>
+      </div></div>`;
+    }
+    else if(t==="addSolicitud"){
+      const activeVnds=vendors.filter(v=>v.active!==false&&v.role!=="admin");
+      mHTML=`<div class="mb-bg" onclick="if(event.target===this){modal=null;render()}"><div class="mb">
+        <div class="mb-t" style="color:#3456a0"><i class="ti ti-bell" style="font-size:20px;vertical-align:-3px"></i> Nueva solicitud</div>
+        <div class="fw"><label class="lbl">Nombre del prospecto *</label>
+          <input class="inp" id="sol_n" placeholder="Ej: Restaurante El Jardin"/>
+        </div>
+        <div class="fw"><label class="lbl">Vendedor asignado *</label>
+          <select class="inp" id="sol_v">
+            <option value="">Selecciona vendedor...</option>
+            ${activeVnds.map(v=>`<option value="${v.name}">${v.name}</option>`).join("")}
+          </select>
+        </div>
+        <div class="fw"><label class="lbl">Notas para el vendedor</label>
+          <textarea class="inp" id="sol_notas" placeholder="Instrucciones, direccion, contacto..."></textarea>
+        </div>
+        <div style="background:#e8f0ff;border-radius:var(--R);padding:10px 12px;font-size:12px;color:#3456a0;margin-bottom:14px">
+          <i class="ti ti-info-circle" style="font-size:13px;vertical-align:-1px"></i>
+          El vendedor vera esta solicitud en su pestaña de Solicitudes.
+        </div>
+        <div class="mb-act">
+          <button class="btn-c" onclick="modal=null;render()">Cancelar</button>
+          <button class="btn" style="background:#3456a0" onclick="saveSolicitud()">Enviar solicitud</button>
+        </div>
+      </div></div>`;
+    }
+    else if(t==="convertirCliente"){
+      const sol=modal.sol;
+      const activeVnds=vendors.filter(v=>v.active!==false&&v.role!=="admin");
+      mHTML=`<div class="mb-bg" onclick="if(event.target===this){modal=null;render()}"><div class="mb">
+        <div class="mb-t">Convertir a cliente</div>
+        <p class="ps" style="margin-top:-10px;margin-bottom:14px">Prospecto: <strong>${sol.nombre}</strong></p>
+        <div class="fw"><label class="lbl">Nombre oficial del cliente *</label>
+          <input class="inp" id="cc_n" value="${sol.nombre.toUpperCase()}" style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()"/>
+        </div>
+        <div class="fw"><label class="lbl">Asignar a vendedor</label>
+          <select class="inp" id="cc_v">
+            ${activeVnds.map(v=>`<option value="${v.name}" ${v.name===sol.vendedor?"selected":""}>${v.name}</option>`).join("")}
+          </select>
+        </div>
+        <div style="background:#e8f5ee;border-radius:var(--R);padding:10px 12px;font-size:12px;color:var(--F);margin-bottom:14px">
+          <i class="ti ti-circle-check" style="font-size:13px;vertical-align:-1px"></i>
+          El cliente quedara disponible en toda la app para registrar visitas y equipos.
+        </div>
+        <div class="mb-act">
+          <button class="btn-c" onclick="modal=null;render()">Cancelar</button>
+          <button class="btn" onclick="saveConvertir()">Crear cliente</button>
+        </div>
+      </div></div>`;
+    }
+    else if(t==="addCartucho"){
+      mHTML=`<div class="mb-bg" onclick="if(event.target===this){modal=null;render()}"><div class="mb">
+        <div class="mb-t">Agregar cartucho FMATIC</div>
+        <div class="fw"><label class="lbl">Fragancia *</label>
+          <input class="inp" id="cart_n" placeholder="Ej: Coconut Paradise" style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()"/>
+          <div style="font-size:11px;color:var(--M);margin-top:5px">Se guardará como "Cartucho [NOMBRE]"</div>
+        </div>
+        <div class="mb-act">
+          <button class="btn-c" onclick="modal=null;render()">Cancelar</button>
+          <button class="btn" onclick="addCartucho()">Agregar</button>
+        </div>
+      </div></div>`;
+    }
+    else if(t==="addEsencia"){
+      mHTML=`<div class="mb-bg" onclick="if(event.target===this){modal=null;render()}"><div class="mb">
+        <div class="mb-t">Agregar esencia</div>
+        <div class="fw"><label class="lbl">Nombre de la esencia *</label>
+          <input class="inp" id="es_n" placeholder="Ej: JASMINE BLOOM" style="text-transform:uppercase"
+            oninput="this.value=this.value.toUpperCase()"/>
+        </div>
+        <div class="fr">
+          <div class="fw"><label class="lbl">Stock inicial (ml)</label>
+            <input type="number" class="inp" id="es_stock" placeholder="0" min="0"/>
+          </div>
+          <div class="fw"><label class="lbl">Stock minimo (ml)</label>
+            <input type="number" class="inp" id="es_min" placeholder="500" min="0" value="500"/>
+          </div>
+        </div>
+        <div class="mb-act">
+          <button class="btn-c" onclick="modal=null;render()">Cancelar</button>
+          <button class="btn" onclick="saveEsencia()">Agregar esencia</button>
+        </div>
+      </div></div>`;
+    }
+    else if(t==="addModelo"){
+      mHTML=`<div class="mb-bg" onclick="if(event.target===this){modal=null;render()}"><div class="mb">
+        <div class="mb-t">Agregar modelo de equipo</div>
+        <div class="fw"><label class="lbl">Nombre del modelo *</label>
+          <input class="inp" id="mod_n" placeholder="Ej: AE1000, MiniRadiant..." style="text-transform:uppercase"/>
+        </div>
+        <div class="fw"><label class="lbl">Tipo de control de intensidad</label>
+          <select class="inp" id="mod_tipo">
+            <option value="none">Sin control de intensidad</option>
+            <option value="grades10">Grados 1-10 (como AE701)</option>
+            <option value="onoff">On/Off en segundos (como AE3500)</option>
+          </select>
+        </div>
+        <div class="fw"><label class="lbl">Capacidad del deposito (ml)</label>
+          <input type="number" class="inp" id="mod_cap" placeholder="Ej: 500" min="0"/>
+        </div>
+        <div style="background:#e8f0ff;border-radius:var(--R);padding:10px 12px;font-size:12px;color:#3456a0;margin-bottom:14px">
+          <i class="ti ti-info-circle" style="font-size:13px;vertical-align:-1px"></i>
+          El modelo quedara disponible para asignar a clientes y registrar en stock. Las tablas de consumo detalladas se configuran por separado.
+        </div>
+        <div class="mb-act">
+          <button class="btn-c" onclick="modal=null;render()">Cancelar</button>
+          <button class="btn" onclick="saveModelo()">Agregar modelo</button>
+        </div>
+      </div></div>`;
+    }
+    else if(t==="editCEq"){
+      const eq=modal.eq||{};
+      mHTML=`<div class="mb-bg" onclick="if(event.target===this){modal=null;render()}"><div class="mb">
+        <div class="mb-t">Editar equipo</div>
+        <p class="ps" style="margin-top:-10px;margin-bottom:14px">${modal.c}</p>
+        <div class="fr">
+          <div class="fw"><label class="lbl">Modelo *</label>
+            <select class="inp" id="ece_m">
+              ${modelos.map(m=>`<option value="${m}" ${eq.modelo===m?"selected":""}>${m}</option>`).join("")}
+            </select>
+          </div>
+          <div class="fw"><label class="lbl">Serie *</label>
+            <input class="inp" id="ece_s" value="${eq.serie||""}" placeholder="Numero de serie"/>
+          </div>
+        </div>
+        <div class="fw"><label class="lbl">Area instalada</label>
+          <input class="inp" id="ece_a" value="${eq.area||""}" placeholder="Lobby, Bano H..."/>
+        </div>
+        <div class="fw"><label class="lbl">Aroma asignado</label>
+          <select class="inp" id="ece_ar">
+            <option value="">Sin aroma asignado</option>
+            ${getAllScents().map(s=>`<option value="${s}" ${eq.aroma===s?"selected":""}>${s}</option>`).join("")}
+          </select>
+        </div>
+        <div class="mb-act">
+          <button class="btn-c" onclick="modal=null;render()">Cancelar</button>
+          <button class="btn" onclick="saveEditCEq()">Guardar cambios</button>
+        </div>
+      </div></div>`;
+    }
+    else if(t==="addCEq"){
+      const defMod=modal.selMod||modelos[0];
+      const stockSeries=getStockSeries(defMod);
+      const hasStock=stockSeries.length>0;
+      const src=modal.src||(stockSeries.length>0?"stock":"new"); // "stock" or "new"
+      const nextSerie=getNextSerie(defMod);
+      mHTML=`<div class="mb-bg" onclick="if(event.target===this){modal=null;render()}"><div class="mb">
+        <div class="mb-t">Agregar equipo</div>
+        <p class="ps" style="margin-top:-10px;margin-bottom:14px">${modal.c}</p>
+        <div class="fw"><label class="lbl">Modelo *</label>
+          <select class="inp" id="ceq_m" onchange="modal.selMod=this.value;modal.src='stock';render()">
+            ${modelos.map(m=>`<option value="${m}" ${defMod===m?"selected":""}>${m}</option>`).join("")}
+          </select>
+        </div>
+        ${stockSeries.length>0?`<div style="display:flex;gap:8px;margin-bottom:14px">
+          <button onclick="modal.src='stock';render()" style="flex:1;padding:10px;border-radius:var(--R);border:2px solid ${src==='stock'?'var(--F)':'#dde8e2'};background:${src==='stock'?'#e8f5ee':'none'};color:${src==='stock'?'var(--F)':'var(--M)'};font-size:12px;font-weight:700;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px">
+            <i class="ti ti-device-ipad" style="font-size:18px"></i>
+            Equipo en stock
+            <span style="font-size:10px;font-weight:400">${stockSeries.length} disponible${stockSeries.length!==1?'s':''}</span>
+          </button>
+          <button onclick="modal.src='new';render()" style="flex:1;padding:10px;border-radius:var(--R);border:2px solid ${src==='new'?'var(--F)':'#dde8e2'};background:${src==='new'?'#e8f5ee':'none'};color:${src==='new'?'var(--F)':'var(--M)'};font-size:12px;font-weight:700;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px">
+            <i class="ti ti-plus" style="font-size:18px"></i>
+            Equipo nuevo
+            <span style="font-size:10px;font-weight:400">Correlativo auto</span>
+          </button>
+        </div>`:`<div style="background:#e8f5ee;border-radius:var(--R);padding:8px 12px;font-size:12px;color:var(--F);margin-bottom:14px"><i class="ti ti-info-circle" style="font-size:13px;vertical-align:-1px"></i> No hay equipos ${defMod} en stock — se generará correlativo nuevo automáticamente.</div>`}
+        ${src==='stock'?
+          (stockSeries.length===0
+            ?``
+            :`<div class="fw"><label class="lbl">Selecciona el equipo del stock *</label>
+              <select class="inp" id="ceq_s">
+                <option value="">Selecciona una serie...</option>
+                ${stockSeries.map(s=>`<option value="${s}">${s}</option>`).join("")}
+              </select>
+              <div style="font-size:11px;color:var(--M);margin-top:5px"><i class="ti ti-info-circle" style="font-size:12px;vertical-align:-1px"></i> Al agregar, el equipo saldrá del stock de la oficina</div>
+            </div>`)
+          :`<div class="fw"><label class="lbl">Serie (correlativo auto-generado)</label>
+            <input class="inp" id="ceq_s" value="${nextSerie}" style="background:#f0f7f4;font-weight:700;color:var(--F)"/>
+            <div style="font-size:11px;color:var(--M);margin-top:5px"><i class="ti ti-info-circle" style="font-size:12px;vertical-align:-1px"></i> Puedes editarlo si necesitas</div>
+          </div>`
+        }
+        <div class="fw"><label class="lbl">Area instalada</label>
+          <input class="inp" id="ceq_a" placeholder="Ej: Lobby, Bano Hombres, Showroom..."/>
+        </div>
+        <div class="fw"><label class="lbl">Aroma asignado</label>
+          <select class="inp" id="ceq_ar">
+            <option value="">Sin aroma asignado</option>
+            ${getAllScents().map(s=>`<option>${s}</option>`).join("")}
+          </select>
+        </div>
+        <div class="mb-act">
+          <button class="btn-c" onclick="modal=null;render()">Cancelar</button>
+          <button class="btn" onclick="saveCEqFull()">Agregar equipo</button>
+        </div>
+      </div></div>`;
+    }
+    else if(t==="addDemo"){
+      const mc=isA?ALL_CLIENTS:(VC[sess.name]||ALL_CLIENTS);
+      mHTML=`<div class="mb-bg" onclick="if(event.target===this){modal=null;render()}"><div class="mb">
+        <div class="mb-t">Registrar demo</div>
+        <div class="fw"><label class="lbl">Cliente / Prospecto *</label>
+          <input class="inp" id="dm_c" placeholder="Nombre del cliente" list="dm_cl"/>
+          <datalist id="dm_cl">${mc.map(c=>`<option>${c}</option>`).join("")}</datalist>
+        </div>
+        <div class="fr">
+          <div class="fw"><label class="lbl">Modelo *</label>
+            <select class="inp" id="dm_m" onchange="onDemoModChange(this.value)">
+              ${modelos.map(m=>`<option>${m}</option>`).join("")}
+            </select>
+          </div>
+          <div class="fw"><label class="lbl">Serie (auto-generada)</label>
+            <input class="inp" id="dm_s" value="${getNextSerie(modelos[0])}" style="background:#f0f7f4;font-weight:700;color:var(--F)" placeholder="ES301-001"/>
+          </div>
+        </div>
+        <div style="font-size:11px;color:var(--M);margin-top:-8px;margin-bottom:12px">
+          <i class="ti ti-info-circle" style="font-size:12px;vertical-align:-1px"></i> Correlativo sugerido. Puedes editarlo si necesitas.
+        </div>
+        <div class="fw"><label class="lbl">Dias acordados *</label><input type="number" class="inp" id="dm_d" placeholder="7" min="1"/></div>
+        <div class="fw"><label class="lbl">Notas</label><textarea class="inp" id="dm_n" placeholder="Observaciones..."></textarea></div>
+        <div class="mb-act"><button class="btn-c" onclick="modal=null;render()">Cancelar</button><button class="btn" onclick="saveDemo()">Registrar</button></div>
+      </div></div>`;
+    }
+    else if(t==="retDemo"){
+      const d=demos.find(x=>x.id===modal.id);
+      mHTML=`<div class="mb-bg" onclick="if(event.target===this){modal=null;render()}"><div class="mb">
+        <div class="mb-t">Que paso con la demo?</div>
+        <p class="ps" style="margin-top:-10px;margin-bottom:20px">${d?.c} · ${d?.modelo}${d?.serie?" · "+d.serie:""}</p>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <button onclick="confRetDemo('${modal.id}','cerrado')" style="padding:16px;border:2px solid var(--F);border-radius:var(--R);background:#e8f5ee;color:var(--F);font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:10px">
+            <i class="ti ti-circle-check" style="font-size:22px"></i>
+            <div style="text-align:left"><div>Se cerro el negocio!</div><div style="font-size:11px;font-weight:400;opacity:.7">El cliente contrato el servicio</div></div>
+          </button>
+          <button onclick="modal={...modal,showRetMotivo:true};render()" style="padding:16px;border:2px solid var(--D);border-radius:var(--R);background:#fdecea;color:var(--D);font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:10px">
+            <i class="ti ti-circle-x" style="font-size:22px"></i>
+            <div style="text-align:left"><div>Se retiro sin cerrar</div><div style="font-size:11px;font-weight:400;opacity:.7">El cliente no contrato</div></div>
+          </button>
+          <button onclick="confRetDemo('${modal.id}','retirada','')" style="padding:14px;border:1px solid #dde8e2;border-radius:var(--R);background:none;color:var(--M);font-size:13px;cursor:pointer">Solo retirar (sin registrar resultado)</button>
+        </div>
+        ${modal.showRetMotivo?`<div style="margin-top:14px;background:#fdecea;border-radius:var(--R);padding:14px;border:1px solid #f5c6c6">
+          <label class="lbl" style="color:var(--D);margin-bottom:8px">Motivo por el que no continuo</label>
+          <select class="inp" id="ret_motivo" style="margin-bottom:10px">
+            <option value="">Selecciona motivo...</option>
+            <option>Precio muy alto</option>
+            <option>No le gusto el aroma</option>
+            <option>Problemas con el equipo</option>
+            <option>Cierre del negocio</option>
+            <option>Cambio de proveedor</option>
+            <option>No vio resultados</option>
+            <option>Presupuesto reducido</option>
+            <option>Otro</option>
+          </select>
+          <div class="fw" style="margin-bottom:10px"><label class="lbl" style="color:var(--D)">Notas adicionales</label>
+            <textarea class="inp" id="ret_notas" placeholder="Detalla el motivo..." style="height:60px"></textarea>
+          </div>
+          <button onclick="const m=document.getElementById('ret_motivo').value;const n=document.getElementById('ret_notas').value;if(!m){alert('Selecciona un motivo');return;}confRetDemo('${modal.id}','fallida',m,n)" style="width:100%;padding:12px;background:var(--D);color:#fff;border:none;border-radius:var(--R);font-size:14px;font-weight:700;cursor:pointer">Confirmar retiro</button>
+        </div>`:""}
+        <button class="btn-c" style="width:100%;margin-top:10px" onclick="modal=null;render()">Cancelar</button>
+      </div></div>`;
+    }
+    else if(t==="mov"){
+      const esE=modal.tipo==="entrada";
+      const motE=isA?["Compra nueva","Retiro de cliente","Devolucion de demo","Ajuste de inventario","Otro"]:["Retiro de cliente","Devolucion de demo","Otro"];
+      const motS=["Instalacion en cliente","Demo","Prestamo","Traslado","Baja/Danado","Otro"];
+      const mots=esE?motE:motS;
+      const curMot=modal.motivo||(esE?"Compra nueva":"Instalacion en cliente");
+      const isRet=esE&&curMot==="Retiro de cliente";
+      const retC=modal.retC||"";
+      const retEqs=retC?getClientEqs(retC).filter(e=>!e._del):[];
+      mHTML=`<div class="mb-bg" onclick="if(event.target===this){modal=null;render()}"><div class="mb">
+        <div class="mb-t" style="color:${esE?"var(--F)":"var(--D)"}">${esE?"Entrada de equipo":"Salida de equipo"}</div>
+        <div class="fw"><label class="lbl">Motivo *</label>
+          <select class="inp" id="mv_mot" onchange="onMotChange(this.value)">
+            ${mots.map(m=>`<option value="${m}" ${m===curMot?"selected":""}>${m}</option>`).join("")}
+          </select>
+        </div>
+        ${isRet?`
+        <div class="fw"><label class="lbl">Cliente *</label>
+          <select class="inp" id="mv_retc" onchange="onRetCChange(this.value)">
+            <option value="">Selecciona cliente...</option>
+            ${ALL_CLIENTS.map(c=>`<option value="${c}" ${c===retC?"selected":""}>${c}</option>`).join("")}
+          </select>
+        </div>
+        ${retC?`<div class="fw"><label class="lbl">Equipos en ${retC}</label>
+          ${retEqs.length===0?`<div style="font-size:13px;color:var(--M);padding:10px;background:#f8fbf9;border-radius:8px;text-align:center">Sin equipos registrados</div>`
+          :`<div style="background:#f0f7f4;border-radius:10px;padding:8px;border:1px solid #d0e8dc">
+            ${retEqs.map(eq=>`<label style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;cursor:pointer;margin-bottom:4px;background:#fff;border:1px solid #e0ece8">
+              <input type="checkbox" class="ceq-chk" data-id="${eq.id}" data-m="${eq.modelo}" data-s="${eq.serie||""}" style="width:18px;height:18px;accent-color:var(--F);cursor:pointer"/>
+              <div style="flex:1"><div style="font-weight:700;font-size:13px">${eq.modelo} · ${eq.serie}</div>
+              <div style="font-size:11px;color:var(--M)">${eq.area||""}${eq.aroma?" · "+eq.aroma:""}</div></div>
+            </label>`).join("")}
+          </div>`}
+        </div>`:""}
+        `:`
+        <div class="fr">
+          <div class="fw"><label class="lbl">Modelo *</label><select class="inp" id="mv_mod">${modelos.map(m=>`<option>${m}</option>`).join("")}</select></div>
+          <div class="fw"><label class="lbl">Cantidad *</label><input type="number" class="inp" id="mv_cant" placeholder="1" min="1" value="1"/></div>
+        </div>
+        <div class="fw"><label class="lbl">Numero de serie (opcional)</label>
+          <input class="inp" id="mv_serie" placeholder="Ej: AE301-053"/>
+        </div>
+        <div class="fw"><label class="lbl">${esE?"Cliente que devuelve":"Cliente / Destino"}</label>
+          <input class="inp" id="mv_cl" placeholder="${esE?"Ej: Club Campestre":"Ej: Hotel Intercontinental"}" list="mv_cl_l"/>
+          <datalist id="mv_cl_l">${ALL_CLIENTS.map(c=>`<option>${c}</option>`).join("")}</datalist>
+        </div>`}
+        <div class="fw"><label class="lbl">Notas</label><textarea class="inp" id="mv_n" placeholder="Observaciones..."></textarea></div>
+        <div class="mb-act"><button class="btn-c" onclick="modal=null;render()">Cancelar</button>
+          <button class="btn" style="background:${esE?"var(--F)":"var(--D)"}" onclick="saveMov()">Registrar ${esE?"entrada":"salida"}</button>
+        </div>
+      </div></div>`;
+    }
+  }
+
+  root.innerHTML=`<div class="app">
+    <div class="tb">
+      <div class="tb-logo">E<span>s</span> <span style="font-size:13px;font-weight:600;letter-spacing:2px">ECOBASICS</span></div>
+      <div class="tb-r">
+        <span class="tb-u">${sess.name}${isA?'<span class="ba">Admin</span>':""}</span>
+        <button class="btn-o" onclick="doSync()" title="Sincronizar datos" style="margin-right:4px">⟳</button>
+        <button class="btn-o" onclick="logout()">Salir</button>
+      </div>
+    </div>
+    <div class="nav">${tabs.map(t=>`<button class="nt ${tab===t.k?"on":""}" onclick="tab='${t.k}';sq='';render()"><i class="ti ${t.i}"></i>${t.l}</button>`).join("")}</div>
+    <div class="cnt">${con}</div>
+  </div>
+  ${mHTML}
+  ${toast?`<div class="toast">${toast}</div>`:""}`;
+}
+
+// Initial sync from Supabase on page load
+render(); // Show login first
+syncDown().then(()=>{
+  // After sync, if already logged in re-render with fresh data
+  if(sess)render();
+});
+</script>
+</body>
+</html>
