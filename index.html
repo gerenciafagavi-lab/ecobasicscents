@@ -186,6 +186,11 @@ async function syncDown(){
         if(row.key==="modelos")modelos=val;
         if(row.key==="stkseries")stkSeries=val;
         if(row.key==="cartuchos")cartuchos=val;
+        if(row.key==="customclients"){
+          // Apply custom clients and vendor assignments
+          if(val.clients){val.clients.forEach(c=>{if(!ALL_CLIENTS.includes(c))ALL_CLIENTS.push(c);});}
+          if(val.vc){Object.keys(val.vc).forEach(v=>{if(VC[v]){val.vc[v].forEach(c=>{if(!VC[v].includes(c))VC[v].push(c);});}});}
+        }
       }catch{}
     });
     return true;
