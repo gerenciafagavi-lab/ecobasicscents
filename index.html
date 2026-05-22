@@ -813,13 +813,24 @@ function saveCliente(){
 }
 
 // SOLICITUDES
-function openAddSolicitud(){modal={t:"addSolicitud"};render()}
+function openAddSolicitud(){modal={t:"addSolicitud",tipo:"prospecto"};render()}
+function setSolTipo(t){modal={...modal,tipo:t};render()}
+function completarSolicitud(id){
+  solicitudes=solicitudes.map(s=>s.id===id?{...s,estado:"completada",fechaComp:today()}:s);
+  sv("sols",solicitudes);render();showToast("Solicitud completada");
+}
+function cerrarSolicitud(id){
+  solicitudes=solicitudes.map(s=>s.id===id?{...s,estado:"cerrada",fechaComp:today()}:s);
+  sv("sols",solicitudes);render();showToast("Solicitud cerrada");
+}
 function saveSolicitud(){
   const nombre=document.getElementById("sol_n").value.trim();
   const vendedor=document.getElementById("sol_v").value;
   const notas=document.getElementById("sol_notas").value.trim();
+  const tipo=modal.tipo||"prospecto";
+  const clienteExist=tipo==="cliente"?document.getElementById("sol_ce")?.value?.trim()||"":"";
   if(!nombre||!vendedor){showToast("Nombre y vendedor requeridos");return;}
-  solicitudes=[{id:uid(),nombre,vendedor,notas,fecha:today(),estado:"pendiente"},...solicitudes];
+  solicitudes=[{id:uid(),nombre,vendedor,notas,fecha:today(),estado:"pendiente",tipo,clienteExist,creadoPor:sess.name},...solicitudes];
   sv("sols",solicitudes);modal=null;showToast("Solicitud enviada a "+vendedor);
 }
 function convertirCliente(id){
@@ -865,6 +876,40 @@ function delCartucho(nombre){
   cartuchos=nc;sv("cartuchos",cartuchos);render();
 }
 
+function getClientesVencidos(){
+  // Clients with no visit in 30+ days
+  const hoy=new Date();
+  const myClients=sess?.role==="admin"?ALL_CLIENTS:(VC[sess?.name]||[]);
+  return myClients.filter(c=>{
+    const lastVisit=visits.filter(v=>v.cliente===c).sort((a,b)=>new Date(b.fecha)-new Date(a.fecha))[0];
+    if(!lastVisit)return true; // Never visited
+    const dias=Math.floor((hoy-new Date(lastVisit.fecha))/(864e5));
+    return dias>=30;
+  });
+}
+
+function exportCSV(data, filename){
+  const rows=data.map(r=>Object.values(r).map(v=>'"'+String(v||"").replace(/"/g,'""')+'"').join(","));
+  const headers='"'+Object.keys(data[0]||{}).join('","')+'"';
+  const csv=[headers,...rows].join("\n");
+  const blob=new Blob([csv],{type:"text/csv;charset=utf-8;"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");a.href=url;a.download=filename;a.click();
+  URL.revokeObjectURL(url);
+}
+
+function exportPDF(title, headers, rows){
+  const w=window.open("","_blank");
+  const rowsHTML=rows.map(r=>`<tr>${r.map(c=>`<td style="padding:6px 10px;border-bottom:1px solid #eee;font-size:12px">${c||""}</td>`).join("")}</tr>`).join("");
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"/><title>${title}</title>
+  <style>body{font-family:Arial,sans-serif;padding:20px;color:#1a1a1a}h1{color:#1b3a2d;font-size:20px;margin-bottom:4px}.sub{font-size:13px;color:#7a8c83;margin-bottom:20px}table{width:100%;border-collapse:collapse}th{background:#1b3a2d;color:#fff;padding:8px 10px;font-size:12px;text-align:left}tr:hover{background:#f8fbf9}@media print{body{padding:10px}}</style>
+  </head><body>
+  <h1>${title}</h1><div class="sub">Generado: ${new Date().toLocaleDateString("es-SV",{dateStyle:"full"})}</div>
+  <table><thead><tr>${headers.map(h=>`<th>${h}</th>`).join("")}</tr></thead><tbody>${rowsHTML}</tbody></table>
+  <script>window.print();<\/script></body></html>`);
+  w.document.close();
+}
+
 function render(){
   const root=document.getElementById("root");
   const isA=sess?.role==="admin";
@@ -901,8 +946,8 @@ function render(){
   const totEq=Object.values(eqStk).reduce((a,b)=>a+b,0);
 
   const tabs=isA
-    ?[{k:"visit",i:"ti-clipboard-plus",l:"Registrar"},{k:"hist",i:"ti-list",l:"Visitas"},{k:"inv",i:"ti-box",l:"Esencias"},{k:"demos",i:"ti-eye",l:"Demos"},{k:"eqs",i:"ti-device-ipad",l:"Equipos"},{k:"clts",i:"ti-building",l:"Clientes"},{k:"sols",i:"ti-bell",l:"Solicitudes"},{k:"usrs",i:"ti-users",l:"Usuarios"},{k:"bajas",i:"ti-user-minus",l:"Bajas"},{k:"lost",i:"ti-trending-down",l:"Perdidos"},{k:"grades",i:"ti-gauge",l:"Intensidad"},{k:"config",i:"ti-settings",l:"Config"}]
-    :[{k:"visit",i:"ti-clipboard-plus",l:"Registrar"},{k:"hist",i:"ti-list",l:"Mis Visitas"},{k:"inv",i:"ti-box",l:"Esencias"},{k:"demos",i:"ti-eye",l:"Demos"},{k:"eqs",i:"ti-device-ipad",l:"Equipos"},{k:"bajas",i:"ti-user-minus",l:"Bajas"},{k:"sols",i:"ti-bell",l:"Solicitudes"}];
+    ?[{k:"visit",i:"ti-clipboard-plus",l:"Registrar"},{k:"hist",i:"ti-list",l:"Visitas"},{k:"inv",i:"ti-box",l:"Esencias"},{k:"demos",i:"ti-eye",l:"Demos"},{k:"eqs",i:"ti-device-ipad",l:"Equipos"},{k:"clts",i:"ti-building",l:"Clientes"},{k:"sols",i:"ti-bell",l:"Solicitudes",badge:solicitudes.filter(s=>s.vendedor===sess?.name&&s.estado==="pendiente").length},{k:"usrs",i:"ti-users",l:"Usuarios"},{k:"bajas",i:"ti-user-minus",l:"Bajas"},{k:"lost",i:"ti-trending-down",l:"Perdidos"},{k:"grades",i:"ti-gauge",l:"Intensidad"},{k:"reports",i:"ti-file-export",l:"Reportes"},{k:"config",i:"ti-settings",l:"Config"}]
+    :[{k:"visit",i:"ti-clipboard-plus",l:"Registrar"},{k:"hist",i:"ti-list",l:"Mis Visitas"},{k:"inv",i:"ti-box",l:"Esencias"},{k:"demos",i:"ti-eye",l:"Demos"},{k:"eqs",i:"ti-device-ipad",l:"Equipos"},{k:"bajas",i:"ti-user-minus",l:"Bajas"},{k:"sols",i:"ti-bell",l:"Solicitudes",badge:solicitudes.filter(s=>s.vendedor===sess?.name&&s.estado==="pendiente").length}];
 
   let con="";
 
@@ -1421,35 +1466,108 @@ function render(){
   // SOLICITUDES
   else if(tab==="sols"){
     const mySols=isA?solicitudes:solicitudes.filter(s=>s.vendedor===sess.name);
-    const pendientes=mySols.filter(s=>s.estado==="pendiente");
-    const convertidas=mySols.filter(s=>s.estado==="convertido");
-    con=`<p class="pt">Solicitudes de instalacion</p>
-    <p class="ps">${pendientes.length} pendiente${pendientes.length!==1?"s":""} · ${convertidas.length} convertida${convertidas.length!==1?"s":""}</p>
-    ${isA?`<button class="btn-add" onclick="openAddSolicitud()"><i class="ti ti-plus"></i> Nueva solicitud</button>`:""}
-    ${pendientes.length===0?`<div class="empty"><i class="ti ti-bell-off"></i>Sin solicitudes pendientes</div>`
-    :pendientes.map(s=>`<div class="card sl" style="border-left-color:#3456a0">
+    const pendSols=mySols.filter(s=>s.estado==="pendiente");
+    const compSols=mySols.filter(s=>s.estado==="completada"||s.estado==="cerrada"||s.estado==="convertido");
+    const vencidos=getClientesVencidos();
+    con=`<p class="pt">Solicitudes</p>
+    <p class="ps">${pendSols.length} pendiente${pendSols.length!==1?"s":""}</p>
+    
+    ${vencidos.length>0?`<div style="background:#fdecea;border:1px solid #f5c6c6;border-radius:var(--R);padding:12px 14px;margin-bottom:14px">
+      <div style="font-weight:700;color:var(--D);font-size:13px;margin-bottom:8px"><i class="ti ti-clock" style="font-size:14px;vertical-align:-2px"></i> ${vencidos.length} cliente${vencidos.length!==1?"s":""} sin visita en 30+ días</div>
+      ${vencidos.slice(0,5).map(c=>`<div style="font-size:12px;color:var(--D);padding:3px 0;border-bottom:1px solid rgba(192,57,43,.1)">• ${c}</div>`).join("")}
+      ${vencidos.length>5?`<div style="font-size:11px;color:var(--M);margin-top:4px">+${vencidos.length-5} más...</div>`:""}
+    </div>`:""}
+
+    <button class="btn-add" onclick="openAddSolicitud()"><i class="ti ti-plus"></i> Nueva solicitud</button>
+    
+    ${pendSols.length===0?`<div class="empty"><i class="ti ti-bell-off"></i>Sin solicitudes pendientes</div>`
+    :pendSols.map(s=>`<div class="card sl" style="border-left-color:#3456a0">
       <div class="ch">
         <div>
           <div class="ct">${s.nombre}</div>
-          <div class="cs">Asignado a: <strong>${s.vendedor}</strong> · ${fmtD(s.fecha)}</div>
+          <div class="cs">${s.creadoPor||"Admin"} → <strong>${s.vendedor}</strong> · ${fmtD(s.fecha)}</div>
         </div>
         <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">
-          <span class="chip chip-b" style="font-size:10px">Pendiente</span>
-          ${isA?`<button class="be" style="font-size:11px;padding:4px 8px" onclick="convertirCliente('${s.id}')">Convertir a cliente</button>`:""}
+          <span class="chip ${s.tipo==='cliente'?'chip-b':'chip-g'}" style="font-size:10px">${s.tipo==="cliente"?"Cliente existente":"Prospecto nuevo"}</span>
+          <span class="chip" style="font-size:10px;background:#e8f0ff;color:#3456a0">Pendiente</span>
         </div>
       </div>
-      ${s.notas?`<div style="font-size:12px;color:var(--M);margin-top:6px">${s.notas}</div>`:""}
-      ${isA?`<div style="display:flex;justify-content:flex-end;margin-top:6px"><button class="del" onclick="delSolicitud('${s.id}')">Eliminar</button></div>`:""}
+      ${s.clienteExist?`<div style="font-size:12px;color:#3456a0;margin-top:4px"><i class="ti ti-building" style="font-size:12px"></i> ${s.clienteExist}</div>`:""}
+      ${s.notas?`<div style="font-size:12px;color:var(--M);margin-top:5px">${s.notas}</div>`:""}
+      <div style="display:flex;gap:6px;margin-top:8px;justify-content:flex-end">
+        <button class="be" style="font-size:11px;padding:4px 10px;background:#e8f5ee;color:var(--F)" onclick="completarSolicitud('${s.id}')">✓ Completar</button>
+        <button class="be" style="font-size:11px;padding:4px 10px;background:#f0f0f0;color:var(--M)" onclick="cerrarSolicitud('${s.id}')">✕ Cerrar</button>
+        ${isA&&s.tipo==="prospecto"?`<button class="be" style="font-size:11px;padding:4px 10px" onclick="convertirCliente('${s.id}')">+ Cliente</button>`:""}
+        ${isA?`<button class="del" onclick="delSolicitud('${s.id}')">🗑</button>`:""}
+      </div>
     </div>`).join("")}
-    ${convertidas.length>0?`<p style="font-size:12px;font-weight:700;color:var(--M);margin:16px 0 10px">CONVERTIDAS (${convertidas.length})</p>
-    ${convertidas.map(s=>`<div class="card" style="opacity:.75">
+
+    ${compSols.length>0?`<p style="font-size:12px;font-weight:700;color:var(--M);margin:16px 0 10px">HISTORIAL (${compSols.length})</p>
+    ${compSols.slice(0,10).map(s=>`<div class="card" style="opacity:.75">
       <div class="ch">
-        <div><div class="ct" style="color:#999">${s.nombre}</div>
-          <div class="cs">${s.vendedor} · ${fmtD(s.fecha)}</div>
-        </div>
-        <span class="chip" style="font-size:10px;background:#e8f5ee;color:var(--F)">✓ ${s.clienteCreado||"Convertido"}</span>
+        <div><div class="ct" style="color:#999;font-size:12px">${s.nombre}</div>
+          <div class="cs">${s.vendedor} · ${fmtD(s.fecha)}</div></div>
+        <span class="chip" style="font-size:10px;background:${s.estado==="completada"?"#e8f5ee":s.estado==="cerrada"?"#f0f0f0":"#e8f5ee"};color:${s.estado==="completada"?"var(--F)":s.estado==="cerrada"?"var(--M)":"var(--F)"}">
+          ${s.estado==="completada"?"✓ Completada":s.estado==="cerrada"?"✕ Cerrada":"✓ Convertida"}
+        </span>
       </div>
     </div>`).join("")}`:""}`;
+  }
+
+  // REPORTES
+  else if(tab==="reports"&&isA){
+    const rFrom=window._rFrom||"";
+    const rTo=window._rTo||"";
+    const rType=window._rType||"visitas";
+    
+    // Filter data
+    let reportData=rType==="visitas"?visits:visits.filter(v=>v.prob);
+    if(rFrom)reportData=reportData.filter(v=>v.fecha>=rFrom);
+    if(rTo)reportData=reportData.filter(v=>v.fecha<=rTo+"T23:59:59");
+    
+    con=`<p class="pt">Reportes</p><p class="ps">Exporta visitas y reclamos por periodo</p>
+    <div class="card" style="margin-bottom:14px">
+      <div style="display:flex;gap:6px;margin-bottom:12px">
+        <button onclick="window._rType='visitas';render()" style="flex:1;padding:9px;border-radius:var(--R);border:1px solid ${rType==='visitas'?'var(--F)':'#dde8e2'};background:${rType==='visitas'?'var(--F)':'none'};color:${rType==='visitas'?'#fff':'var(--M)'};font-size:12px;font-weight:600;cursor:pointer">Visitas</button>
+        <button onclick="window._rType='reclamos';render()" style="flex:1;padding:9px;border-radius:var(--R);border:1px solid ${rType==='reclamos'?'var(--D)':'#dde8e2'};background:${rType==='reclamos'?'var(--D)':'none'};color:${rType==='reclamos'?'#fff':'var(--M)'};font-size:12px;font-weight:600;cursor:pointer">Reclamos/Problemas</button>
+      </div>
+      <div class="fr" style="margin-bottom:10px">
+        <div><label class="lbl">Desde</label>
+          <input type="date" class="inp" style="font-size:13px" value="${rFrom}" onchange="window._rFrom=this.value;render()"/>
+        </div>
+        <div><label class="lbl">Hasta</label>
+          <input type="date" class="inp" style="font-size:13px" value="${rTo}" onchange="window._rTo=this.value;render()"/>
+        </div>
+      </div>
+      ${rFrom||rTo?`<button onclick="window._rFrom='';window._rTo='';render()" style="font-size:12px;color:var(--M);background:none;border:none;cursor:pointer;padding:4px 0">Limpiar filtros</button>`:""}
+    </div>
+    <div style="background:#f0f7f4;border-radius:var(--R);padding:12px 14px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between">
+      <div>
+        <div style="font-weight:700;font-size:15px;color:var(--F)">${reportData.length} registro${reportData.length!==1?"s":""}</div>
+        <div style="font-size:12px;color:var(--M)">${rType==="visitas"?"Todas las visitas":"Solo visitas por problema"}${rFrom?" · desde "+fmtD(rFrom):""}${rTo?" · hasta "+fmtD(rTo):""}</div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button onclick="exportCSV(${JSON.stringify(reportData.map(v=>({Fecha:fmt(v.fecha),Vendedor:v.vnd,Cliente:v.cliente,Modelo:v.modelo,Serie:v.serie,Esencia:v.esencia,ML:v.ml,Problema:v.prob?'Si':'No',Notas:v.notas||''})))}, '${rType}_${rFrom||'todo'}_${rTo||'hoy'}.csv')" 
+          style="padding:9px 14px;background:#1b3a2d;color:#fff;border:none;border-radius:var(--R);font-size:12px;font-weight:600;cursor:pointer">
+          <i class="ti ti-file-spreadsheet" style="font-size:14px;vertical-align:-2px"></i> Excel/CSV
+        </button>
+        <button onclick="exportPDF('${rType==='visitas'?'Reporte de Visitas':'Reporte de Reclamos'}',['Fecha','Vendedor','Cliente','Modelo','Serie','Esencia','ML','Problema','Notas'],${JSON.stringify(reportData.map(v=>[fmt(v.fecha),v.vnd,v.cliente,v.modelo,v.serie,v.esencia,v.ml,v.prob?'Si':'No',v.notas||'']))})"
+          style="padding:9px 14px;background:#c0392b;color:#fff;border:none;border-radius:var(--R);font-size:12px;font-weight:600;cursor:pointer">
+          <i class="ti ti-file-type-pdf" style="font-size:14px;vertical-align:-2px"></i> PDF
+        </button>
+      </div>
+    </div>
+    ${reportData.length===0?`<div class="empty"><i class="ti ti-file-off"></i>Sin registros para este periodo</div>`
+    :reportData.slice(0,20).map(v=>`<div class="card sl" style="padding:10px 12px;margin-bottom:6px">
+      <div class="ch">
+        <div><div class="ct" style="font-size:12px">${v.cliente}</div><div class="cs">${fmt(v.fecha)} · ${v.vnd}</div></div>
+        <div style="display:flex;gap:4px">${v.prob?`<span class="chip chip-r" style="font-size:10px">Problema</span>`:""}
+          <span class="chip" style="font-size:10px">${v.ml}ml</span>
+        </div>
+      </div>
+      ${v.esencia?`<div class="mr"><span class="chip chip-g" style="font-size:10px">${v.esencia}</span>${v.serie?`<span class="chip chip-b" style="font-size:10px">${v.modelo}·${v.serie}</span>`:""}</div>`:""}
+    </div>`).join("")}
+    ${reportData.length>20?`<div style="text-align:center;font-size:12px;color:var(--M);padding:10px">Mostrando 20 de ${reportData.length}. Exporta para ver todos.</div>`:""}`;
   }
 
   // MODAL
@@ -1733,27 +1851,38 @@ function render(){
     }
     else if(t==="addSolicitud"){
       const activeVnds=vendors.filter(v=>v.active!==false&&v.role!=="admin");
+      const tipoSol=modal.tipo||"prospecto";
       mHTML=`<div class="mb-bg" onclick="if(event.target===this){modal=null;render()}"><div class="mb">
         <div class="mb-t" style="color:#3456a0"><i class="ti ti-bell" style="font-size:20px;vertical-align:-3px"></i> Nueva solicitud</div>
-        <div class="fw"><label class="lbl">Nombre del prospecto *</label>
-          <input class="inp" id="sol_n" placeholder="Ej: Restaurante El Jardin"/>
+        <div class="fw"><label class="lbl">Tipo de solicitud *</label>
+          <div style="display:flex;gap:8px;margin-bottom:4px">
+            <button onclick="setSolTipo('prospecto')" style="flex:1;padding:10px;border-radius:var(--R);border:2px solid ${tipoSol==='prospecto'?'#3456a0':'#dde8e2'};background:${tipoSol==='prospecto'?'#e8f0ff':'none'};color:${tipoSol==='prospecto'?'#3456a0':'var(--M)'};font-size:12px;font-weight:700;cursor:pointer">
+              <i class="ti ti-user-plus" style="font-size:16px;display:block;margin-bottom:3px"></i>Prospecto nuevo
+            </button>
+            <button onclick="setSolTipo('cliente')" style="flex:1;padding:10px;border-radius:var(--R);border:2px solid ${tipoSol==='cliente'?'#3456a0':'#dde8e2'};background:${tipoSol==='cliente'?'#e8f0ff':'none'};color:${tipoSol==='cliente'?'#3456a0':'var(--M)'};font-size:12px;font-weight:700;cursor:pointer">
+              <i class="ti ti-building" style="font-size:16px;display:block;margin-bottom:3px"></i>Cliente existente
+            </button>
+          </div>
         </div>
+        <div class="fw"><label class="lbl">${tipoSol==="cliente"?"Descripcion / Motivo *":"Nombre del prospecto *"}</label>
+          <input class="inp" id="sol_n" placeholder="${tipoSol==="cliente"?"Ej: Revision de equipo, problema con aroma...":"Ej: Restaurante El Jardin"}"/>
+        </div>
+        ${tipoSol==="cliente"?`<div class="fw"><label class="lbl">Cliente *</label>
+          <input class="inp" id="sol_ce" placeholder="Nombre del cliente" list="sol_cl"/>
+          <datalist id="sol_cl">${ALL_CLIENTS.map(c=>`<option>${c}</option>`).join("")}</datalist>
+        </div>`:""}
         <div class="fw"><label class="lbl">Vendedor asignado *</label>
           <select class="inp" id="sol_v">
             <option value="">Selecciona vendedor...</option>
-            ${activeVnds.map(v=>`<option value="${v.name}">${v.name}</option>`).join("")}
+            ${activeVnds.map(v=>`<option value="${v.name}" ${v.name===sess.name?"selected":""}>${v.name}</option>`).join("")}
           </select>
         </div>
-        <div class="fw"><label class="lbl">Notas para el vendedor</label>
-          <textarea class="inp" id="sol_notas" placeholder="Instrucciones, direccion, contacto..."></textarea>
-        </div>
-        <div style="background:#e8f0ff;border-radius:var(--R);padding:10px 12px;font-size:12px;color:#3456a0;margin-bottom:14px">
-          <i class="ti ti-info-circle" style="font-size:13px;vertical-align:-1px"></i>
-          El vendedor vera esta solicitud en su pestaña de Solicitudes.
+        <div class="fw"><label class="lbl">Notas</label>
+          <textarea class="inp" id="sol_notas" placeholder="${tipoSol==="cliente"?"Detalle del problema o solicitud...":"Instrucciones, direccion, contacto..."}"></textarea>
         </div>
         <div class="mb-act">
           <button class="btn-c" onclick="modal=null;render()">Cancelar</button>
-          <button class="btn" style="background:#3456a0" onclick="saveSolicitud()">Enviar solicitud</button>
+          <button class="btn" style="background:#3456a0" onclick="saveSolicitud()">Enviar</button>
         </div>
       </div></div>`;
     }
@@ -2052,7 +2181,10 @@ function render(){
         <button class="btn-o" onclick="logout()">Salir</button>
       </div>
     </div>
-    <div class="nav">${tabs.map(t=>`<button class="nt ${tab===t.k?"on":""}" onclick="tab='${t.k}';sq='';render()"><i class="ti ${t.i}"></i>${t.l}</button>`).join("")}</div>
+    <div class="nav">${tabs.map(t=>`<button class="nt ${tab===t.k?"on":""}" onclick="tab='${t.k}';sq='';render()" style="position:relative">
+  <i class="ti ${t.i}"></i>${t.l}
+  ${t.badge?`<span style="position:absolute;top:4px;right:4px;background:var(--D);color:#fff;border-radius:50%;width:16px;height:16px;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center">${t.badge}</span>`:""}
+</button>`).join("")}</div>
     <div class="cnt">${con}</div>
   </div>
   ${mHTML}
