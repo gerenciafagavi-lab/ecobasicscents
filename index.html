@@ -1955,9 +1955,8 @@ function render(){
 
 // Initial sync from Supabase on page load
 render(); // Show login first
-syncDown().then(()=>{
-  // After sync, if already logged in re-render with fresh data
-  if(sess)render();
+syncDown().then(ok=>{
+  render(); // Always re-render after sync with fresh data
 });
 </script>
 </body>
