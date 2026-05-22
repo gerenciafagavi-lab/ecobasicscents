@@ -241,8 +241,7 @@ const CONSUME={
   "AE701":{1:26.0,2:28.9,3:32.5,4:37.1,5:43.3,6:51.8,7:64.6,8:85.7,9:127.4,10:248.1},
   "AE301":{1:20.9,2:23.3,3:26.2,4:29.9,5:34.8,6:41.7,7:52.1,8:69.3,9:103.3,10:203.3}
 };
-// AE3500 uses On/Off time directly (seconds)
-// ml/sec = 0.00099537 (Inspiration), hours per day = 10
+// AE3500 and Radiant use On/Off time directly (seconds)
 const AE3500_ML_PER_SEC=0.00099537;
 const AE3500_HOURS=10;
 function calcAE3500(onSec,offSec){
@@ -250,6 +249,10 @@ function calcAE3500(onSec,offSec){
   const mlPerDay=(onSec/(onSec+offSec))*AE3500_HOURS*3600*AE3500_ML_PER_SEC;
   return Math.round(mlPerDay*31*10)/10;
 }
+// AE101BAT grades 1-5 (manual) - estimated ml/month
+const CONSUME_101BAT={1:15,2:25,3:40,4:60,5:90};
+const ONOFF_MODELS=["AE3500","Radiant"];
+const MOTION_MODELS=["AE101BAT"];
 let nivMin=ld("nvm",Object.fromEntries(SCENTS.map(s=>[s,500])));
 let tab="visit",toast=null,sq="";
 let selC="",selEq=null,selS="",mlV="",notV="";
@@ -336,6 +339,16 @@ function regVisit(){
   const v={id:uid(),fecha:new Date().toISOString(),vnd:sess.name,cliente:selC,modelo:selEq?.modelo||"",serie:selEq?.serie||"",area:selEq?.area||"",esencia:selS||"",ml,notas:notV,prob:!!(window._prob)};
   visits=[v,...visits];
   if(selS&&ml>0)inv={...inv,[selS]:(inv[selS]||0)-ml};
+  // Auto-deduct cartucho for FMATIC Blanco/Negro
+  const eqModelo=selEq?.modelo||"";
+  if((eqModelo==="FMATIC Blanco"||eqModelo==="FMATIC Negro")&&selS&&selS.startsWith("Cartucho")){
+    if((cartuchos[selS]||0)>0){
+      cartuchos={...cartuchos,[selS]:(cartuchos[selS]||0)-1};
+      sv("cartuchos",cartuchos);
+    } else {
+      showToast("⚠ Sin stock de "+selS);
+    }
+  }
   sv("vis",visits);sv("inv",inv);
   selC="";selEq=null;selS="";mlV="";notV="";window._prob=false;
   showToast("Visita registrada");
@@ -578,7 +591,10 @@ function saveCambioAroma(){
 }
 
 function openGradeChange(cliente, eq){
-  const tipo=eq.modelo==="AE3500"?"gradeOnOff":"gradeChange";
+  let tipo;
+  if(eq.modelo==="AE3500"||eq.modelo==="Radiant")tipo="gradeOnOff";
+  else if(eq.modelo==="AE101BAT")tipo="grade101bat";
+  else tipo="gradeChange";
   modal={t:tipo, c:cliente, eq};render();
 }
 function saveGradeChange(){
@@ -608,6 +624,35 @@ function saveGradeChange(){
   modal=null;
   if(changed&&newGrade>cotizado){showToast("Alerta: grado subio del cotizado!");}
   else{showToast(`Grado actualizado a ${newGrade}`);}
+}
+
+function saveGrade101BAT(){
+  const modo=document.getElementById("bat_modo").value;
+  const grade=modo==="manual"?(parseInt(document.getElementById("bat_grade").value)||0):0;
+  const notas=document.getElementById("bat_n").value.trim();
+  if(modo==="manual"&&(grade<1||grade>5)){showToast("Selecciona un nivel del 1 al 5");return;}
+  const eq=modal.eq;
+  const serie=eq.serie;
+  const prev=eqGrades[serie];
+  const prevGrade=prev?.grade||null;
+  const prevModo=prev?.modo||null;
+  const cotizado=prev?.gradeCotizado||(modo==="manual"?grade:0);
+  const alerta=modo==="manual"&&cotizado&&grade>cotizado;
+  eqGrades={...eqGrades,[serie]:{
+    tipo:"bat101",modo,grade:modo==="manual"?grade:null,
+    gradeCotizado:cotizado,
+    mlMes:modo==="manual"?CONSUME_101BAT[grade]:null,
+    fechaCambio:new Date().toISOString(),
+    changedBy:sess.name,
+    history:[...((prev?.history)||[]),{modo,grade,fecha:new Date().toISOString(),by:sess.name,notas}]
+  }};
+  sv("eqgrades",eqGrades);
+  const reg={id:uid(),fecha:new Date().toISOString(),vnd:sess.name,cliente:modal.c,modelo:eq.modelo,serie,area:eq.area||"",esencia:eq.aroma||"",ml:0,
+    notas:`AE101BAT: ${modo==="motion"?"Motion sensor (automatico)":`Nivel ${grade}${prevGrade&&prevGrade!==grade?` (antes: ${prevGrade})`:""}`}${notas?" · "+notas:""}`,
+    gradeCambio:true,alerta};
+  visits=[reg,...visits];sv("vis",visits);
+  modal=null;
+  showToast(modo==="motion"?"Motion sensor configurado":`Nivel ${grade} guardado`);
 }
 
 function saveGradeOnOff(){
@@ -737,6 +782,10 @@ function getGradeDisplay(serie){
   const gi=eqGrades[serie];
   if(!gi)return"";
   if(gi.tipo==="onoff")return' <span style="font-size:10px;color:#3456a0;font-weight:600">On:'+gi.onSec+'s Off:'+gi.offSec+'s</span>';
+  if(gi.tipo==="bat101"){
+    if(gi.modo==="motion")return' <span style="font-size:10px;color:#3456a0;font-weight:600"><i class="ti ti-radar" style="font-size:10px"></i> Motion</span>';
+    if(gi.grade){const alerta=gi.gradeCotizado&&gi.grade>gi.gradeCotizado;return' <span style="font-size:10px;font-weight:700;color:'+(alerta?'var(--D)':'#3456a0')+'">N'+gi.grade+(alerta?' ⚠':'')+'</span>';}
+  }
   if(gi.grade){
     const alerta=gi.gradeCotizado&&gi.grade>gi.gradeCotizado;
     return' <span style="font-size:10px;font-weight:700;color:'+(alerta?'var(--D)':'#3456a0')+'">G'+gi.grade+(alerta?' ⚠':'')+'</span>';
@@ -872,7 +921,7 @@ function render(){
           <div style="text-align:right">
             <div class="eq-a">${eq.area||""}</div>
             <div class="eq-ar">${eq.aroma||""}</div>
-            ${hasGrade||eq.modelo==="AE3500"?`<div style="margin-top:3px">
+            ${hasGrade||(eq.modelo==="AE3500"||eq.modelo==="Radiant")?`<div style="margin-top:3px">
               ${eq.modelo==="AE3500"?
                 (eqGrades[eq.serie]?.onSec?`<span style="font-size:10px;padding:1px 6px;border-radius:10px;font-weight:700;background:${eqGrades[eq.serie]?.alerta?"#c0392b":selEq?.serie===eq.serie?"rgba(255,255,255,.25)":"#e8f5ee"};color:${eqGrades[eq.serie]?.alerta?"#fff":selEq?.serie===eq.serie?"#fff":"var(--F)"}">On:${eqGrades[eq.serie].onSec}s Off:${eqGrades[eq.serie].offSec}s${eqGrades[eq.serie]?.alerta?" ⚠":""}</span>`:`<span style="font-size:10px;color:${selEq?.serie===eq.serie?"rgba(255,255,255,.6)":"var(--M)"}">sin config</span>`)
                 :curGrade?`<span style="font-size:10px;padding:1px 6px;border-radius:10px;font-weight:700;background:${alerta?"#c0392b":selEq?.serie===eq.serie?"rgba(255,255,255,.25)":"#e8f5ee"};color:${alerta?"#fff":selEq?.serie===eq.serie?"#fff":"var(--F)"}">G${curGrade}${alerta?" ⚠":""}</span>`:`<span style="font-size:10px;color:${selEq?.serie===eq.serie?"rgba(255,255,255,.6)":"var(--M)"}">sin grado</span>`}
@@ -881,8 +930,10 @@ function render(){
         </div>`;
       }).join("")}</div>`
       :(selC?`<div style="background:#fffbe8;border:1px solid #ffe;border-radius:var(--R);padding:10px 12px;font-size:12px;color:#856404;margin-bottom:12px">Sin equipos registrados. El admin puede agregarlos en Clientes.</div><div class="fw"><div class="fr"><div><label class="lbl">Modelo</label><select class="inp" id="mmm">${modelos.map(m=>`<option>${m}</option>`).join("")}</select></div><div><label class="lbl">Serie</label><input class="inp" placeholder="Nro serie" oninput="selEq={modelo:document.getElementById('mmm').value,serie:this.value,area:'',aroma:''}"/></div></div></div>`:"");
+    const isFmatic=selEq?.modelo==="FMATIC Blanco"||selEq?.modelo==="FMATIC Negro";
     const aH=selEq?.aroma?`<div class="ah" style="display:flex;align-items:center;justify-content:space-between">
-      <span>Aroma asignado: <strong>${selEq.aroma}</strong></span>
+      <span>${isFmatic?"Cartucho asignado":"Aroma asignado"}: <strong>${selEq.aroma}</strong></span>
+      ${isFmatic?`<span style="font-size:11px;color:#8a6520">Stock: ${cartuchos[selEq.aroma]||0} unidades</span>`:""}
     </div>`:"";
     const probBtnStyle=window._prob?"background:#c0392b;border-color:#c0392b;color:#fff":"background:#fdecea;border-color:#f5c6c6;color:#c0392b";
     con=`<p class="pt">Registrar visita</p><p class="ps">Selecciona cliente y equipo visitado</p>
@@ -898,8 +949,9 @@ function render(){
           ${getAllScents().map(s=>`<option value="${s}" ${s===selS?"selected":""}>${s} (${inv[s]||0}ml)</option>`).join("")}
         </select>
       </div>
-      <div class="fw"><label class="lbl">ML *</label>
-        <input type="number" class="inp" placeholder="100" min="1" value="${mlV}" oninput="mlV=this.value"/>
+      <div class="fw"><label class="lbl">${isFmatic?"Cartuchos utilizados":"ML *"}</label>
+        <input type="number" class="inp" placeholder="${isFmatic?"1":"100"}" min="${isFmatic?"0":"1"}" value="${mlV}" oninput="mlV=this.value"/>
+        ${isFmatic?`<div style="font-size:11px;color:var(--M);margin-top:3px">Pon 0 si solo fue visita de revision, 1 si se cambio el cartucho</div>`:""}
       </div>
     </div>
     <div class="fw"><label class="lbl">Notas</label>
@@ -1236,10 +1288,10 @@ function render(){
     // All equipos with grades
     const allEqsWithGrades=[];
     ALL_CLIENTS.forEach(c=>{
-      const eqs=getClientEqs(c).filter(e=>!e._del&&(CONSUME[e.modelo]||e.modelo==="AE3500"));
+      const eqs=getClientEqs(c).filter(e=>!e._del&&(CONSUME[e.modelo]||ONOFF_MODELS.includes(e.modelo)||MOTION_MODELS.includes(e.modelo)));
       eqs.forEach(eq=>{
         const gi=eqGrades[eq.serie];
-        if(eq.modelo==="AE3500"){
+        if(ONOFF_MODELS.includes(eq.modelo)){
           const consumeActual=gi?.mlMes||null;
           const consumeCotizado=gi?.mlMesCotizado||null;
           const alerta=consumeActual&&consumeCotizado&&consumeActual>consumeCotizado*1.1;
@@ -1510,6 +1562,51 @@ function render(){
           </div>
         </div></div>`;
       }
+    }
+    else if(t==="grade101bat"){
+      const eq=modal.eq||{};
+      const gi=eqGrades[eq.serie]||{};
+      const curModo=gi.modo||"motion";
+      const curGrade=gi.grade||3;
+      mHTML=`<div class="mb-bg" onclick="if(event.target===this){modal=null;render()}"><div class="mb">
+        <div class="mb-t" style="color:#3456a0"><i class="ti ti-gauge" style="font-size:20px;vertical-align:-3px"></i> Intensidad AE101BAT</div>
+        <p class="ps" style="margin-top:-10px;margin-bottom:14px">${eq.serie}${eq.area?" · "+eq.area:""}</p>
+        <div class="fw"><label class="lbl">Modo de operacion *</label>
+          <div style="display:flex;gap:8px;margin-bottom:14px">
+            <button onclick="document.getElementById('bat_modo').value='motion';document.getElementById('bat_manual_sec').style.display='none';this.style.background='var(--F)';this.style.color='#fff';this.nextElementSibling.style.background='none';this.nextElementSibling.style.color='var(--M)'" 
+              style="flex:1;padding:12px;border-radius:var(--R);border:2px solid ${curModo==='motion'?'var(--F)':'#dde8e2'};background:${curModo==='motion'?'var(--F)':'none'};color:${curModo==='motion'?'#fff':'var(--M)'};font-size:13px;font-weight:700;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px">
+              <i class="ti ti-radar" style="font-size:20px"></i>
+              Motion Sensor
+              <span style="font-size:10px;font-weight:400">Activacion automatica</span>
+            </button>
+            <button onclick="document.getElementById('bat_modo').value='manual';document.getElementById('bat_manual_sec').style.display='block';this.style.background='var(--F)';this.style.color='#fff';this.previousElementSibling.style.background='none';this.previousElementSibling.style.color='var(--M)'"
+              style="flex:1;padding:12px;border-radius:var(--R);border:2px solid ${curModo==='manual'?'var(--F)':'#dde8e2'};background:${curModo==='manual'?'var(--F)':'none'};color:${curModo==='manual'?'#fff':'var(--M)'};font-size:13px;font-weight:700;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px">
+              <i class="ti ti-adjustments" style="font-size:20px"></i>
+              Manual
+              <span style="font-size:10px;font-weight:400">Niveles 1 al 5</span>
+            </button>
+          </div>
+          <input type="hidden" id="bat_modo" value="${curModo}"/>
+        </div>
+        <div id="bat_manual_sec" style="display:${curModo==='manual'?'block':'none'}">
+          <label class="lbl">Nivel de intensidad *</label>
+          <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:6px">
+            ${[1,2,3,4,5].map(g=>`<button onclick="document.querySelectorAll('.gb101').forEach(b=>{b.style.background='none';b.style.color='var(--M)';b.style.borderColor='#dde8e2'});this.style.background='var(--F)';this.style.color='#fff';this.style.borderColor='var(--F)';document.getElementById('bat_grade').value='${g}'" class="gb101" style="padding:10px 4px;border:2px solid ${curGrade===g&&curModo==='manual'?'var(--F)':'#dde8e2'};border-radius:8px;background:${curGrade===g&&curModo==='manual'?'var(--F)':'none'};color:${curGrade===g&&curModo==='manual'?'#fff':'var(--M)'};cursor:pointer;font-weight:700;font-size:13px">
+              <div>N${g}</div>
+              <div style="font-size:9px;font-weight:400">${CONSUME_101BAT[g]}ml</div>
+            </button>`).join("")}
+          </div>
+          <input type="hidden" id="bat_grade" value="${curGrade}"/>
+          <div style="font-size:11px;color:var(--M);margin-bottom:12px">Estimado mensual por nivel</div>
+        </div>
+        <div class="fw"><label class="lbl">Notas (opcional)</label>
+          <textarea class="inp" id="bat_n" placeholder="Observaciones..."></textarea>
+        </div>
+        <div class="mb-act">
+          <button class="btn-c" onclick="modal=null;render()">Cancelar</button>
+          <button class="btn" style="background:#3456a0" onclick="saveGrade101BAT()">Guardar configuracion</button>
+        </div>
+      </div></div>`;
     }
     else if(t==="gradeOnOff"){
       const eq=modal.eq||{};
