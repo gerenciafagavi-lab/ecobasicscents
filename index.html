@@ -260,17 +260,26 @@ function logout(){sess=null;sv("sess",null);tab="visit";render()}
 function doSync(){
   showToast("Sincronizando...");
   syncDown().then(ok=>{
-    if(ok){render();showToast("Datos actualizados");}
-    else showToast("Error de conexion");
+    if(ok){
+      // Force apply customclients from localStorage after sync
+      const cc=ld("customclients",{clients:[],vc:{}});
+      if(cc.clients){cc.clients.forEach(c=>{if(!ALL_CLIENTS.includes(c))ALL_CLIENTS.push(c);});}
+      if(cc.vc){Object.keys(cc.vc).forEach(v=>{if(!VC[v])VC[v]=[];cc.vc[v].forEach(c=>{if(!VC[v].includes(c))VC[v].push(c);});});}
+      render();
+      showToast("✓ "+ALL_CLIENTS.length+" clientes sincronizados");
+    } else {
+      showToast("Error de conexion");
+    }
   });
 }
 function saveSess(s){
   sess=s;
   sv("sess",s);
-  // Sync latest data from Supabase on login
   syncDown().then(ok=>{
-    if(ok)render();
-    else render();
+    const cc=ld("customclients",{clients:[],vc:{}});
+    if(cc.clients){cc.clients.forEach(c=>{if(!ALL_CLIENTS.includes(c))ALL_CLIENTS.push(c);});}
+    if(cc.vc){Object.keys(cc.vc).forEach(v=>{if(!VC[v])VC[v]=[];cc.vc[v].forEach(c=>{if(!VC[v].includes(c))VC[v].push(c);});});}
+    render();
   });
 }
 
@@ -1954,9 +1963,12 @@ function render(){
 }
 
 // Initial sync from Supabase on page load
-render(); // Show login first
+render();
 syncDown().then(ok=>{
-  render(); // Always re-render after sync with fresh data
+  const cc=ld("customclients",{clients:[],vc:{}});
+  if(cc.clients){cc.clients.forEach(c=>{if(!ALL_CLIENTS.includes(c))ALL_CLIENTS.push(c);});}
+  if(cc.vc){Object.keys(cc.vc).forEach(v=>{if(!VC[v])VC[v]=[];cc.vc[v].forEach(c=>{if(!VC[v].includes(c))VC[v].push(c);});});}
+  render();
 });
 </script>
 </body>
