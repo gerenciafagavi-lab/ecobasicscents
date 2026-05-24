@@ -2275,6 +2275,19 @@ syncDown().then(ok=>{
   if(cc.vc){Object.keys(cc.vc).forEach(v=>{if(!VC[v])VC[v]=[];cc.vc[v].forEach(c=>{if(!VC[v].includes(c))VC[v].push(c);});});}
   render();
 });
+
+// Auto-sync every 2 minutes when logged in
+setInterval(()=>{
+  if(!sess)return;
+  syncDown().then(ok=>{
+    if(ok){
+      const cc=ld("customclients",{clients:[],vc:{}});
+      if(cc.clients){cc.clients.forEach(c=>{if(!ALL_CLIENTS.includes(c))ALL_CLIENTS.push(c);});}
+      if(cc.vc){Object.keys(cc.vc).forEach(v=>{if(!VC[v])VC[v]=[];cc.vc[v].forEach(c=>{if(!VC[v].includes(c))VC[v].push(c);});});}
+      render();
+    }
+  });
+}, 2*60*1000);
 </script>
 </body>
 </html>
