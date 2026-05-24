@@ -229,7 +229,7 @@ let ceq=ld("ceq",{}); // custom client equipment overrides
 let demos=ld("demos",[]);
 let eqStk=ld("eqs",{"AE301":0,"AE701":0,"AE3500":0,"Radiant":0,"FMATIC":0});
 let stkSeries=ld("stkseries",{});
-let cartuchos=ld("cartuchos",{"Cartucho Sweet Lemon":0,"Cartucho Tropical Paradise":0,"Cartucho Mountain Breeze":0});
+let cartuchos=ld("cartuchos",null);if(!cartuchos){cartuchos={"Cartucho Sweet Lemon":0,"Cartucho Tropical Paradise":0,"Cartucho Mountain Breeze":0};}
 let movs=ld("movs",[]);
 let bajas=ld("bajas",[]);
 let solicitudes=ld("sols",[]);
@@ -889,25 +889,51 @@ function getClientesVencidos(){
 }
 
 function exportCSV(data, filename){
+  if(!data.length){showToast("Sin datos para exportar");return;}
   const rows=data.map(r=>Object.values(r).map(v=>'"'+String(v||"").replace(/"/g,'""')+'"').join(","));
-  const headers='"'+Object.keys(data[0]||{}).join('","')+'"';
-  const csv=[headers,...rows].join("\n");
+  const headers='"'+Object.keys(data[0]).join('","')+'"';
+  const csv="﻿"+[headers,...rows].join("\n");
   const blob=new Blob([csv],{type:"text/csv;charset=utf-8;"});
   const url=URL.createObjectURL(blob);
-  const a=document.createElement("a");a.href=url;a.download=filename;a.click();
+  const a=document.createElement("a");
+  a.href=url;a.download=filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
   URL.revokeObjectURL(url);
+  showToast("CSV descargado");
+}
+
+function getReportData(){
+  const rFrom=window._rFrom||"";
+  const rTo=window._rTo||"";
+  const rType=window._rType||"visitas";
+  let data=rType==="reclamos"?visits.filter(v=>v.prob):visits;
+  if(rFrom)data=data.filter(v=>v.fecha>=rFrom);
+  if(rTo)data=data.filter(v=>v.fecha<=rTo+"T23:59:59");
+  return{data,rType};
+}
+function doExportCSV(){
+  const {data,rType}=getReportData();
+  if(!data.length){alert("No hay datos para exportar");return;}
+  const rows=data.map(v=>({
+    Fecha:fmt(v.fecha),Vendedor:v.vnd||"",Cliente:v.cliente||"",
+    Modelo:v.modelo||"",Serie:v.serie||"",Esencia:v.esencia||"",
+    ML:v.ml||0,Problema:v.prob?"Si":"No",Notas:v.notas||""
+  }));
+  exportCSV(rows,(rType==="reclamos"?"reclamos":"visitas")+"_reporte.csv");
+}
+function doExportPDF(){
+  const {data,rType}=getReportData();
+  if(!data.length){alert("No hay datos para exportar");return;}
+  const headers=["Fecha","Vendedor","Cliente","Modelo","Serie","Esencia","ML","Problema","Notas"];
+  const rows=data.map(v=>[fmt(v.fecha),v.vnd||"",v.cliente||"",v.modelo||"",v.serie||"",v.esencia||"",v.ml||0,v.prob?"Si":"No",v.notas||""]);
+  exportPDF(rType==="reclamos"?"Reporte de Reclamos":"Reporte de Visitas",headers,rows);
 }
 
 function exportPDF(title, headers, rows){
-  const w=window.open("","_blank");
-  const rowsHTML=rows.map(r=>`<tr>${r.map(c=>`<td style="padding:6px 10px;border-bottom:1px solid #eee;font-size:12px">${c||""}</td>`).join("")}</tr>`).join("");
-  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"/><title>${title}</title>
-  <style>body{font-family:Arial,sans-serif;padding:20px;color:#1a1a1a}h1{color:#1b3a2d;font-size:20px;margin-bottom:4px}.sub{font-size:13px;color:#7a8c83;margin-bottom:20px}table{width:100%;border-collapse:collapse}th{background:#1b3a2d;color:#fff;padding:8px 10px;font-size:12px;text-align:left}tr:hover{background:#f8fbf9}@media print{body{padding:10px}}</style>
-  </head><body>
-  <h1>${title}</h1><div class="sub">Generado: ${new Date().toLocaleDateString("es-SV",{dateStyle:"full"})}</div>
-  <table><thead><tr>${headers.map(h=>`<th>${h}</th>`).join("")}</tr></thead><tbody>${rowsHTML}</tbody></table>
-  <script>window.print();<\/script></body></html>`);
-  w.document.close();
+  if(!rows.length){showToast("Sin datos para exportar");return;}
+  modal={t:"reportView",title,headers,rows,tipo:"pdf"};render();
 }
 
 function render(){
@@ -1027,7 +1053,7 @@ function render(){
     const sd=window._hd||"";
     const fp=!!(window._fp);
     let fv=(sd?myV.filter(v=>v.fecha&&v.fecha.startsWith(sd)):myV).filter(v=>fp?v.prob:true);
-    fv=fv.filter(v=>!sq||v.cliente.toLowerCase().includes(sq.toLowerCase())||v.esencia.toLowerCase().includes(sq.toLowerCase()));
+    fv=fv.filter(v=>!sq||(v.cliente||'').toLowerCase().includes(sq.toLowerCase())||(v.esencia||'').toLowerCase().includes(sq.toLowerCase()));
     con=`<p class="pt">${isA?"Todas las visitas":"Mis visitas"}</p>
     ${isA?`<div class="card" style="margin-bottom:12px">
       <div class="fr" style="margin-bottom:8px">
@@ -1059,9 +1085,9 @@ function render(){
         }).join(`<div style="height:1px;background:#eee;margin:4px 0 14px"></div>`)
       :fv.slice(0,40).map(v=>`<div class="card sl">
         <div class="ch"><div><div class="ct">${v.cliente}</div><div class="cs">${fmt(v.fecha)}</div></div>
-          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">${v.prob&&v.ml===0?`<span class="chip chip-w" style="font-size:10px">Sin recarga</span>`:`<span class="chip">${v.ml}ml</span>`}${isA?`<button class="del" onclick="delVisit('${v.id}')">Eliminar</button>`:""}</div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">${v.prob&&v.ml===0?'<span class="chip chip-w" style="font-size:10px">Sin recarga</span>':`<span class="chip">${v.ml}ml</span>`}${isA?'<button class="del" onclick="delVisit(\'"+v.id+"\'")>Eliminar</button>':""}</div>
         </div>
-        <div class="mr"><span class="chip chip-g">${v.esencia}</span>${v.serie?`<span class="chip chip-b">${v.modelo}·${v.serie}</span>`:""} ${isA?`<span class="chip" style="background:#f0f7f3">${v.vnd}</span>`:""} ${v.prob?`<span class="chip chip-r" style="font-size:10px"><i class="ti ti-alert-triangle" style="font-size:11px"></i> Problema</span>`:""}</div>
+        <div class="mr">${v.esencia?'<span class="chip chip-g">'+v.esencia+'</span>':""}${v.serie?`<span class="chip chip-b">${v.modelo}·${v.serie}</span>`:""} ${isA?`<span class="chip" style="background:#f0f7f3">${v.vnd}</span>`:""} ${v.prob?`<span class="chip chip-r" style="font-size:10px"><i class="ti ti-alert-triangle" style="font-size:11px"></i> Problema</span>`:""}</div>
         ${v.notas?`<div style="font-size:11px;color:var(--M);margin-top:6px">${v.notas}</div>`:""}
       </div>`).join("")}`;
   }
@@ -1531,15 +1557,33 @@ function render(){
         <button onclick="window._rType='visitas';render()" style="flex:1;padding:9px;border-radius:var(--R);border:1px solid ${rType==='visitas'?'var(--F)':'#dde8e2'};background:${rType==='visitas'?'var(--F)':'none'};color:${rType==='visitas'?'#fff':'var(--M)'};font-size:12px;font-weight:600;cursor:pointer">Visitas</button>
         <button onclick="window._rType='reclamos';render()" style="flex:1;padding:9px;border-radius:var(--R);border:1px solid ${rType==='reclamos'?'var(--D)':'#dde8e2'};background:${rType==='reclamos'?'var(--D)':'none'};color:${rType==='reclamos'?'#fff':'var(--M)'};font-size:12px;font-weight:600;cursor:pointer">Reclamos/Problemas</button>
       </div>
-      <div class="fr" style="margin-bottom:10px">
-        <div><label class="lbl">Desde</label>
-          <input type="date" class="inp" style="font-size:13px" value="${rFrom}" onchange="window._rFrom=this.value;render()"/>
+      ${(()=>{
+        const meses=["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+        const anios=["2025","2026","2027"];
+        const hoy=new Date();
+        const mesOpts=meses.map((m,i)=>`<option value="${String(i+1).padStart(2,'0')}" ${window._rMes===String(i+1).padStart(2,'0')?"selected":""}>${m}</option>`).join("");
+        const anioOpts=anios.map(a=>`<option value="${a}" ${(window._rAnio||String(hoy.getFullYear()))===a?"selected":""}>${a}</option>`).join("");
+        return`<div style="margin-bottom:12px">
+          <label class="lbl">Filtrar por mes</label>
+          <div style="display:flex;gap:8px">
+            <select class="inp" style="flex:2" onchange="window._rMes=this.value;const a=window._rAnio||'${hoy.getFullYear()}';const dias=new Date(parseInt(a),parseInt(this.value),0).getDate();window._rFrom=a+'-'+this.value+'-01';window._rTo=a+'-'+this.value+'-'+String(dias).padStart(2,'0');render()">
+              <option value="">Todos los meses</option>${mesOpts}
+            </select>
+            <select class="inp" style="flex:1" onchange="window._rAnio=this.value;if(window._rMes){const dias=new Date(parseInt(this.value),parseInt(window._rMes),0).getDate();window._rFrom=this.value+'-'+window._rMes+'-01';window._rTo=this.value+'-'+window._rMes+'-'+String(dias).padStart(2,'0');}render()">
+              ${anioOpts}
+            </select>
+          </div>
         </div>
-        <div><label class="lbl">Hasta</label>
-          <input type="date" class="inp" style="font-size:13px" value="${rTo}" onchange="window._rTo=this.value;render()"/>
+        <div style="display:flex;gap:8px;margin-bottom:10px">
+          <div style="flex:1"><label class="lbl" style="font-size:10px">Desde (opcional)</label>
+            <input type="date" class="inp" style="font-size:13px" value="${rFrom}" onchange="window._rFrom=this.value;window._rMes='';render()"/>
+          </div>
+          <div style="flex:1"><label class="lbl" style="font-size:10px">Hasta (opcional)</label>
+            <input type="date" class="inp" style="font-size:13px" value="${rTo}" onchange="window._rTo=this.value;window._rMes='';render()"/>
+          </div>
         </div>
-      </div>
-      ${rFrom||rTo?`<button onclick="window._rFrom='';window._rTo='';render()" style="font-size:12px;color:var(--M);background:none;border:none;cursor:pointer;padding:4px 0">Limpiar filtros</button>`:""}
+        ${rFrom||rTo?`<button onclick="window._rFrom='';window._rTo='';window._rMes='';render()" style="font-size:12px;color:var(--M);background:none;border:none;cursor:pointer;padding:4px 0">✕ Limpiar filtros</button>`:""}`;
+      })()}
     </div>
     <div style="background:#f0f7f4;border-radius:var(--R);padding:12px 14px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between">
       <div>
@@ -1547,11 +1591,11 @@ function render(){
         <div style="font-size:12px;color:var(--M)">${rType==="visitas"?"Todas las visitas":"Solo visitas por problema"}${rFrom?" · desde "+fmtD(rFrom):""}${rTo?" · hasta "+fmtD(rTo):""}</div>
       </div>
       <div style="display:flex;gap:8px">
-        <button onclick="exportCSV(${JSON.stringify(reportData.map(v=>({Fecha:fmt(v.fecha),Vendedor:v.vnd,Cliente:v.cliente,Modelo:v.modelo,Serie:v.serie,Esencia:v.esencia,ML:v.ml,Problema:v.prob?'Si':'No',Notas:v.notas||''})))}, '${rType}_${rFrom||'todo'}_${rTo||'hoy'}.csv')" 
+        <button onclick="doExportCSV()" 
           style="padding:9px 14px;background:#1b3a2d;color:#fff;border:none;border-radius:var(--R);font-size:12px;font-weight:600;cursor:pointer">
           <i class="ti ti-file-spreadsheet" style="font-size:14px;vertical-align:-2px"></i> Excel/CSV
         </button>
-        <button onclick="exportPDF('${rType==='visitas'?'Reporte de Visitas':'Reporte de Reclamos'}',['Fecha','Vendedor','Cliente','Modelo','Serie','Esencia','ML','Problema','Notas'],${JSON.stringify(reportData.map(v=>[fmt(v.fecha),v.vnd,v.cliente,v.modelo,v.serie,v.esencia,v.ml,v.prob?'Si':'No',v.notas||'']))})"
+        <button onclick="doExportPDF()"
           style="padding:9px 14px;background:#c0392b;color:#fff;border:none;border-radius:var(--R);font-size:12px;font-weight:600;cursor:pointer">
           <i class="ti ti-file-type-pdf" style="font-size:14px;vertical-align:-2px"></i> PDF
         </button>
@@ -1910,6 +1954,38 @@ function render(){
         </div>
       </div></div>`;
     }
+    else if(t==="reportView"){
+      if(modal.tipo==="csv"){
+        mHTML=`<div class="mb-bg"><div class="mb" style="max-height:85vh">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+            <div class="mb-t" style="margin:0">Reporte CSV</div>
+            <button onclick="modal=null;render()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--M)">✕</button>
+          </div>
+          <p style="font-size:12px;color:var(--M);margin-bottom:10px">Copia este contenido y pégalo en Excel o Google Sheets</p>
+          <textarea style="width:100%;height:300px;font-size:10px;font-family:monospace;border:1px solid #dde8e2;border-radius:var(--R);padding:10px;resize:none" onclick="this.select()">${modal.content.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>
+          <button onclick="navigator.clipboard.writeText(modal.content).then(()=>showToast('Copiado al portapapeles'))" style="width:100%;margin-top:10px;padding:12px;background:var(--F);color:#fff;border:none;border-radius:var(--R);font-size:14px;font-weight:700;cursor:pointer">
+            Copiar todo
+          </button>
+        </div></div>`;
+      } else {
+        const rowsHTML=modal.rows.map(r=>'<tr style="border-bottom:1px solid #eee">'+r.map(c=>'<td style="padding:6px 8px;font-size:11px;color:#1a1a1a">'+(c||'')+'</td>').join('')+'</tr>').join('');
+        const headersHTML=modal.headers.map(h=>'<th style="background:#1b3a2d;color:#fff;padding:7px 8px;font-size:11px;text-align:left">'+h+'</th>').join('');
+        mHTML=`<div class="mb-bg"><div class="mb" style="max-height:90vh;padding:16px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+            <div style="font-size:16px;font-weight:700">${modal.title}</div>
+            <button onclick="modal=null;render()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--M)">✕</button>
+          </div>
+          <p style="font-size:11px;color:var(--M);margin-bottom:10px">${modal.rows.length} registros · ${new Date().toLocaleDateString("es-SV")}</p>
+          <div style="overflow-x:auto;border:1px solid #eee;border-radius:8px">
+            <table style="width:100%;border-collapse:collapse;min-width:600px">
+              <thead><tr>${headersHTML}</tr></thead>
+              <tbody>${rowsHTML}</tbody>
+            </table>
+          </div>
+          <p style="font-size:11px;color:var(--M);margin-top:10px;text-align:center">Para imprimir: toca Compartir → Imprimir en Safari</p>
+        </div></div>`;
+      }
+    }
     else if(t==="addCartucho"){
       mHTML=`<div class="mb-bg" onclick="if(event.target===this){modal=null;render()}"><div class="mb">
         <div class="mb-t">Agregar cartucho FMATIC</div>
@@ -2183,7 +2259,7 @@ function render(){
     </div>
     <div class="nav">${tabs.map(t=>`<button class="nt ${tab===t.k?"on":""}" onclick="tab='${t.k}';sq='';render()" style="position:relative">
   <i class="ti ${t.i}"></i>${t.l}
-  ${t.badge?`<span style="position:absolute;top:4px;right:4px;background:var(--D);color:#fff;border-radius:50%;width:16px;height:16px;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center">${t.badge}</span>`:""}
+  ${t.badge?'<span style="position:absolute;top:4px;right:4px;background:var(--D);color:#fff;border-radius:50%;width:16px;height:16px;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center">'+t.badge+'</span>':""}
 </button>`).join("")}</div>
     <div class="cnt">${con}</div>
   </div>
