@@ -1244,13 +1244,13 @@ function render(){
 
   // CLIENTES
   else if(tab==="clts"&&isA){
-    const fc=clientesFiltrados.filter(c=>!sq||c.toLowerCase().includes(sq.toLowerCase()));
     const paisFilter=window._paisFilter||"todos";
     const clientesFiltrados=ALL_CLIENTS.filter(c=>{
       if(paisFilter==="SV")return (window._clientPais||{})[c]!=="GT";
       if(paisFilter==="GT")return (window._clientPais||{})[c]==="GT";
       return true;
     });
+    const fc=clientesFiltrados.filter(c=>!sq||c.toLowerCase().includes(sq.toLowerCase()));
     const svCount=ALL_CLIENTS.filter(c=>(window._clientPais||{})[c]!=="GT").length;
     const gtCount=ALL_CLIENTS.filter(c=>(window._clientPais||{})[c]==="GT").length;
     con=`<p class="pt">Clientes</p><p class="ps">${ALL_CLIENTS.length} clientes</p>
