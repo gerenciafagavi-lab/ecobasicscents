@@ -527,6 +527,21 @@ function doExportPDF(){
 // RENDER CLIENT EQS
 const _eqMap={};
 function regEq(eq){_eqMap[eq.serie]=eq;return eq.serie;}
+function getGradeDisplay(serie){
+  const gi=eqGrades[serie];
+  if(!gi)return"";
+  if(gi.tipo==="onoff")return' <span style="font-size:10px;color:#3456a0;font-weight:600">On:'+gi.onSec+'s Off:'+gi.offSec+'s</span>';
+  if(gi.tipo==="bat101"){
+    if(gi.modo==="motion")return' <span style="font-size:10px;color:#3456a0;font-weight:600">Motion</span>';
+    if(gi.grade){const al=gi.gradeCotizado&&gi.grade>gi.gradeCotizado;return' <span style="font-size:10px;font-weight:700;color:'+(al?'var(--D)':'#3456a0')+'">N'+gi.grade+(al?' ⚠':'')+'</span>';}
+  }
+  if(gi.grade){
+    const al=gi.gradeCotizado&&gi.grade>gi.gradeCotizado;
+    return' <span style="font-size:10px;font-weight:700;color:'+(al?'var(--D)':'#3456a0')+'">G'+gi.grade+(al?' ⚠':'')+'</span>';
+  }
+  return"";
+}
+
 function _og(n){
   var r=window._G&&window._G[n];
   if(r)openGradeChange(r.c,r.eq);
