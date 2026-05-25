@@ -900,22 +900,28 @@ function render(){
     const myClientsG=isA?ALL_CLIENTS:(VC[sess.name]||[]);
     const allGraded=myClientsG.filter(c=>getClientEqs(c).some(e=>!e._del&&(CONSUME[e.modelo]||ONOFF_MODELS.includes(e.modelo))));
     if(allGraded.length===0){
-      con="<p class='pt'>Intensidad de equipos</p><div class='empty'><i class='ti ti-gauge'></i>Sin equipos AE701, AE301, AE3500 o Radiant registrados</div>";
+      con="<p class='pt'>Intensidad</p><div class='empty'><i class='ti ti-gauge'></i>Sin equipos configurables</div>";
     } else {
       let html="<p class='pt'>Intensidad de equipos</p><p class='ps'>"+allGraded.length+" clientes</p>";
-            html+="<div class='sw'><i class='ti ti-search'></i><input class='si2' placeholder='Buscar...' value='"+sq+"' oninput='sq=this.value;render()'/></div>";
+      html+="<div class='sw'><i class='ti ti-search'></i><input class='si2' placeholder='Buscar...' value='"+sq+"' oninput='sq=this.value;render()'/></div>";
       allGraded.filter(c=>!sq||c.toLowerCase().includes(sq.toLowerCase())).forEach(c=>{
         const eqs=getClientEqs(c).filter(e=>!e._del&&(CONSUME[e.modelo]||ONOFF_MODELS.includes(e.modelo)));
         html+="<div class='card' style='margin-bottom:8px'><div class='ct' style='margin-bottom:8px'>"+c+"</div>";
         eqs.forEach(eq=>{
-          const idx=window._gRefs.length;
+          const i=window._gRefs.length;
           window._gRefs.push({c,eq});
           const gs=getGradeDisplay(eq.serie);
-          html+="<div class='cer'><div style='flex:1'><span style='font-weight:700;font-size:12px'>"+eq.serie+"</span> <span style='font-size:11px;color:var(--M)'>"+( eq.area||"")+"</span>"+gs+"</div><button onclick='var x=window._gRefs["+idx+"];openGradeChange(x.c,x.eq)' style='padding:4px 10px;background:#e8f0ff;color:#3456a0;border:none;border-radius:7px;font-size:11px;cursor:pointer;font-weight:700'>⚡ Config</button></div>";
+          html+="<div class='cer'>"
+            +"<div style='flex:1'><span style='font-weight:700;font-size:12px'>"+eq.serie+"</span>"
+            +(eq.area?" <span style='font-size:11px;color:var(--M)'>"+eq.area+"</span>":"")
+            +gs+"</div>"
+            +"<button data-gi='"+i+"' style='padding:6px 12px;background:#e8f0ff;color:#3456a0;border:none;border-radius:7px;font-size:12px;cursor:pointer;font-weight:700;min-height:32px;min-width:44px'>⚡</button>"
+            +"</div>";
         });
         html+="</div>";
       });
       con=html;
+
     }
   }
 
