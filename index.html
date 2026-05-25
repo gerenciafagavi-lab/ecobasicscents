@@ -780,6 +780,26 @@ function openGradeFromClients(c,serie){
   openGradeChange(c,eq);
 }
 
+function renderClientEqs(c){
+  const allEq=getClientEqs(c).filter(e=>!e._del);
+  if(!allEq.length)return'<div style="font-size:12px;color:var(--M);margin-bottom:8px">Sin equipos</div>';
+  // Store refs for button clicks
+  if(!window._ceqRefs)window._ceqRefs={};
+  return allEq.map((eq,i)=>{
+    const refKey="ceq_"+Date.now()+"_"+i;
+    window._ceqRefs[refKey]={c,eq};
+    regEq(eq);
+    const gradeStr=getGradeDisplay(eq.serie);
+    return'<div class="cer">'+
+      '<div style="flex:1"><span style="font-weight:700">'+eq.serie+'</span>'+(eq.area?' &middot; <span style="color:var(--M)">'+eq.area+'</span>':'')+(eq.aroma?' &middot; <span style="color:var(--G)">'+eq.aroma+'</span>':'')+gradeStr+'</div>'+
+      '<div style="display:flex;gap:4px">'+
+      '<button style="padding:3px 8px;font-size:11px;background:#e8f0ff;color:#3456a0;border:none;border-radius:7px;cursor:pointer;font-weight:700" onclick="var r=window._ceqRefs['+JSON.stringify(refKey)+'];openGradeFromClients(r.c,r.eq.serie);event.stopPropagation()">⚡</button>'+
+      '<button class="be" style="padding:3px 8px;font-size:11px" onclick="var r=window._ceqRefs['+JSON.stringify(refKey)+'];openEditCEq(r.c,r.eq.id,r.eq.serie);event.stopPropagation()">✏️</button>'+
+      '<button class="del" onclick="var r=window._ceqRefs['+JSON.stringify(refKey)+'];delCEq(r.c,r.eq.id,r.eq.serie);event.stopPropagation()">✕</button>'+
+      '</div></div>';
+  }).join('');
+}
+
 function getGradeDisplay(serie){
   const gi=eqGrades[serie];
   if(!gi)return"";
@@ -1254,42 +1274,27 @@ function render(){
     const svCount=ALL_CLIENTS.filter(c=>(window._clientPais||{})[c]!=="GT").length;
     const gtCount=ALL_CLIENTS.filter(c=>(window._clientPais||{})[c]==="GT").length;
     con=`<p class="pt">Clientes</p><p class="ps">${ALL_CLIENTS.length} clientes</p>
-    ${isA?`<button class="btn-add" onclick="openAddCliente()"><i class="ti ti-user-plus"></i> Agregar cliente</button>`:""}
+    ${isA?'<button class="btn-add" onclick="openAddCliente()"><i class="ti ti-user-plus"></i> Agregar cliente</button>':""}
     <div style="display:flex;gap:6px;margin-bottom:12px">
       <button onclick="window._paisFilter='todos';render()" style="flex:1;padding:8px;border-radius:20px;border:1px solid ${paisFilter==='todos'?'var(--F)':'#dde8e2'};background:${paisFilter==='todos'?'var(--F)':'none'};color:${paisFilter==='todos'?'#fff':'var(--M)'};font-size:12px;font-weight:600;cursor:pointer">Todos (${ALL_CLIENTS.length})</button>
       <button onclick="window._paisFilter='SV';render()" style="flex:1;padding:8px;border-radius:20px;border:1px solid ${paisFilter==='SV'?'var(--F)':'#dde8e2'};background:${paisFilter==='SV'?'var(--F)':'none'};color:${paisFilter==='SV'?'#fff':'var(--M)'};font-size:12px;font-weight:600;cursor:pointer">🇸🇻 SV (${svCount})</button>
       <button onclick="window._paisFilter='GT';render()" style="flex:1;padding:8px;border-radius:20px;border:1px solid ${paisFilter==='GT'?'var(--F)':'#dde8e2'};background:${paisFilter==='GT'?'var(--F)':'none'};color:${paisFilter==='GT'?'#fff':'var(--M)'};font-size:12px;font-weight:600;cursor:pointer">🇬🇹 GT (${gtCount})</button>
     </div>
-    <div class="sw"><i class="ti ti-search"></i><input class="si2" placeholder="Buscar..." value="${sq}" oninput="sq=this.value;render()"/></div>
-    ${fc.map(c=>{
-      const cv=visits.filter(v=>v.cliente===c);
-      const allEq=getClientEqs(c).filter(e=>!e._del);
-      const vn=Object.entries(VC).find(([,a])=>a.includes(c))?.[0]||"Sin asignar";
-      const cpais=(window._clientPais||{})[c];
-      const exp=expC===c;
-      return`<div class="card">
-        <div class="ch" onclick="togC('${c.replace(/'/g,"\'")}')" style="cursor:pointer">
-          <div><div class="ct" style="font-size:12px">${c}</div><div class="cs">${vn}</div></div>
-          <div style="display:flex;align-items:center;gap:5px">
-            <span class="chip">${cv.length}v</span>
-            <span class="chip chip-b">${allEq.length}eq</span>
-            <i class="ti ti-chevron-${exp?"up":"down"}" style="font-size:15px;color:var(--M)"></i>
-          </div>
-        </div>
-        ${exp?`<div style="margin-top:10px;border-top:1px solid #f0f0f0;padding-top:10px">
-          ${allEq.length>0?allEq.map(eq=>`<div class="cer">
-            <div style="flex:1">
-              <span style="font-weight:700">${eq.serie}</span>${eq.area?` · <span style="color:var(--M)">${eq.area}</span>`:""}${eq.aroma?` · <span style="color:var(--G)">${eq.aroma}</span>`:""}
-              ${getGradeDisplay(eq.serie)}
-            </div>
-            <div style="display:flex;gap:4px">
-              <button style="padding:3px 8px;font-size:11px;background:#e8f0ff;color:#3456a0;border:none;border-radius:7px;cursor:pointer;font-weight:700" onclick="openGradeFromClients('${c.replace(/'/g,"\'")}','${regEq(eq)}');event.stopPropagation()">⚡</button>
-              <button class="be" style="padding:3px 8px;font-size:11px" onclick="openEditCEq('${c.replace(/'/g,"\'")}','${eq.id}','${eq.serie}');event.stopPropagation()">✏️</button>
-              <button class="del" onclick="delCEq('${c.replace(/'/g,"\'")}','${eq.id}','${eq.serie}');event.stopPropagation()">✕</button>
-            </div>
-          </div>`).join(""):`<div style="font-size:12px;color:var(--M);margin-bottom:8px">Sin equipos</div>`}
-          <button onclick="openAddCEq('${c.replace(/'/g,"\'")}');event.stopPropagation()" style="margin-top:8px;display:flex;align-items:center;gap:5px;background:#e8f5ee;color:var(--F);border:none;padding:7px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;width:100%;justify-content:center"><i class="ti ti-plus" style="font-size:14px"></i> Agregar equipo</button>
-        </div>`:""}`
+    return'<div class="card">'+
+        '<div class="ch" onclick="togC(\''+c.replace(/'/g,"\\'")+'\')" style="cursor:pointer">'+
+          '<div><div class="ct" style="font-size:12px">'+c+(cpais==="GT"?" 🇬🇹":"")+'</div><div class="cs">'+vn+'</div></div>'+
+          '<div style="display:flex;align-items:center;gap:5px">'+
+            '<span class="chip">'+cv.length+'v</span>'+
+            '<span class="chip chip-b">'+allEq.length+'eq</span>'+
+            '<i class="ti ti-chevron-'+(exp?"up":"down")+'" style="font-size:15px;color:var(--M)"></i>'+
+          '</div>'+
+        '</div>'+
+        (exp?
+          '<div style="margin-top:10px;border-top:1px solid #f0f0f0;padding-top:10px">'+
+            renderClientEqs(c)+
+            '<button onclick="openAddCEq(\''+c.replace(/'/g,"\\'")+'\')" style="margin-top:8px;display:flex;align-items:center;gap:5px;background:#e8f5ee;color:var(--F);border:none;padding:7px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;width:100%;justify-content:center">+ Agregar equipo</button>'+
+          '</div>':"")+
+      '</div>';
     }).join("")}`;
   }
 
