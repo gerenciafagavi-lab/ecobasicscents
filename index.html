@@ -490,7 +490,17 @@ function doExportPDF(){
 // RENDER CLIENT EQS
 const _eqMap={};
 function regEq(eq){_eqMap[eq.serie]=eq;return eq.serie;}
-function openGradeFromClients(c,serie){const eq=_eqMap[serie];if(!eq)return;openGradeChange(c,eq);}
+function openGradeFromClients(c,serie){
+  const eq=_eqMap[serie];
+  if(!eq){
+    // Try finding in EQUIPOS_DB or ceq
+    const allEqs=getClientEqs(c);
+    const found=allEqs.find(e=>e.serie===serie);
+    if(found){openGradeChange(c,found);}
+    return;
+  }
+  openGradeChange(c,eq);
+}
 function renderClientEqs(c){
   const allEq=getClientEqs(c).filter(e=>!e._del);
   if(!allEq.length)return'<div style="font-size:12px;color:var(--M);margin-bottom:8px">Sin equipos</div>';
