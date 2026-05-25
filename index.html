@@ -1343,6 +1343,20 @@ setInterval(()=>{
     }
   });
 },2*60*1000);
+
+// Global handler for data-gi intensity buttons
+document.addEventListener("click",function(e){
+  var btn=e.target;
+  while(btn&&btn!==document){
+    if(btn.dataset&&btn.dataset.gi!==undefined){
+      e.stopPropagation();
+      var ref=window._gRefs[parseInt(btn.dataset.gi)];
+      if(ref)openGradeChange(ref.c,ref.eq);
+      return;
+    }
+    btn=btn.parentElement;
+  }
+});
 </script>
 </body>
 </html>
