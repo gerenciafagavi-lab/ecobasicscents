@@ -527,6 +527,11 @@ function doExportPDF(){
 // RENDER CLIENT EQS
 const _eqMap={};
 function regEq(eq){_eqMap[eq.serie]=eq;return eq.serie;}
+function _og(n){
+  var r=window._G&&window._G[n];
+  if(r)openGradeChange(r.c,r.eq);
+  else showToast("Error ref "+n);
+}
 function openGradeChange(cliente,eq){
   try{
     if(!eq){showToast("Error: sin equipo");return;}
@@ -896,33 +901,30 @@ function render(){
 
   // INTENSIDAD
   else if(tab==="grades"){
-    window._gRefs=[];
+    window._G={};
     const myClientsG=isA?ALL_CLIENTS:(VC[sess.name]||[]);
     const allGraded=myClientsG.filter(c=>getClientEqs(c).some(e=>!e._del&&(CONSUME[e.modelo]||ONOFF_MODELS.includes(e.modelo))));
-    if(allGraded.length===0){
-      con="<p class='pt'>Intensidad</p><div class='empty'><i class='ti ti-gauge'></i>Sin equipos configurables</div>";
-    } else {
-      let html="<p class='pt'>Intensidad de equipos</p><p class='ps'>"+allGraded.length+" clientes</p>";
-      html+="<div class='sw'><i class='ti ti-search'></i><input class='si2' placeholder='Buscar...' value='"+sq+"' oninput='sq=this.value;render()'/></div>";
-      allGraded.filter(c=>!sq||c.toLowerCase().includes(sq.toLowerCase())).forEach(c=>{
-        const eqs=getClientEqs(c).filter(e=>!e._del&&(CONSUME[e.modelo]||ONOFF_MODELS.includes(e.modelo)));
-        html+="<div class='card' style='margin-bottom:8px'><div class='ct' style='margin-bottom:8px'>"+c+"</div>";
-        eqs.forEach(eq=>{
-          const i=window._gRefs.length;
-          window._gRefs.push({c,eq});
-          const gs=getGradeDisplay(eq.serie);
-          html+="<div class='cer'>"
-            +"<div style='flex:1'><span style='font-weight:700;font-size:12px'>"+eq.serie+"</span>"
-            +(eq.area?" <span style='font-size:11px;color:var(--M)'>"+eq.area+"</span>":"")
-            +gs+"</div>"
-            +"<button data-gi='"+i+"' style='padding:6px 12px;background:#e8f0ff;color:#3456a0;border:none;border-radius:7px;font-size:12px;cursor:pointer;font-weight:700;min-height:32px;min-width:44px'>⚡</button>"
-            +"</div>";
-        });
-        html+="</div>";
+    const filtered=allGraded.filter(c=>!sq||c.toLowerCase().includes(sq.toLowerCase()));
+    let n=0;
+    let html="<p class='pt'>Intensidad de equipos</p><p class='ps'>"+allGraded.length+" clientes</p>";
+    html+="<div class='sw'><i class='ti ti-search'></i><input class='si2' placeholder='Buscar...' value='"+sq+"' oninput='sq=this.value;render()'/></div>";
+    filtered.forEach(c=>{
+      const eqs=getClientEqs(c).filter(e=>!e._del&&(CONSUME[e.modelo]||ONOFF_MODELS.includes(e.modelo)));
+      html+="<div class='card' style='margin-bottom:8px'><div class='ct' style='margin-bottom:8px'>"+c+"</div>";
+      eqs.forEach(eq=>{
+        window._G[n]={c:c,eq:eq};
+        const gradeStr=getGradeDisplay(eq.serie);
+        html+="<div class='cer'>"
+          +"<div style='flex:1'><span style='font-weight:700;font-size:12px'>"+eq.serie+"</span>"
+          +(eq.area?" <span style='font-size:11px;color:var(--M)'>· "+eq.area+"</span>":"")
+          +gradeStr+"</div>"
+          +"<button type='button' onclick='_og("+n+")' style='padding:6px 14px;background:#e8f0ff;color:#3456a0;border:none;border-radius:7px;font-size:13px;font-weight:700;cursor:pointer;-webkit-tap-highlight-color:rgba(0,0,0,0.1)'>⚡</button>"
+          +"</div>";
+        n++;
       });
-      con=html;
-
-    }
+      html+="</div>";
+    });
+    con=html;
   }
 
   // CONFIG
@@ -1344,20 +1346,7 @@ setInterval(()=>{
   });
 },2*60*1000);
 
-// Global handler for data-gi intensity buttons (grades tab only)
-document.addEventListener("click",function(e){
-  if(tab!=="grades")return;
-  var btn=e.target;
-  while(btn&&btn!==document){
-    if(btn.dataset&&btn.dataset.gi!==undefined){
-      e.stopPropagation();
-      var ref=window._gRefs[parseInt(btn.dataset.gi)];
-      if(ref)openGradeChange(ref.c,ref.eq);
-      return;
-    }
-    btn=btn.parentElement;
-  }
-});
+
 </script>
 </body>
 </html>
