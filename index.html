@@ -1280,241 +1280,20 @@ function render(){
       <button onclick="window._paisFilter='SV';render()" style="flex:1;padding:8px;border-radius:20px;border:1px solid ${paisFilter==='SV'?'var(--F)':'#dde8e2'};background:${paisFilter==='SV'?'var(--F)':'none'};color:${paisFilter==='SV'?'#fff':'var(--M)'};font-size:12px;font-weight:600;cursor:pointer">🇸🇻 SV (${svCount})</button>
       <button onclick="window._paisFilter='GT';render()" style="flex:1;padding:8px;border-radius:20px;border:1px solid ${paisFilter==='GT'?'var(--F)':'#dde8e2'};background:${paisFilter==='GT'?'var(--F)':'none'};color:${paisFilter==='GT'?'#fff':'var(--M)'};font-size:12px;font-weight:600;cursor:pointer">🇬🇹 GT (${gtCount})</button>
     </div>
-    return'<div class="card">'+
-        '<div class="ch" onclick="togC(\''+c.replace(/'/g,"\\'")+'\')" style="cursor:pointer">'+
-          '<div><div class="ct" style="font-size:12px">'+c+(cpais==="GT"?" 🇬🇹":"")+'</div><div class="cs">'+vn+'</div></div>'+
-          '<div style="display:flex;align-items:center;gap:5px">'+
-            '<span class="chip">'+cv.length+'v</span>'+
-            '<span class="chip chip-b">'+allEq.length+'eq</span>'+
-            '<i class="ti ti-chevron-'+(exp?"up":"down")+'" style="font-size:15px;color:var(--M)"></i>'+
-          '</div>'+
-        '</div>'+
-        (exp?
-          '<div style="margin-top:10px;border-top:1px solid #f0f0f0;padding-top:10px">'+
-            renderClientEqs(c)+
-            '<button onclick="openAddCEq(\''+c.replace(/'/g,"\\'")+'\')" style="margin-top:8px;display:flex;align-items:center;gap:5px;background:#e8f5ee;color:var(--F);border:none;padding:7px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;width:100%;justify-content:center">+ Agregar equipo</button>'+
-          '</div>':"")+
-      '</div>';
+    <div class="sw"><i class="ti ti-search"></i><input class="si2" placeholder="Buscar..." value="${sq}" oninput="sq=this.value;render()"/></div>
+    ${fc.map(c=>{
+      const cv=visits.filter(v=>v.cliente===c);
+      const allEq=getClientEqs(c).filter(e=>!e._del);
+      const vn=Object.entries(VC).find(([,a])=>a.includes(c))?.[0]||"Sin asignar";
+      const cpais=(window._clientPais||{})[c];
+      const exp=expC===c;
+      const eqsHTML=renderClientEqs(c);
+      const addBtn='<button onclick="openAddCEq(\''+c.replace(/'/g,"\\'")+'\');" style="margin-top:8px;display:flex;align-items:center;gap:5px;background:#e8f5ee;color:var(--F);border:none;padding:7px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;width:100%;justify-content:center"><i class="ti ti-plus" style="font-size:14px"></i> Agregar equipo</button>';
+      const expHTML=exp?'<div style="margin-top:10px;border-top:1px solid #f0f0f0;padding-top:10px">'+eqsHTML+addBtn+'</div>':"";
+      const togFn="togC('"+c.replace(/'/g,"\\'")+"')";
+      return'<div class="card"><div class="ch" onclick="'+togFn+'" style="cursor:pointer"><div><div class="ct" style="font-size:12px">'+c+(cpais==="GT"?" 🇬🇹":"")+'</div><div class="cs">'+vn+'</div></div><div style="display:flex;align-items:center;gap:5px"><span class="chip">'+cv.length+'v</span><span class="chip chip-b">'+allEq.length+'eq</span><i class="ti ti-chevron-'+(exp?"up":"down")+'" style="font-size:15px;color:var(--M)"></i></div></div>'+expHTML+'</div>';
     }).join("")}`;
   }
-
-  // USUARIOS
-  else if(tab==="usrs"&&isA){
-    con=`<p class="pt">Vendedores</p><p class="ps">${vendors.length} usuarios</p>
-    <button class="btn-add" onclick="openAddVnd()"><i class="ti ti-user-plus"></i> Agregar vendedor</button>
-    ${vendors.map(v=>`<div class="vc">
-      <div>
-        <div class="vn">${v.name} ${v.role==="admin"?`<span class="ba" style="background:rgba(184,137,42,.2);color:var(--G)">Admin</span>`:`<span class="ba" style="background:#e8f5ee;color:var(--F)">Vendedor</span>`}</div>
-        <div class="vs">${v.active!==false?`<span style="color:var(--F)">● Activo</span>`:`<span style="color:var(--D)">● Inactivo</span>`} · PIN: ${"•".repeat(v.pin.length)}</div>
-      </div>
-      <div class="va">
-        <button class="be" onclick="openEditVnd('${v.id}')"><i class="ti ti-edit" style="font-size:13px"></i></button>
-        <button class="${v.active!==false?"boff":"bon"}" onclick="togVnd('${v.id}')">${v.active!==false?"Inactivar":"Activar"}</button>
-      </div>
-    </div>`).join("")}`;
-  }
-
-  // BAJAS
-  else if(tab==="bajas"){
-    const myB=isA?bajas:bajas.filter(b=>b.vnd===sess.name);
-    const sqB=window._sqB||"";
-    const filtB=myB.filter(b=>!sqB||b.c.toLowerCase().includes(sqB.toLowerCase())||(b.motivo||"").toLowerCase().includes(sqB.toLowerCase()));
-    con=`<p class="pt">Bajas de clientes</p><p class="ps">${myB.length} baja${myB.length!==1?"s":""} registrada${myB.length!==1?"s":""}</p>
-    <button class="btn-add" onclick="openAddBaja()"><i class="ti ti-user-minus"></i> Registrar baja</button>
-    <div class="sw"><i class="ti ti-search"></i><input class="si2" placeholder="Buscar cliente o motivo..." value="${sqB}" oninput="window._sqB=this.value;render()"/></div>
-    ${filtB.length===0?`<div class="empty"><i class="ti ti-user-check"></i>Sin bajas registradas</div>`
-    :filtB.map(b=>`<div class="card sl-r">
-      <div class="ch">
-        <div><div class="ct">${b.c}</div><div class="cs">${b.vnd} · ${fmtD(b.fecha)}</div></div>
-        ${isA?`<button class="del" onclick="delBaja('${b.id}')">Eliminar</button>`:""}
-      </div>
-      <div style="display:flex;align-items:center;gap:6px;margin-top:8px;background:#fdecea;border-radius:8px;padding:7px 10px">
-        <i class="ti ti-alert-circle" style="font-size:16px;color:var(--D)"></i>
-        <span style="font-size:13px;font-weight:700;color:var(--D)">${b.motivo}</span>
-      </div>
-      ${b.notas?`<div style="font-size:12px;color:var(--M);margin-top:6px;font-style:italic">${b.notas}</div>`:""}
-    </div>`).join("")}`;
-  }
-
-  // PERDIDOS
-  else if(tab==="lost"&&isA){
-    const fallidas=demos.filter(d=>d.ret&&d.res==="fallida");
-    const allPerdidos=[
-      ...fallidas.map(d=>({tipo:"Demo",c:d.c,vnd:d.vnd,fecha:d.retFecha||d.fecha,motivo:d.motivoRetiro||"Sin motivo",notas:d.notasRetiro||"",modelo:d.modelo,serie:d.serie})),
-      ...bajas.map(b=>({tipo:"Baja",c:b.c,vnd:b.vnd,fecha:b.fecha,motivo:b.motivo,notas:b.notas,modelo:"",serie:""}))
-    ].sort((a,b)=>new Date(b.fecha)-new Date(a.fecha));
-    const byMotivo={};
-    allPerdidos.forEach(d=>{const m=d.motivo||"Sin motivo";byMotivo[m]=(byMotivo[m]||0)+1;});
-    const motivosSorted=Object.entries(byMotivo).sort((a,b)=>b[1]-a[1]);
-    const sqL=window._sqL||"";
-    const filtF=allPerdidos.filter(d=>!sqL||d.c.toLowerCase().includes(sqL.toLowerCase())||(d.motivo||"").toLowerCase().includes(sqL.toLowerCase())||(d.vnd||"").toLowerCase().includes(sqL.toLowerCase()));
-    con=`<p class="pt">Clientes perdidos</p><p class="ps">${allPerdidos.length} en total · ${fallidas.length} demos · ${bajas.length} bajas</p>
-    ${fallidas.length>0?`<div class="card" style="margin-bottom:14px">
-      <p style="font-size:12px;font-weight:700;color:var(--M);margin-bottom:10px">MOTIVOS DE PERDIDA</p>
-      ${motivosSorted.map(([m,c])=>{
-        const pct=Math.round((c/fallidas.length)*100);
-        return`<div style="margin-bottom:10px">
-          <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px">
-            <span style="font-weight:600">${m}</span>
-            <span style="font-weight:700;color:var(--D)">${c} (${pct}%)</span>
-          </div>
-          <div class="bb"><div class="bar bd" style="width:${pct}%"></div></div>
-        </div>`;
-      }).join("")}
-    </div>`:""}
-    <div class="sw"><i class="ti ti-search"></i><input class="si2" placeholder="Buscar cliente, motivo, vendedor..." value="${sqL}" oninput="window._sqL=this.value;render()"/></div>
-    ${filtF.length===0?`<div class="empty"><i class="ti ti-mood-sad"></i>Sin demos perdidas</div>`
-    :filtF.map(d=>`<div class="card sl-r">
-      <div class="ch">
-        <div><div class="ct">${d.c}</div><div class="cs">${d.vnd} · ${fmtD(d.fecha)}</div></div>
-        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
-          <span class="chip ${d.tipo==='Baja'?'chip-r':'chip-w'}" style="font-size:10px">${d.tipo}</span>
-          ${d.modelo?`<span class="chip chip-b" style="font-size:10px">${d.modelo}${d.serie?" · "+d.serie:""}</span>`:""}
-        </div>
-      </div>
-      <div style="display:flex;align-items:center;gap:6px;margin-top:8px;background:#fdecea;border-radius:8px;padding:7px 10px">
-        <i class="ti ti-alert-circle" style="font-size:16px;color:var(--D)"></i>
-        <span style="font-size:13px;font-weight:700;color:var(--D)">${d.motivo}</span>
-      </div>
-      ${d.notas?`<div style="font-size:12px;color:var(--M);margin-top:5px;font-style:italic">${d.notas}</div>`:""}
-    </div>`).join("")}`;
-  }
-
-  // INTENSIDAD
-  else if(tab==="grades"&&isA){
-    // All equipos with grades
-    const allEqsWithGrades=[];
-    ALL_CLIENTS.forEach(c=>{
-      const eqs=getClientEqs(c).filter(e=>!e._del&&(CONSUME[e.modelo]||ONOFF_MODELS.includes(e.modelo)||MOTION_MODELS.includes(e.modelo)));
-      eqs.forEach(eq=>{
-        const gi=eqGrades[eq.serie];
-        if(ONOFF_MODELS.includes(eq.modelo)){
-          const consumeActual=gi?.mlMes||null;
-          const consumeCotizado=gi?.mlMesCotizado||null;
-          const alerta=consumeActual&&consumeCotizado&&consumeActual>consumeCotizado*1.1;
-          const curG=gi?.onSec?`On:${gi.onSec}s Off:${gi.offSec}s`:null;
-          allEqsWithGrades.push({c,eq,curG,cotG:null,alerta,consumeActual,consumeCotizado,gi,isOnOff:true});
-        } else {
-          const curG=gi?.grade||null;
-          const cotG=gi?.gradeCotizado||null;
-          const alerta=curG&&cotG&&curG>cotG;
-          const consumeActual=curG?CONSUME[eq.modelo][curG]:null;
-          const consumeCotizado=cotG?CONSUME[eq.modelo][cotG]:null;
-          allEqsWithGrades.push({c,eq,curG,cotG,alerta,consumeActual,consumeCotizado,gi,isOnOff:false});
-        }
-      });
-    });
-    const alertas=allEqsWithGrades.filter(x=>x.alerta);
-    const sinGrade=allEqsWithGrades.filter(x=>!x.curG);
-    const sqGr=window._sqGr||"";
-    const showFilter=window._grFilter||"alertas";
-    const filtered=allEqsWithGrades.filter(x=>{
-      if(showFilter==="alertas")return x.alerta;
-      if(showFilter==="sin_grado")return !x.curG;
-      return true;
-    }).filter(x=>!sqGr||x.c.toLowerCase().includes(sqGr.toLowerCase())||x.eq.serie.toLowerCase().includes(sqGr.toLowerCase()));
-    con=`<p class="pt">Control de Intensidad</p><p class="ps">Grados por equipo · Solo AE701 y AE301</p>
-    <div class="stats">
-      <div class="stat"><div class="sn">${allEqsWithGrades.length}</div><div class="sl2">Equipos c/grado</div></div>
-      <div class="stat"><div class="sn" style="color:var(--D)">${alertas.length}</div><div class="sl2">Alertas</div></div>
-      <div class="stat"><div class="sn" style="color:var(--WN)">${sinGrade.length}</div><div class="sl2">Sin registrar</div></div>
-    </div>
-    ${alertas.length>0?`<div style="background:#fdecea;border:1px solid #f5c6c6;border-radius:var(--R);padding:12px 14px;margin-bottom:14px;display:flex;align-items:center;gap:10px">
-      <i class="ti ti-alert-triangle" style="font-size:22px;color:var(--D)"></i>
-      <div><div style="font-weight:700;color:var(--D);font-size:14px">${alertas.length} equipo${alertas.length!==1?"s":""} con grado por encima del cotizado</div>
-      <div style="font-size:12px;color:var(--D);opacity:.8">Estos equipos consumen mas de lo presupuestado</div></div>
-    </div>`:""}
-    <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">
-      ${[{k:"alertas",l:"⚠ Alertas",c:alertas.length},{k:"sin_grado",l:"Sin grado",c:sinGrade.length},{k:"todos",l:"Todos",c:allEqsWithGrades.length}].map(f=>`<button onclick="window._grFilter='${f.k}';render()" style="padding:4px 12px;border-radius:20px;border:1px solid ${showFilter===f.k?"var(--F)":"#dde8e2"};background:${showFilter===f.k?"var(--F)":"none"};color:${showFilter===f.k?"#fff":"var(--M)"};font-size:12px;cursor:pointer">${f.l} (${f.c})</button>`).join("")}
-    </div>
-    <div class="sw"><i class="ti ti-search"></i><input class="si2" placeholder="Buscar cliente o serie..." value="${sqGr}" oninput="window._sqGr=this.value;render()"/></div>
-    ${filtered.length===0?`<div class="empty"><i class="ti ti-gauge"></i>Sin resultados</div>`
-    :filtered.map(({c,eq,curG,cotG,alerta,consumeActual,consumeCotizado,gi})=>`<div class="card ${alerta?"sl-r":"sl"}">
-      <div class="ch">
-        <div><div class="ct" style="font-size:12px">${c}</div><div class="cs">${eq.modelo} · ${eq.serie}${eq.area?" · "+eq.area:""}</div></div>
-        <div style="text-align:right">
-          ${isOnOff?
-            (gi?.onSec?`<div style="font-size:13px;font-weight:700;color:${alerta?"var(--D)":"var(--F)"}">On:${gi.onSec}s<br/>Off:${gi.offSec}s</div>`:`<span class="chip chip-w" style="font-size:10px">Sin config</span>`)
-            :curG?`<div style="font-size:20px;font-weight:700;color:${alerta?"var(--D)":"var(--F)"}">G${curG}</div>
-          ${cotG&&cotG!==curG?`<div style="font-size:10px;color:var(--M)">Cotizado: G${cotG}</div>`:""}`:
-          `<span class="chip chip-w" style="font-size:10px">Sin grado</span>`}
-        </div>
-      </div>
-      ${curG||isOnOff?`<div class="mr" style="margin-top:8px">
-        ${consumeActual?`<span class="chip ${alerta?"chip-r":""}" style="font-size:10px">${consumeActual}ml/mes actual</span>`:""}
-        ${consumeCotizado&&consumeCotizado!==consumeActual?`<span class="chip" style="font-size:10px">${consumeCotizado}ml/mes cotizado</span>`:""}
-        ${alerta?`<span class="chip chip-r" style="font-size:10px">+${(consumeActual-consumeCotizado).toFixed(1)}ml/mes extra</span>`:""}
-      </div>`:""}
-      ${gi?.changedBy?`<div style="font-size:11px;color:var(--M);margin-top:5px">Ultima actualización: ${gi.changedBy} · ${fmtD(gi.fechaCambio)}</div>`:""}
-    </div>`).join("")}`;
-  }
-
-  // CONFIG
-  else if(tab==="config"&&isA){
-    con=`<p class="pt">Configuracion</p><p class="ps">Modelos de equipos y ajustes generales</p>
-    <p style="font-size:12px;font-weight:700;color:var(--M);margin-bottom:10px">MODELOS DE EQUIPOS</p>
-    <button class="btn-add" onclick="openAddModelo()"><i class="ti ti-plus"></i> Agregar modelo</button>
-    ${modelos.map(m=>{
-      const isOriginal=["AE301","AE701","AE3500","Radiant","FMATIC"].includes(m);
-      const tipoIntensidad=CONSUME[m]?"Grados 1-10":m==="AE3500"?"On/Off":"Sin control";
-      const totalUnits=Object.values(eqStk).reduce((a,b)=>a+b,0);
-      const unitsInStock=eqStk[m]||0;
-      const unitsInstalled=ALL_CLIENTS.reduce((acc,c)=>acc+getClientEqs(c).filter(e=>!e._del&&e.modelo===m).length,0);
-      return`<div class="card" style="margin-bottom:8px">
-        <div class="ch">
-          <div>
-            <div class="ct">${m} ${isOriginal?`<span style="font-size:10px;color:var(--M);font-weight:400">(original)</span>`:""}</div>
-            <div class="cs">Intensidad: ${tipoIntensidad}</div>
-          </div>
-          <div style="display:flex;align-items:center;gap:6px">
-            <div style="text-align:right">
-              <div style="font-size:11px;color:var(--M)">${unitsInstalled} instalados</div>
-              <div style="font-size:11px;color:var(--F)">${unitsInStock} en stock</div>
-            </div>
-            ${!isOriginal?`<button class="del" onclick="delModelo('${m}')">✕</button>`:""}
-          </div>
-        </div>
-      </div>`;
-    }).join("")}
-    <div style="margin-top:20px">
-      <p style="font-size:12px;font-weight:700;color:var(--M);margin-bottom:10px">ESENCIAS</p>
-      <div style="display:flex;gap:8px;margin-bottom:12px">
-        <button class="btn-add" style="margin-bottom:0;flex:1" onclick="openAddEsencia()"><i class="ti ti-plus"></i> Agregar esencia</button>
-      </div>
-      <div class="sw" style="margin-bottom:10px">
-        <i class="ti ti-search"></i>
-        <input class="si2" placeholder="Buscar esencia..." value="${window._sqEs||''}" oninput="window._sqEs=this.value;render()"/>
-      </div>
-      <div class="card" style="margin-bottom:14px">
-        <div style="font-size:11px;color:var(--M);margin-bottom:8px">${Object.keys(inv).length} esencias en total</div>
-        ${Object.keys(inv).sort().filter(n=>!(window._sqEs)||n.toLowerCase().includes((window._sqEs||'').toLowerCase())).map(n=>{
-          const isOriginal=["FRESH BLUE","GREEN TEA","PERSUATION","PURESILVER","SANTAL","SPARKLING GOGGY","VANILLA & POMEGRANATE","VERBENA","ASIAN MINT","PURE SUNSHINE","BERGAMOT AMBER","BERGAMOT OCEAN ARIA","BERGAMOT ORANGE","BERGAMOT SPICE","BLACK TEA AND FIG","BLOOD WOOD","CITY DELIGHT","CRIMSON SILK","DUBAI CHOCOLATE","GLACIAL MIST","GOLDEN GROOVE","GRAPEFRUIT VANILLA","HAPPY DAYS","INSPIRATION","LITTLE ANGELS","LE NOIR","NEW YORK","PALO SANTO","SAFFRON SUEDE","SAHARA NIGHTS","SPICED TEA","TABAC NOIR","TULUMINATE","WHITE TEA","WHITE TEA AND THYME","ZEN GARDEN","RED WINE"].includes(n);
-          return`<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid #f0f0f0">
-            <div>
-              <span style="font-weight:600;font-size:13px">${n}</span>
-              ${isOriginal?`<span style="font-size:10px;color:var(--M);margin-left:6px">(original)</span>`:""}
-            </div>
-            <div style="display:flex;align-items:center;gap:6px">
-              <span style="font-size:12px;color:var(--F);font-weight:500">${inv[n]||0}ml</span>
-              <button class="be" style="padding:3px 8px;font-size:11px" onclick="openEditEsencia('${n.replace(/'/g,"\'")}')" title="Editar nombre">✏️</button>
-              <button class="del" onclick="delEsencia('${n.replace(/'/g,"\'")}')">✕</button>
-            </div>
-          </div>`;
-        }).join("")}
-      </div>
-    </div>
-    <div style="margin-top:20px">
-      <p style="font-size:12px;font-weight:700;color:var(--M);margin-bottom:10px">CONTROL DE INTENSIDAD</p>
-      <div class="card">
-        <div style="font-size:13px;color:var(--I);margin-bottom:8px;font-weight:600">Modelos con grados 1-10</div>
-        <div class="mr">${Object.keys(CONSUME).map(m=>`<span class="chip chip-b" style="font-size:11px">${m}</span>`).join("")}</div>
-        <div style="font-size:13px;color:var(--I);margin-top:12px;margin-bottom:8px;font-weight:600">Modelos con On/Off</div>
-        <div class="mr"><span class="chip chip-g" style="font-size:11px">AE3500</span></div>
-        <div style="font-size:11px;color:var(--M);margin-top:10px">Para agregar tablas de consumo a nuevos modelos, contacta al desarrollador.</div>
-      </div>
-    </div>`;
-  }
-
   // SOLICITUDES
   else if(tab==="sols"){
     const mySols=isA?solicitudes:solicitudes.filter(s=>s.vendedor===sess.name);
@@ -1581,9 +1360,14 @@ function render(){
     
     con=`<p class="pt">Reportes</p><p class="ps">Exporta visitas y reclamos por periodo</p>
     <div class="card" style="margin-bottom:14px">
-      <div style="display:flex;gap:6px;margin-bottom:12px">
+      <div style="display:flex;gap:6px;margin-bottom:10px">
         <button onclick="window._rType='visitas';render()" style="flex:1;padding:9px;border-radius:var(--R);border:1px solid ${rType==='visitas'?'var(--F)':'#dde8e2'};background:${rType==='visitas'?'var(--F)':'none'};color:${rType==='visitas'?'#fff':'var(--M)'};font-size:12px;font-weight:600;cursor:pointer">Visitas</button>
-        <button onclick="window._rType='reclamos';render()" style="flex:1;padding:9px;border-radius:var(--R);border:1px solid ${rType==='reclamos'?'var(--D)':'#dde8e2'};background:${rType==='reclamos'?'var(--D)':'none'};color:${rType==='reclamos'?'#fff':'var(--M)'};font-size:12px;font-weight:600;cursor:pointer">Reclamos/Problemas</button>
+        <button onclick="window._rType='reclamos';render()" style="flex:1;padding:9px;border-radius:var(--R);border:1px solid ${rType==='reclamos'?'var(--D)':'#dde8e2'};background:${rType==='reclamos'?'var(--D)':'none'};color:${rType==='reclamos'?'#fff':'var(--M)'};font-size:12px;font-weight:600;cursor:pointer">Reclamos</button>
+      </div>
+      <div style="display:flex;gap:6px;margin-bottom:12px">
+        <button onclick="window._rPais='todos';render()" style="flex:1;padding:7px;border-radius:20px;border:1px solid ${rPais==='todos'?'var(--F)':'#dde8e2'};background:${rPais==='todos'?'var(--F)':'none'};color:${rPais==='todos'?'#fff':'var(--M)'};font-size:12px;font-weight:600;cursor:pointer">Todos</button>
+        <button onclick="window._rPais='SV';render()" style="flex:1;padding:7px;border-radius:20px;border:1px solid ${rPais==='SV'?'var(--F)':'#dde8e2'};background:${rPais==='SV'?'var(--F)':'none'};color:${rPais==='SV'?'#fff':'var(--M)'};font-size:12px;font-weight:600;cursor:pointer">🇸🇻 El Salvador</button>
+        <button onclick="window._rPais='GT';render()" style="flex:1;padding:7px;border-radius:20px;border:1px solid ${rPais==='GT'?'var(--F)':'#dde8e2'};background:${rPais==='GT'?'var(--F)':'none'};color:${rPais==='GT'?'#fff':'var(--M)'};font-size:12px;font-weight:600;cursor:pointer">🇬🇹 Guatemala</button>
       </div>
       ${(()=>{
         const meses=["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
