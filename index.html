@@ -180,6 +180,17 @@ let cartuchos=ld("cartuchos",null);if(!cartuchos){cartuchos={"Cartucho Sweet Lem
 let modelos=ld("modelos",["AE301","AE701","AE3500","Radiant","FMATIC Blanco","FMATIC Negro","Equipo de Goteo","AirFin Urinal"]);
 const CONSUME_101BAT={1:15,2:25,3:40,4:60,5:90};
 const ONOFF_MODELS=["AE3500","Radiant"];
+const CONSUME={
+  "AE701":{1:26.0,2:28.9,3:32.5,4:37.1,5:43.3,6:51.8,7:64.6,8:85.7,9:127.4,10:248.1},
+  "AE301":{1:20.9,2:23.3,3:26.2,4:29.9,5:34.8,6:41.7,7:52.1,8:69.3,9:103.3,10:203.3}
+};
+const AE3500_ML_PER_SEC=0.00099537;
+const AE3500_HOURS=10;
+function calcAE3500(onSec,offSec){
+  if(!onSec||!offSec||onSec<=0||offSec<=0)return null;
+  const mlPerDay=(onSec/(onSec+offSec))*AE3500_HOURS*3600*AE3500_ML_PER_SEC;
+  return Math.round(mlPerDay*31*10)/10;
+}
 const _customClients=ld("customclients",null);
 if(_customClients){
   _customClients.clients.forEach(c=>{if(!ALL_CLIENTS.includes(c))ALL_CLIENTS.push(c);});
@@ -517,12 +528,16 @@ function doExportPDF(){
 const _eqMap={};
 function regEq(eq){_eqMap[eq.serie]=eq;return eq.serie;}
 function openGradeChange(cliente,eq){
-  if(!eq||!eq.modelo)return;
-  let tipo;
-  if(eq.modelo==="AE3500"||eq.modelo==="Radiant")tipo="gradeOnOff";
-  else if(eq.modelo==="AE101BAT")tipo="grade101bat";
-  else tipo="gradeChange";
-  modal={t:tipo,c:cliente,eq};render();
+  try{
+    if(!eq){showToast("Error: sin equipo");return;}
+    if(!eq.modelo){showToast("Error: sin modelo");return;}
+    let tipo;
+    if(eq.modelo==="AE3500"||eq.modelo==="Radiant")tipo="gradeOnOff";
+    else if(eq.modelo==="AE101BAT")tipo="grade101bat";
+    else tipo="gradeChange";
+    modal={t:tipo,c:cliente,eq};
+    render();
+  }catch(e){showToast("Error: "+e.message);}
 }
 function saveGradeChange(){
   const newGrade=parseInt(document.getElementById("gr_grade").value);
@@ -881,26 +896,26 @@ function render(){
 
   // INTENSIDAD
   else if(tab==="grades"){
+    window._gRefs=[];
     const myClientsG=isA?ALL_CLIENTS:(VC[sess.name]||[]);
     const allGraded=myClientsG.filter(c=>getClientEqs(c).some(e=>!e._del&&(CONSUME[e.modelo]||ONOFF_MODELS.includes(e.modelo))));
     if(allGraded.length===0){
-      con="<p class='pt'>Intensidad de equipos</p><p class='ps'>Sin equipos configurables</p><div class='empty'><i class='ti ti-gauge'></i>No hay equipos AE701, AE301, AE3500 o Radiant registrados en clientes</div>";
+      con="<p class='pt'>Intensidad de equipos</p><div class='empty'><i class='ti ti-gauge'></i>Sin equipos AE701, AE301, AE3500 o Radiant registrados</div>";
     } else {
-      const gCards=allGraded.filter(c=>!sq||c.toLowerCase().includes(sq.toLowerCase())).map(c=>{
+      let html="<p class='pt'>Intensidad de equipos</p><p class='ps'>"+allGraded.length+" clientes</p>";
+            html+="<div class='sw'><i class='ti ti-search'></i><input class='si2' placeholder='Buscar...' value='"+sq+"' oninput='sq=this.value;render()'/></div>";
+      allGraded.filter(c=>!sq||c.toLowerCase().includes(sq.toLowerCase())).forEach(c=>{
         const eqs=getClientEqs(c).filter(e=>!e._del&&(CONSUME[e.modelo]||ONOFF_MODELS.includes(e.modelo)));
-        const rows=eqs.map(eq=>{
-          regEq(eq);
+        html+="<div class='card' style='margin-bottom:8px'><div class='ct' style='margin-bottom:8px'>"+c+"</div>";
+        eqs.forEach(eq=>{
+          const idx=window._gRefs.length;
+          window._gRefs.push({c,eq});
           const gs=getGradeDisplay(eq.serie);
-          const cj=JSON.stringify(c);
-          const sj=JSON.stringify(eq.serie);
-          return"<div class='cer'><div style='flex:1'><span style='font-weight:700;font-size:12px'>"+eq.serie+"</span> <span style='font-size:11px;color:var(--M)'>"+( eq.area||"")+"</span>"+gs+"</div>"
-            +"<button onclick='openGradeFromClients("+cj+","+sj+")' style='padding:4px 10px;background:#e8f0ff;color:#3456a0;border:none;border-radius:7px;font-size:11px;cursor:pointer;font-weight:700'>⚡</button></div>";
-        }).join("");
-        return"<div class='card' style='margin-bottom:8px'><div class='ct' style='margin-bottom:8px'>"+c+"</div>"+rows+"</div>";
-      }).join("");
-      con="<p class='pt'>Intensidad de equipos</p><p class='ps'>"+allGraded.length+" clientes</p>"
-        +"<div class='sw'><i class='ti ti-search'></i><input class='si2' placeholder='Buscar...' value='"+sq+"' oninput='sq=this.value;render()'/></div>"
-        +gCards;
+          html+="<div class='cer'><div style='flex:1'><span style='font-weight:700;font-size:12px'>"+eq.serie+"</span> <span style='font-size:11px;color:var(--M)'>"+( eq.area||"")+"</span>"+gs+"</div><button onclick='var x=window._gRefs["+idx+"];openGradeChange(x.c,x.eq)' style='padding:4px 10px;background:#e8f0ff;color:#3456a0;border:none;border-radius:7px;font-size:11px;cursor:pointer;font-weight:700'>⚡ Config</button></div>";
+        });
+        html+="</div>";
+      });
+      con=html;
     }
   }
 
