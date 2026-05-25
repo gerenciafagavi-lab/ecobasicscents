@@ -634,7 +634,9 @@ function render(){
   else if(tab==="inv"){
     const ents=Object.entries(inv).sort((a,b)=>b[1]-a[1]);
     const maxML=Math.max(...Object.values(inv),1);
-    con=`<p class="pt">Inventario de esencias</p><p class="ps">Stock actual · ${SCENTS.length} esencias</p>
+    const totCart=Object.values(cartuchos).reduce((a,b)=>a+b,0);
+    const zeroCart=Object.values(cartuchos).filter(v=>v===0).length;
+    con=`<p class="pt">Inventario de esencias</p><p class="ps">Stock actual · ${Object.keys(inv).length} esencias</p>
     <div class="stats">
       <div class="stat"><div class="sn">${totML.toLocaleString()}</div><div class="sl2">Total ml</div></div>
       <div class="stat"><div class="sn" style="color:var(--WN)">${lowC}</div><div class="sl2">Stock bajo</div></div>
@@ -762,6 +764,86 @@ function render(){
     </div>`).join("");})()}`:""}`;
   }
 
+  // BAJAS
+  else if(tab==="bajas"){
+    con=`<p class="pt">Bajas de clientes</p><p class="ps">${bajas.length} registros</p>
+    <button class="btn-add" style="background:var(--D)" onclick="openAddBaja()"><i class="ti ti-plus"></i> Registrar baja</button>
+    ${bajas.length===0?`<div class="empty"><i class="ti ti-user-minus"></i>Sin bajas registradas</div>`
+    :bajas.map(b=>`<div class="card sl-r">
+      <div class="ch"><div><div class="ct">${b.c}</div><div class="cs">${b.vnd} · ${fmtD(b.fecha)}</div></div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+          <span class="chip chip-r" style="font-size:10px">${b.motivo}</span>
+          ${isA?`<button class="del" onclick="delBaja('${b.id}')">Eliminar</button>`:""}
+        </div>
+      </div>
+      ${b.notas?`<div style="font-size:11px;color:var(--M);margin-top:5px">${b.notas}</div>`:""}
+    </div>`).join("")}`;
+  }
+
+  // PERDIDOS
+  else if(tab==="lost"){
+    const demosFall=demos.filter(d=>d.ret&&d.res==="fallida");
+    const allLost=[...bajas.map(b=>({tipo:"baja",c:b.c,motivo:b.motivo,fecha:b.fecha,vnd:b.vnd})),...demosFall.map(d=>({tipo:"demo",c:d.c,motivo:d.motivoRetiro||"",fecha:d.retFecha||d.fecha,vnd:d.vnd}))];
+    const motivoCount={};allLost.forEach(x=>{if(x.motivo)motivoCount[x.motivo]=(motivoCount[x.motivo]||0)+1;});
+    con=`<p class="pt">Clientes perdidos</p><p class="ps">${allLost.length} total</p>
+    <div class="stats">
+      <div class="stat"><div class="sn" style="color:var(--D)">${bajas.length}</div><div class="sl2">Bajas</div></div>
+      <div class="stat"><div class="sn" style="color:var(--WN)">${demosFall.length}</div><div class="sl2">Demos fallidas</div></div>
+    </div>
+    ${Object.entries(motivoCount).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([m,n])=>`<div class="card" style="margin-bottom:8px"><div class="ch"><span style="font-size:13px;font-weight:600">${m}</span><span class="chip chip-r">${n}</span></div></div>`).join("")}
+    ${allLost.slice(0,20).map(x=>`<div class="card sl-r" style="margin-bottom:6px;padding:10px 12px">
+      <div class="ch"><div><div class="ct" style="font-size:12px">${x.c}</div><div class="cs">${x.vnd} · ${fmtD(x.fecha)}</div></div>
+        <span class="chip chip-r" style="font-size:10px">${x.tipo==="baja"?"Baja":"Demo fallida"}</span>
+      </div>
+      ${x.motivo?`<div style="font-size:11px;color:var(--M);margin-top:4px">${x.motivo}</div>`:""}
+    </div>`).join("")}`;
+  }
+
+  // INTENSIDAD
+  else if(tab==="grades"){
+    const allGraded=ALL_CLIENTS.filter(c=>getClientEqs(c).some(e=>!e._del&&(CONSUME[e.modelo]||ONOFF_MODELS.includes(e.modelo))));
+    con=`<p class="pt">Intensidad de equipos</p><p class="ps">${allGraded.length} clientes con equipos configurables</p>
+    ${allGraded.filter(c=>!sq||c.toLowerCase().includes(sq.toLowerCase())).map(c=>{
+      const eqs=getClientEqs(c).filter(e=>!e._del&&(CONSUME[e.modelo]||ONOFF_MODELS.includes(e.modelo)));
+      return`<div class="card" style="margin-bottom:8px">
+        <div class="ct" style="margin-bottom:8px">${c}</div>
+        ${eqs.map(eq=>{
+          const gi=eqGrades[eq.serie]||{};
+          const gradeStr=getGradeDisplay(eq.serie);
+          return`<div class="cer">
+            <div style="flex:1"><span style="font-weight:700;font-size:12px">${eq.serie}</span> <span style="font-size:11px;color:var(--M)">${eq.area||""}</span>${gradeStr}</div>
+            <button onclick="regEq(${JSON.stringify(eq)});openGradeFromClients('${c.replace(/'/g,"\\'")}','${eq.serie.replace(/'/g,"\\'")}');" style="padding:4px 10px;background:#e8f0ff;color:#3456a0;border:none;border-radius:7px;font-size:11px;cursor:pointer;font-weight:700">⚡ Config</button>
+          </div>`;
+        }).join("")}
+      </div>`;
+    }).join("")}`;
+  }
+
+  // CONFIG
+  else if(tab==="config"&&isA){
+    const esOpts=Object.keys(inv).sort();
+    con=`<p class="pt">Configuracion</p>
+    <p style="font-size:12px;font-weight:700;color:var(--M);margin-bottom:10px">MODELOS DE EQUIPOS</p>
+    <div class="card" style="margin-bottom:14px">
+      ${modelos.map(m=>`<div class="sr"><div class="sm">${m}</div>
+        ${!["AE301","AE701","AE3500","Radiant","FMATIC"].includes(m)?`<button class="del" onclick="delModelo('${m}')">Eliminar</button>`:"<span style='font-size:11px;color:var(--M)'>Original</span>"}
+      </div>`).join("")}
+    </div>
+    <button class="btn-add" onclick="openAddModelo()"><i class="ti ti-plus"></i> Agregar modelo</button>
+    <p style="font-size:12px;font-weight:700;color:var(--M);margin:16px 0 10px">ESENCIAS (${esOpts.length})</p>
+    <div class="sw"><i class="ti ti-search"></i><input class="si2" placeholder="Buscar esencia..." value="${sq}" oninput="sq=this.value;render()"/></div>
+    ${esOpts.filter(s=>!sq||s.toLowerCase().includes(sq.toLowerCase())).map(s=>`<div class="card" style="margin-bottom:6px;padding:10px 12px">
+      <div class="ch">
+        <div><div class="ct" style="font-size:12px">${s}</div><div class="cs">${(inv[s]||0).toLocaleString()} ml en stock</div></div>
+        <div style="display:flex;gap:6px">
+          <button class="be" onclick="openEditEsencia('${s.replace(/'/g,"\'")}')">✏️</button>
+          <button class="del" onclick="delEsencia('${s.replace(/'/g,"\'")}')">✕</button>
+        </div>
+      </div>
+    </div>`).join("")}
+    <button class="btn-add" style="margin-top:8px" onclick="openAddEsencia()"><i class="ti ti-plus"></i> Agregar esencia</button>`;
+  }
+
   // CLIENTES
   else if(tab==="clts"&&isA){
     const fc=ALL_CLIENTS.filter(c=>!sq||c.toLowerCase().includes(sq.toLowerCase()));
@@ -803,41 +885,6 @@ function render(){
       </div>
     </div>`).join("")}`;
   }
-
-  // CLIENTES
-  else if(tab==="clts"&&isA){
-    const paisFilter=window._paisFilter||"todos";
-    const clientesFiltrados=ALL_CLIENTS.filter(c=>{
-      if(paisFilter==="SV")return (window._clientPais||{})[c]!=="GT";
-      if(paisFilter==="GT")return (window._clientPais||{})[c]==="GT";
-      return true;
-    });
-    const fc=clientesFiltrados.filter(c=>!sq||c.toLowerCase().includes(sq.toLowerCase()));
-    const svCount=ALL_CLIENTS.filter(c=>(window._clientPais||{})[c]!=="GT").length;
-    const gtCount=ALL_CLIENTS.filter(c=>(window._clientPais||{})[c]==="GT").length;
-    const pBtn=(val,label)=>{
-      const active=paisFilter===val;
-      const st="flex:1;padding:8px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid "+(active?"var(--F)":"#dde8e2")+";background:"+(active?"var(--F)":"none")+";color:"+(active?"#fff":"var(--M)");
-      return "<button onclick=\"window._paisFilter='"+val+"';render()\" style=\""+st+"\">"+label+"</button>";
-    };
-    const clientCards=fc.map(c=>{
-      const cv=visits.filter(v=>v.cliente===c);
-      const allEq=getClientEqs(c).filter(e=>!e._del);
-      const vn=Object.entries(VC).find(([,a])=>a.includes(c))?.[0]||"Sin asignar";
-      const cpais=(window._clientPais||{})[c];
-      const exp=expC===c;
-      const cj=JSON.stringify(c);
-      const gtFlag=cpais==="GT"?" GT":"";
-      const expDiv=exp?"<div style='margin-top:10px;border-top:1px solid #f0f0f0;padding-top:10px'>"+renderClientEqs(c)+"<button onclick='openAddCEq("+cj+")' style='margin-top:8px;display:flex;align-items:center;gap:5px;background:#e8f5ee;color:var(--F);border:none;padding:7px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;width:100%;justify-content:center'>+ Agregar equipo</button></div>":"";
-      return "<div class='card'><div class='ch' onclick='togC("+cj+")' style='cursor:pointer'><div><div class='ct' style='font-size:12px'>"+c+gtFlag+"</div><div class='cs'>"+vn+"</div></div><div style='display:flex;align-items:center;gap:5px'><span class='chip'>"+cv.length+"v</span><span class='chip chip-b'>"+allEq.length+"eq</span><i class='ti ti-chevron-"+(exp?"up":"down")+"' style='font-size:15px;color:var(--M)'></i></div></div>"+expDiv+"</div>";
-    }).join("");
-    con="<p class='pt'>Clientes</p><p class='ps'>"+ALL_CLIENTS.length+" clientes</p>"
-      +(isA?"<button class='btn-add' onclick='openAddCliente()'><i class='ti ti-user-plus'></i> Agregar cliente</button>":"")
-      +"<div style='display:flex;gap:6px;margin-bottom:12px'>"+pBtn("todos","Todos ("+ALL_CLIENTS.length+")")+pBtn("SV","SV ("+svCount+")")+pBtn("GT","GT ("+gtCount+")")+"</div>"
-      +"<div class='sw'><i class='ti ti-search'></i><input class='si2' placeholder='Buscar...' value='"+sq+"' oninput='sq=this.value;render()'/></div>"
-      +clientCards;
-  }
-
   // SOLICITUDES
   else if(tab==="sols"){
     const mySols=isA?solicitudes:solicitudes.filter(s=>s.vendedor===sess.name);
@@ -881,7 +928,8 @@ function render(){
         <button onclick="doExportPDF()" style="padding:9px 14px;background:#c0392b;color:#fff;border:none;border-radius:var(--R);font-size:12px;font-weight:600;cursor:pointer">PDF</button>
       </div>
     </div>
-    ${reportData.slice(0,20).map(v=>`<div class="card sl" style="padding:10px 12px;margin-bottom:6px"><div class="ch"><div><div class="ct" style="font-size:12px">${v.cliente}</div><div class="cs">${fmt(v.fecha)} · ${v.vnd}</div></div><span class="chip" style="font-size:10px">${v.ml}ml</span></div></div>`).join("")}`;
+    ${reportData.length===0?`<div class="empty"><i class="ti ti-file-off"></i>Sin registros</div>`:reportData.slice(0,20).map(v=>`<div class="card sl" style="padding:10px 12px;margin-bottom:6px"><div class="ch"><div><div class="ct" style="font-size:12px">${v.cliente}</div><div class="cs">${fmt(v.fecha)} · ${v.vnd}</div></div><span class="chip" style="font-size:10px">${v.ml}ml</span></div></div>`).join("")}
+    ${reportData.length>20?`<div style="text-align:center;font-size:12px;color:var(--M);padding:10px">Mostrando 20 de ${reportData.length}. Exporta para ver todos.</div>`:""}`;
   }
 
   // MODAL
@@ -994,6 +1042,16 @@ function render(){
         </div>
       </div></div>`;
     }
+    else if(t==="addBaja"){
+      const mc=isA?ALL_CLIENTS:(VC[sess.name]||ALL_CLIENTS);
+      mHTML=`<div class="mb-bg" onclick="if(event.target===this){modal=null;render()}"><div class="mb">
+        <div class="mb-t">Registrar baja</div>
+        <div class="fw"><label class="lbl">Cliente *</label><input class="inp" id="bj_c" placeholder="Nombre del cliente" list="bj_cl"/><datalist id="bj_cl">${mc.map(c=>`<option>${c}</option>`).join("")}</datalist></div>
+        <div class="fw"><label class="lbl">Motivo *</label><select class="inp" id="bj_mot"><option value="">Selecciona...</option><option>Precio muy alto</option><option>No le gusto el aroma</option><option>Problemas con el equipo</option><option>Cierre del negocio</option><option>Cambio de proveedor</option><option>No vio resultados</option><option>Presupuesto reducido</option><option>Otro</option></select></div>
+        <div class="fw"><label class="lbl">Notas</label><textarea class="inp" id="bj_n" placeholder="Detalle..."></textarea></div>
+        <div class="mb-act"><button class="btn-c" onclick="modal=null;render()">Cancelar</button><button class="btn" style="background:var(--D)" onclick="saveBaja()">Registrar</button></div>
+      </div></div>`;
+    }
     else if(t==="addCliente"){
       const activeVnds=vendors.filter(v=>v.active!==false&&v.role!=="admin");
       mHTML=`<div class="mb-bg" onclick="if(event.target===this){modal=null;render()}"><div class="mb">
@@ -1002,6 +1060,30 @@ function render(){
         <div class="fw"><label class="lbl">Vendedor</label><select class="inp" id="cl_v"><option value="">Sin asignar</option>${activeVnds.map(v=>`<option value="${v.name}">${v.name}</option>`).join("")}</select></div>
         <div class="fw"><label class="lbl">País *</label><select class="inp" id="cl_pais"><option value="SV">🇸🇻 El Salvador</option><option value="GT">🇬🇹 Guatemala</option></select></div>
         <div class="mb-act"><button class="btn-c" onclick="modal=null;render()">Cancelar</button><button class="btn" onclick="saveCliente()">Agregar</button></div>
+      </div></div>`;
+    }
+    else if(t==="addModelo"){
+      mHTML=`<div class="mb-bg" onclick="if(event.target===this){modal=null;render()}"><div class="mb">
+        <div class="mb-t">Agregar modelo</div>
+        <div class="fw"><label class="lbl">Nombre *</label><input class="inp" id="mod_n" placeholder="Ej: AE1000" style="text-transform:uppercase"/></div>
+        <div class="mb-act"><button class="btn-c" onclick="modal=null;render()">Cancelar</button><button class="btn" onclick="saveModelo()">Agregar</button></div>
+      </div></div>`;
+    }
+    else if(t==="addEsencia"){
+      mHTML=`<div class="mb-bg" onclick="if(event.target===this){modal=null;render()}"><div class="mb">
+        <div class="mb-t">Agregar esencia</div>
+        <div class="fw"><label class="lbl">Nombre *</label><input class="inp" id="es_n" placeholder="Ej: JASMINE BLOOM" style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()"/></div>
+        <div class="fr"><div class="fw"><label class="lbl">Stock inicial (ml)</label><input type="number" class="inp" id="es_stock" placeholder="0" min="0"/></div>
+        <div class="fw"><label class="lbl">Stock minimo (ml)</label><input type="number" class="inp" id="es_min" placeholder="500" min="0" value="500"/></div></div>
+        <div class="mb-act"><button class="btn-c" onclick="modal=null;render()">Cancelar</button><button class="btn" onclick="saveEsencia()">Agregar</button></div>
+      </div></div>`;
+    }
+    else if(t==="editEsencia"){
+      mHTML=`<div class="mb-bg" onclick="if(event.target===this){modal=null;render()}"><div class="mb">
+        <div class="mb-t">Editar esencia</div>
+        <div class="fw"><label class="lbl">Nombre actual</label><div style="padding:10px 12px;background:#f0f7f4;border-radius:var(--R);font-weight:600;color:var(--F)">${modal.nombre}</div></div>
+        <div class="fw"><label class="lbl">Nuevo nombre *</label><input class="inp" id="ees_n" value="${modal.nombre}" style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()"/></div>
+        <div class="mb-act"><button class="btn-c" onclick="modal=null;render()">Cancelar</button><button class="btn" onclick="saveEditEsencia()">Guardar</button></div>
       </div></div>`;
     }
     else if(t==="addSolicitud"){
