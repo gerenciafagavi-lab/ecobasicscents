@@ -801,22 +801,27 @@ function render(){
 
   // INTENSIDAD
   else if(tab==="grades"){
-    const allGraded=ALL_CLIENTS.filter(c=>getClientEqs(c).some(e=>!e._del&&(CONSUME[e.modelo]||ONOFF_MODELS.includes(e.modelo))));
-    con=`<p class="pt">Intensidad de equipos</p><p class="ps">${allGraded.length} clientes con equipos configurables</p>
-    ${allGraded.filter(c=>!sq||c.toLowerCase().includes(sq.toLowerCase())).map(c=>{
-      const eqs=getClientEqs(c).filter(e=>!e._del&&(CONSUME[e.modelo]||ONOFF_MODELS.includes(e.modelo)));
-      return`<div class="card" style="margin-bottom:8px">
-        <div class="ct" style="margin-bottom:8px">${c}</div>
-        ${eqs.map(eq=>{
-          const gi=eqGrades[eq.serie]||{};
-          const gradeStr=getGradeDisplay(eq.serie);
-          return`<div class="cer">
-            <div style="flex:1"><span style="font-weight:700;font-size:12px">${eq.serie}</span> <span style="font-size:11px;color:var(--M)">${eq.area||""}</span>${gradeStr}</div>
-            <button onclick="regEq(${JSON.stringify(eq)});openGradeFromClients('${c.replace(/'/g,"\\'")}','${eq.serie.replace(/'/g,"\\'")}');" style="padding:4px 10px;background:#e8f0ff;color:#3456a0;border:none;border-radius:7px;font-size:11px;cursor:pointer;font-weight:700">⚡ Config</button>
-          </div>`;
-        }).join("")}
-      </div>`;
-    }).join("")}`;
+    const myClientsG=isA?ALL_CLIENTS:(VC[sess.name]||[]);
+    const allGraded=myClientsG.filter(c=>getClientEqs(c).some(e=>!e._del&&(CONSUME[e.modelo]||ONOFF_MODELS.includes(e.modelo))));
+    if(allGraded.length===0){
+      con="<p class='pt'>Intensidad de equipos</p><p class='ps'>Sin equipos configurables</p><div class='empty'><i class='ti ti-gauge'></i>No hay equipos AE701, AE301, AE3500 o Radiant registrados en clientes</div>";
+    } else {
+      const gCards=allGraded.filter(c=>!sq||c.toLowerCase().includes(sq.toLowerCase())).map(c=>{
+        const eqs=getClientEqs(c).filter(e=>!e._del&&(CONSUME[e.modelo]||ONOFF_MODELS.includes(e.modelo)));
+        const rows=eqs.map(eq=>{
+          regEq(eq);
+          const gs=getGradeDisplay(eq.serie);
+          const cj=JSON.stringify(c);
+          const sj=JSON.stringify(eq.serie);
+          return"<div class='cer'><div style='flex:1'><span style='font-weight:700;font-size:12px'>"+eq.serie+"</span> <span style='font-size:11px;color:var(--M)'>"+( eq.area||"")+"</span>"+gs+"</div>"
+            +"<button onclick='openGradeFromClients("+cj+","+sj+")' style='padding:4px 10px;background:#e8f0ff;color:#3456a0;border:none;border-radius:7px;font-size:11px;cursor:pointer;font-weight:700'>⚡</button></div>";
+        }).join("");
+        return"<div class='card' style='margin-bottom:8px'><div class='ct' style='margin-bottom:8px'>"+c+"</div>"+rows+"</div>";
+      }).join("");
+      con="<p class='pt'>Intensidad de equipos</p><p class='ps'>"+allGraded.length+" clientes</p>"
+        +"<div class='sw'><i class='ti ti-search'></i><input class='si2' placeholder='Buscar...' value='"+sq+"' oninput='sq=this.value;render()'/></div>"
+        +gCards;
+    }
   }
 
   // CONFIG
