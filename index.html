@@ -479,6 +479,32 @@ function doExportCSV(){
   const a=document.createElement("a");a.href=url;a.download=(rType==="reclamos"?"reclamos":"visitas")+"_reporte.csv";document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
   showToast("CSV descargado");
 }
+function doExportEquiposCSV(){
+  const rPais=window._rPais||"todos";
+  const clientesFiltrados=ALL_CLIENTS.filter(c=>{
+    if(rPais==="SV")return (window._clientPais||{})[c]!=="GT";
+    if(rPais==="GT")return (window._clientPais||{})[c]==="GT";
+    return true;
+  });
+  const rows=[];
+  clientesFiltrados.forEach(c=>{
+    const eqs=getClientEqs(c).filter(e=>!e._del);
+    eqs.forEach(eq=>{
+      const gi=eqGrades[eq.serie]||{};
+      const intensidad=gi.tipo==="onoff"?"On:"+gi.onSec+"s Off:"+gi.offSec+"s":gi.grade?"G"+gi.grade:"Sin config";
+      rows.push({Pais:(window._clientPais||{})[c]==="GT"?"Guatemala":"El Salvador",Cliente:c,Modelo:eq.modelo,Serie:eq.serie,Area:eq.area||"",Aroma:eq.aroma||"",Intensidad:intensidad});
+    });
+  });
+  if(!rows.length){alert("Sin equipos");return;}
+  const hdrs='"'+Object.keys(rows[0]).join('","')+'"';
+  const rws=rows.map(r=>Object.values(r).map(v=>'"'+String(v||"").replace(/"/g,"''")+'"').join(","));
+  const csv=[hdrs,...rws].join("\n");
+  const blob=new Blob([csv],{type:"text/csv;charset=utf-8;"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");a.href=url;a.download="equipos_instalados.csv";
+  document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
+  showToast("CSV descargado");
+}
 function doExportPDF(){
   const {data,rType}=getReportData();
   if(!data.length){alert("No hay datos");return;}
@@ -490,6 +516,50 @@ function doExportPDF(){
 // RENDER CLIENT EQS
 const _eqMap={};
 function regEq(eq){_eqMap[eq.serie]=eq;return eq.serie;}
+function openGradeChange(cliente,eq){
+  if(!eq||!eq.modelo)return;
+  let tipo;
+  if(eq.modelo==="AE3500"||eq.modelo==="Radiant")tipo="gradeOnOff";
+  else if(eq.modelo==="AE101BAT")tipo="grade101bat";
+  else tipo="gradeChange";
+  modal={t:tipo,c:cliente,eq};render();
+}
+function saveGradeChange(){
+  const newGrade=parseInt(document.getElementById("gr_grade").value);
+  const notas=document.getElementById("gr_n").value.trim();
+  if(!newGrade||newGrade<1||newGrade>10){showToast("Selecciona un grado del 1 al 10");return;}
+  const eq=modal.eq;const serie=eq.serie;
+  const prev=eqGrades[serie];
+  const cotizado=prev?.gradeCotizado||newGrade;
+  eqGrades={...eqGrades,[serie]:{grade:newGrade,gradeCotizado:cotizado,fechaCambio:new Date().toISOString(),changedBy:sess.name,history:[...((prev?.history)||[]),{grade:newGrade,fecha:new Date().toISOString(),by:sess.name,notas}]}};
+  sv("eqgrades",eqGrades);
+  const reg={id:uid(),fecha:new Date().toISOString(),vnd:sess.name,cliente:modal.c,modelo:eq.modelo,serie,area:eq.area||"",esencia:eq.aroma||"",ml:0,notas:"Grado "+(prev?.grade||"")+"→"+newGrade+(notas?" · "+notas:""),gradeCambio:true};
+  visits=[reg,...visits];sv("vis",visits);
+  modal=null;showToast("Grado "+newGrade+" guardado");
+}
+function saveGradeOnOff(){
+  const onSec=parseInt(document.getElementById("go_on").value)||0;
+  const offSec=parseInt(document.getElementById("go_off").value)||0;
+  const hours=parseInt(document.getElementById("go_hrs").value)||10;
+  const notas=document.getElementById("go_n").value.trim();
+  if(!onSec||!offSec){showToast("Ingresa los tiempos On y Off");return;}
+  const eq=modal.eq;const serie=eq.serie;
+  const prev=eqGrades[serie];
+  const mlMes=calcAE3500(onSec,offSec);
+  eqGrades={...eqGrades,[serie]:{tipo:"onoff",onSec,offSec,hours,mlMes,mlMesCotizado:prev?.mlMesCotizado||mlMes,fechaCambio:new Date().toISOString(),changedBy:sess.name,history:[...((prev?.history)||[]),{onSec,offSec,mlMes,fecha:new Date().toISOString(),by:sess.name,notas}]}};
+  sv("eqgrades",eqGrades);
+  const reg={id:uid(),fecha:new Date().toISOString(),vnd:sess.name,cliente:modal.c,modelo:eq.modelo,serie,area:eq.area||"",esencia:eq.aroma||"",ml:0,notas:"Intensidad On "+onSec+"s / Off "+offSec+"s"+(notas?" · "+notas:""),gradeCambio:true};
+  visits=[reg,...visits];sv("vis",visits);
+  modal=null;showToast("Intensidad guardada");
+}
+function updateAE3500Preview(){
+  const on=parseInt(document.getElementById("go_on")?.value)||0;
+  const off=parseInt(document.getElementById("go_off")?.value)||0;
+  const hrs=parseInt(document.getElementById("go_hrs")?.value)||10;
+  const prev=document.getElementById("go_preview");
+  if(!prev)return;
+  if(on>0&&off>0){const ml=Math.round(((on/(on+off))*hrs*3600*0.00099537)*31*10)/10;prev.innerHTML="Consumo estimado: <strong>"+ml+"ml/mes</strong>";prev.style.background=ml>235?"#fdecea":"#f0f7f4";prev.style.color=ml>235?"var(--D)":"var(--F)";}
+}
 function openGradeFromClients(c,serie){
   const eq=_eqMap[serie];
   if(!eq){
@@ -916,15 +986,33 @@ function render(){
   // REPORTES
   else if(tab==="reports"&&isA){
     const rFrom=window._rFrom||"";const rTo=window._rTo||"";const rType=window._rType||"visitas";const rPais=window._rPais||"todos";
-    let reportData=rType==="visitas"?visits:visits.filter(v=>v.prob);
-    if(rPais!=="todos")reportData=reportData.filter(v=>rPais==="GT"?(window._clientPais||{})[v.cliente]==="GT":(window._clientPais||{})[v.cliente]!=="GT");
-    if(rFrom)reportData=reportData.filter(v=>v.fecha>=rFrom);
-    if(rTo)reportData=reportData.filter(v=>v.fecha<=rTo+"T23:59:59");
+    let reportData=rType==="visitas"?visits:rType==="reclamos"?visits.filter(v=>v.prob):[];
+    let equiposData=[];
+    if(rType==="equipos"){
+      const clientesFiltrados=ALL_CLIENTS.filter(c=>{
+        if(rPais==="SV")return (window._clientPais||{})[c]!=="GT";
+        if(rPais==="GT")return (window._clientPais||{})[c]==="GT";
+        return true;
+      });
+      clientesFiltrados.forEach(c=>{
+        const eqs=getClientEqs(c).filter(e=>!e._del);
+        eqs.forEach(eq=>{
+          const gi=eqGrades[eq.serie]||{};
+          const intensidad=gi.tipo==="onoff"?"On:"+gi.onSec+"s Off:"+gi.offSec+"s":gi.grade?"G"+gi.grade:"Sin config";
+          equiposData.push({Pais:(window._clientPais||{})[c]==="GT"?"Guatemala":"El Salvador",Cliente:c,Modelo:eq.modelo,Serie:eq.serie,Area:eq.area||"",Aroma:eq.aroma||"",Intensidad:intensidad});
+        });
+      });
+    } else {
+      if(rPais!=="todos")reportData=reportData.filter(v=>rPais==="GT"?(window._clientPais||{})[v.cliente]==="GT":(window._clientPais||{})[v.cliente]!=="GT");
+      if(rFrom)reportData=reportData.filter(v=>v.fecha>=rFrom);
+      if(rTo)reportData=reportData.filter(v=>v.fecha<=rTo+"T23:59:59");
+    }
     con=`<p class="pt">Reportes</p><p class="ps">Exporta visitas y reclamos</p>
     <div class="card" style="margin-bottom:14px">
       <div style="display:flex;gap:6px;margin-bottom:10px">
-        <button onclick="window._rType='visitas';render()" style="flex:1;padding:9px;border-radius:var(--R);border:1px solid ${rType==='visitas'?'var(--F)':'#dde8e2'};background:${rType==='visitas'?'var(--F)':'none'};color:${rType==='visitas'?'#fff':'var(--M)'};font-size:12px;font-weight:600;cursor:pointer">Visitas</button>
-        <button onclick="window._rType='reclamos';render()" style="flex:1;padding:9px;border-radius:var(--R);border:1px solid ${rType==='reclamos'?'var(--D)':'#dde8e2'};background:${rType==='reclamos'?'var(--D)':'none'};color:${rType==='reclamos'?'#fff':'var(--M)'};font-size:12px;font-weight:600;cursor:pointer">Reclamos</button>
+        <button onclick="window._rType='visitas';render()" style="flex:1;padding:9px;border-radius:var(--R);border:1px solid ${rType==='visitas'?'var(--F)':'#dde8e2'};background:${rType==='visitas'?'var(--F)':'none'};color:${rType==='visitas'?'#fff':'var(--M)'};font-size:11px;font-weight:600;cursor:pointer">Visitas</button>
+        <button onclick="window._rType='reclamos';render()" style="flex:1;padding:9px;border-radius:var(--R);border:1px solid ${rType==='reclamos'?'var(--D)':'#dde8e2'};background:${rType==='reclamos'?'var(--D)':'none'};color:${rType==='reclamos'?'#fff':'var(--M)'};font-size:11px;font-weight:600;cursor:pointer">Reclamos</button>
+        <button onclick="window._rType='equipos';render()" style="flex:1;padding:9px;border-radius:var(--R);border:1px solid ${rType==='equipos'?'#3456a0':'#dde8e2'};background:${rType==='equipos'?'#3456a0':'none'};color:${rType==='equipos'?'#fff':'var(--M)'};font-size:11px;font-weight:600;cursor:pointer">Equipos</button>
       </div>
       <div style="display:flex;gap:6px;margin-bottom:12px">
         <button onclick="window._rPais='todos';render()" style="flex:1;padding:7px;border-radius:20px;border:1px solid ${rPais==='todos'?'var(--F)':'#dde8e2'};background:${rPais==='todos'?'var(--F)':'none'};color:${rPais==='todos'?'#fff':'var(--M)'};font-size:12px;font-weight:600;cursor:pointer">Todos</button>
@@ -937,14 +1025,23 @@ function render(){
       </div>
     </div>
     <div style="background:#f0f7f4;border-radius:var(--R);padding:12px 14px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between">
-      <div><div style="font-weight:700;font-size:15px;color:var(--F)">${reportData.length} registros</div></div>
+      <div><div style="font-weight:700;font-size:15px;color:var(--F)">${rType==="equipos"?equiposData.length:reportData.length} registros</div></div>
       <div style="display:flex;gap:8px">
         <button onclick="doExportCSV()" style="padding:9px 14px;background:#1b3a2d;color:#fff;border:none;border-radius:var(--R);font-size:12px;font-weight:600;cursor:pointer">CSV</button>
         <button onclick="doExportPDF()" style="padding:9px 14px;background:#c0392b;color:#fff;border:none;border-radius:var(--R);font-size:12px;font-weight:600;cursor:pointer">PDF</button>
+        ${rType==='equipos'?`<button onclick="doExportEquiposCSV()" style="padding:9px 14px;background:#3456a0;color:#fff;border:none;border-radius:var(--R);font-size:12px;font-weight:600;cursor:pointer">XLS</button>`:''}
       </div>
     </div>
-    ${reportData.length===0?`<div class="empty"><i class="ti ti-file-off"></i>Sin registros</div>`:reportData.slice(0,20).map(v=>`<div class="card sl" style="padding:10px 12px;margin-bottom:6px"><div class="ch"><div><div class="ct" style="font-size:12px">${v.cliente}</div><div class="cs">${fmt(v.fecha)} · ${v.vnd}</div></div><span class="chip" style="font-size:10px">${v.ml}ml</span></div></div>`).join("")}
-    ${reportData.length>20?`<div style="text-align:center;font-size:12px;color:var(--M);padding:10px">Mostrando 20 de ${reportData.length}. Exporta para ver todos.</div>`:""}`;
+    ${rType==="equipos"
+      ?(equiposData.length===0?`<div class="empty"><i class="ti ti-device-ipad"></i>Sin equipos</div>`
+        :equiposData.slice(0,30).map(e=>`<div class="card" style="padding:10px 12px;margin-bottom:6px">
+          <div class="ch"><div><div class="ct" style="font-size:12px">${e.Cliente}</div><div class="cs">${e.Serie} · ${e.Modelo}</div></div>
+          <span class="chip chip-b" style="font-size:10px">${e.Pais==="Guatemala"?"🇬🇹":"🇸🇻"}</span></div>
+          ${e.Area||e.Aroma?`<div class="mr">${e.Area?`<span class="chip" style="font-size:10px">${e.Area}</span>`:""} ${e.Aroma?`<span class="chip chip-g" style="font-size:10px">${e.Aroma}</span>`:""} ${e.Intensidad&&e.Intensidad!=="Sin config"?`<span class="chip chip-b" style="font-size:10px">${e.Intensidad}</span>`:""}</div>`:""}
+        </div>`).join("")+( equiposData.length>30?`<div style="text-align:center;font-size:12px;color:var(--M);padding:10px">Mostrando 30 de ${equiposData.length}. Exporta para ver todos.</div>`:""))
+      :(reportData.length===0?`<div class="empty"><i class="ti ti-file-off"></i>Sin registros</div>`
+        :reportData.slice(0,20).map(v=>`<div class="card sl" style="padding:10px 12px;margin-bottom:6px"><div class="ch"><div><div class="ct" style="font-size:12px">${v.cliente}</div><div class="cs">${fmt(v.fecha)} · ${v.vnd}</div></div><span class="chip" style="font-size:10px">${v.ml}ml</span></div></div>`).join("")
+        +(reportData.length>20?`<div style="text-align:center;font-size:12px;color:var(--M);padding:10px">Mostrando 20 de ${reportData.length}. Exporta para ver todos.</div>`:""))}`;
   }
 
   // MODAL
@@ -1055,6 +1152,46 @@ function render(){
         <div class="mb-act"><button class="btn-c" onclick="modal=null;render()">Cancelar</button>
           <button class="btn" style="background:${esE?"var(--F)":"var(--D)"}" onclick="saveMov()">Registrar ${esE?"entrada":"salida"}</button>
         </div>
+      </div></div>`;
+    }
+    else if(t==="gradeChange"){
+      const eq=modal.eq||{};
+      const gi=eqGrades[eq.serie]||{};
+      const curGrade=gi.grade||null;
+      const cotGrade=gi.gradeCotizado||null;
+      if(!CONSUME[eq.modelo]){
+        mHTML=`<div class="mb-bg" onclick="if(event.target===this){modal=null;render()}"><div class="mb"><div class="mb-t">Intensidad</div><p style="font-size:14px;color:var(--M);text-align:center;padding:20px">El modelo ${eq.modelo} no tiene control de intensidad por grado.</p><button class="btn" onclick="modal=null;render()">Cerrar</button></div></div>`;
+      } else {
+        mHTML=`<div class="mb-bg" onclick="if(event.target===this){modal=null;render()}"><div class="mb">
+          <div class="mb-t" style="color:#3456a0">Cambiar intensidad</div>
+          <p class="ps" style="margin-top:-10px;margin-bottom:14px">${eq.modelo} · ${eq.serie}${eq.area?" · "+eq.area:""}</p>
+          ${curGrade?`<div style="background:#e8f0ff;border-radius:10px;padding:10px;text-align:center;margin-bottom:14px"><div style="font-size:11px;color:#3456a0;font-weight:600">GRADO ACTUAL</div><div style="font-size:28px;font-weight:700;color:#3456a0">G${curGrade}</div></div>`:""}
+          <div class="fw"><label class="lbl">Nuevo grado *</label>
+            <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:6px">
+              ${[1,2,3,4,5,6,7,8,9,10].map(g=>`<button onclick="document.querySelectorAll('.gb').forEach(b=>{b.style.background='none';b.style.color='var(--M)';b.style.borderColor='#dde8e2'});this.style.background='var(--F)';this.style.color='#fff';this.style.borderColor='var(--F)';document.getElementById('gr_grade').value='${g}'" class="gb" style="padding:8px 4px;border:2px solid ${curGrade===g?'var(--F)':'#dde8e2'};border-radius:8px;background:${curGrade===g?'var(--F)':'none'};color:${curGrade===g?'#fff':'var(--M)'};cursor:pointer;font-weight:700;font-size:12px"><div>G${g}</div><div style="font-size:9px;font-weight:400">${CONSUME[eq.modelo]?CONSUME[eq.modelo][g]:""}ml</div></button>`).join("")}
+            </div>
+            <input type="hidden" id="gr_grade" value="${curGrade||''}"/>
+          </div>
+          <div class="fw"><label class="lbl">Notas</label><textarea class="inp" id="gr_n" placeholder="Motivo del cambio..."></textarea></div>
+          <div class="mb-act"><button class="btn-c" onclick="modal=null;render()">Cancelar</button><button class="btn" style="background:#3456a0" onclick="saveGradeChange()">Guardar</button></div>
+        </div></div>`;
+      }
+    }
+    else if(t==="gradeOnOff"){
+      const eq=modal.eq||{};
+      const gi=eqGrades[eq.serie]||{};
+      mHTML=`<div class="mb-bg" onclick="if(event.target===this){modal=null;render()}"><div class="mb">
+        <div class="mb-t" style="color:#3456a0">Intensidad ${eq.modelo}</div>
+        <p class="ps" style="margin-top:-10px;margin-bottom:14px">${eq.serie}${eq.area?" · "+eq.area:""}</p>
+        <div style="background:#e8f0ff;border-radius:var(--R);padding:10px 12px;margin-bottom:14px;font-size:12px;color:#3456a0">Ingresa los tiempos configurados en el equipo.</div>
+        <div class="fr">
+          <div class="fw"><label class="lbl">Tiempo ON (segundos) *</label><input type="number" class="inp" id="go_on" value="${gi.onSec||10}" min="1" oninput="updateAE3500Preview()"/></div>
+          <div class="fw"><label class="lbl">Tiempo OFF (segundos) *</label><input type="number" class="inp" id="go_off" value="${gi.offSec||55}" min="1" oninput="updateAE3500Preview()"/></div>
+        </div>
+        <div class="fw"><label class="lbl">Horas por dia activo</label><input type="number" class="inp" id="go_hrs" value="${gi.hours||10}" min="1" max="24" oninput="updateAE3500Preview()"/></div>
+        <div id="go_preview" style="background:#f0f7f4;border-radius:var(--R);padding:10px 12px;font-size:13px;color:var(--F);margin-bottom:14px;text-align:center">Consumo estimado: calcular...</div>
+        <div class="fw"><label class="lbl">Notas</label><textarea class="inp" id="go_n" placeholder="Observaciones..."></textarea></div>
+        <div class="mb-act"><button class="btn-c" onclick="modal=null;render()">Cancelar</button><button class="btn" style="background:#3456a0" onclick="saveGradeOnOff()">Guardar</button></div>
       </div></div>`;
     }
     else if(t==="addBaja"){
