@@ -311,6 +311,22 @@ function delBaseEq(c,serie){
 }
 
 // Demos
+function getNextSerie(modelo){
+  const prefix="ES"+modelo.replace(/^AE/,"")+"-";
+  const allSeries=[];
+  Object.values(EQUIPOS_DB).forEach(eqs=>eqs.forEach(eq=>{if(eq.modelo===modelo)allSeries.push(eq.serie)}));
+  Object.values(ceq).forEach(eqs=>eqs.forEach(eq=>{if(eq.modelo===modelo&&!eq._del)allSeries.push(eq.serie)}));
+  demos.forEach(d=>{if(d.modelo===modelo&&d.serie)allSeries.push(d.serie);});
+  movs.forEach(m=>{if(m.modelo===modelo&&m.serie)allSeries.push(m.serie);});
+  const nums=allSeries.map(s=>{const m=s.match(/(\d+)$/);return m?parseInt(m[1]):0;}).filter(n=>n>0);
+  const nextNum=nums.length>0?Math.max(...nums)+1:1;
+  return prefix+String(nextNum).padStart(3,"0");
+}
+function onDemoModChange(m){
+  const next=getNextSerie(m);
+  const el=document.getElementById("dm_s");
+  if(el)el.value=next;
+}
 function openAddDemo(){modal={t:"addDemo"};render()}
 function saveDemo(){
   const c=document.getElementById("dm_c").value.trim();
@@ -1117,8 +1133,14 @@ function render(){
           <datalist id="dm_cl">${mc.map(c=>`<option>${c}</option>`).join("")}</datalist>
         </div>
         <div class="fr">
-          <div class="fw"><label class="lbl">Modelo *</label><select class="inp" id="dm_m">${MODS.map(m=>`<option>${m}</option>`).join("")}</select></div>
-          <div class="fw"><label class="lbl">Serie *</label><input class="inp" id="dm_s" placeholder="Nro serie"/></div>
+          <div class="fw"><label class="lbl">Modelo *</label>
+            <select class="inp" id="dm_m" onchange="onDemoModChange(this.value)">
+              ${modelos.map(m=>`<option>${m}</option>`).join("")}
+            </select>
+          </div>
+          <div class="fw"><label class="lbl">Serie (auto-generada)</label>
+            <input class="inp" id="dm_s" value="${getNextSerie(modelos[0])}" style="background:#f0f7f4;font-weight:700;color:var(--F)" placeholder="ES301-001"/>
+          </div>
         </div>
         <div class="fw"><label class="lbl">Dias acordados *</label><input type="number" class="inp" id="dm_d" placeholder="7" min="1"/></div>
         <div class="fw"><label class="lbl">Notas</label><textarea class="inp" id="dm_n" placeholder="Observaciones..."></textarea></div>
