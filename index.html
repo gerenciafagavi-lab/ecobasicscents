@@ -224,7 +224,9 @@ if(_customClients){
   Object.keys(_customClients.vc||{}).forEach(v=>{
     if(VC[v]){_customClients.vc[v].forEach(c=>{if(!VC[v].includes(c))VC[v].push(c);});}
   });
+  if(_customClients.pais){window._clientPais=_customClients.pais;}
 }
+if(!window._clientPais)window._clientPais={};
 let ceq=ld("ceq",{}); // custom client equipment overrides
 let demos=ld("demos",[]);
 let eqStk=ld("eqs",{"AE301":0,"AE701":0,"AE3500":0,"Radiant":0,"FMATIC":0});
@@ -799,15 +801,20 @@ function saveCliente(){
   const nombre=document.getElementById("cl_n").value.trim().toUpperCase();
   const vendedor=document.getElementById("cl_v").value;
   const zona=document.getElementById("cl_z").value.trim();
+  const pais=document.getElementById("cl_pais").value;
   if(!nombre){showToast("Ingresa el nombre del cliente");return;}
   if(ALL_CLIENTS.includes(nombre)){showToast("Ese cliente ya existe");return;}
   ALL_CLIENTS.push(nombre);
-  // Assign to vendor
+  // Store pais
+  if(!window._clientPais)window._clientPais={};
+  window._clientPais[nombre]=pais;
   if(vendedor&&VC[vendedor]){VC[vendedor].push(nombre);}
   // Save only custom additions
-  const customC=ld("customclients",{clients:[],vc:{}});
+  const customC=ld("customclients",{clients:[],vc:{},pais:{}});
   if(!customC.clients.includes(nombre))customC.clients.push(nombre);
   if(vendedor){if(!customC.vc[vendedor])customC.vc[vendedor]=[];if(!customC.vc[vendedor].includes(nombre))customC.vc[vendedor].push(nombre);}
+  if(!customC.pais)customC.pais={};
+  customC.pais[nombre]=pais;
   sv("customclients",customC);
   modal=null;showToast("Cliente "+nombre+" agregado");
 }
@@ -1237,14 +1244,28 @@ function render(){
 
   // CLIENTES
   else if(tab==="clts"&&isA){
-    const fc=ALL_CLIENTS.filter(c=>!sq||c.toLowerCase().includes(sq.toLowerCase()));
+    const fc=clientesFiltrados.filter(c=>!sq||c.toLowerCase().includes(sq.toLowerCase()));
+    const paisFilter=window._paisFilter||"todos";
+    const clientesFiltrados=ALL_CLIENTS.filter(c=>{
+      if(paisFilter==="SV")return (window._clientPais||{})[c]!=="GT";
+      if(paisFilter==="GT")return (window._clientPais||{})[c]==="GT";
+      return true;
+    });
+    const svCount=ALL_CLIENTS.filter(c=>(window._clientPais||{})[c]!=="GT").length;
+    const gtCount=ALL_CLIENTS.filter(c=>(window._clientPais||{})[c]==="GT").length;
     con=`<p class="pt">Clientes</p><p class="ps">${ALL_CLIENTS.length} clientes</p>
     ${isA?`<button class="btn-add" onclick="openAddCliente()"><i class="ti ti-user-plus"></i> Agregar cliente</button>`:""}
+    <div style="display:flex;gap:6px;margin-bottom:12px">
+      <button onclick="window._paisFilter='todos';render()" style="flex:1;padding:8px;border-radius:20px;border:1px solid ${paisFilter==='todos'?'var(--F)':'#dde8e2'};background:${paisFilter==='todos'?'var(--F)':'none'};color:${paisFilter==='todos'?'#fff':'var(--M)'};font-size:12px;font-weight:600;cursor:pointer">Todos (${ALL_CLIENTS.length})</button>
+      <button onclick="window._paisFilter='SV';render()" style="flex:1;padding:8px;border-radius:20px;border:1px solid ${paisFilter==='SV'?'var(--F)':'#dde8e2'};background:${paisFilter==='SV'?'var(--F)':'none'};color:${paisFilter==='SV'?'#fff':'var(--M)'};font-size:12px;font-weight:600;cursor:pointer">🇸🇻 SV (${svCount})</button>
+      <button onclick="window._paisFilter='GT';render()" style="flex:1;padding:8px;border-radius:20px;border:1px solid ${paisFilter==='GT'?'var(--F)':'#dde8e2'};background:${paisFilter==='GT'?'var(--F)':'none'};color:${paisFilter==='GT'?'#fff':'var(--M)'};font-size:12px;font-weight:600;cursor:pointer">🇬🇹 GT (${gtCount})</button>
+    </div>
     <div class="sw"><i class="ti ti-search"></i><input class="si2" placeholder="Buscar..." value="${sq}" oninput="sq=this.value;render()"/></div>
     ${fc.map(c=>{
       const cv=visits.filter(v=>v.cliente===c);
       const allEq=getClientEqs(c).filter(e=>!e._del);
       const vn=Object.entries(VC).find(([,a])=>a.includes(c))?.[0]||"Sin asignar";
+      const cpais=(window._clientPais||{})[c];
       const exp=expC===c;
       return`<div class="card">
         <div class="ch" onclick="togC('${c.replace(/'/g,"\'")}')" style="cursor:pointer">
@@ -1547,7 +1568,9 @@ function render(){
     const rType=window._rType||"visitas";
     
     // Filter data
+    const rPais=window._rPais||"todos";
     let reportData=rType==="visitas"?visits:visits.filter(v=>v.prob);
+    if(rPais!=="todos")reportData=reportData.filter(v=>rPais==="GT"?(window._clientPais||{})[v.cliente]==="GT":(window._clientPais||{})[v.cliente]!=="GT");
     if(rFrom)reportData=reportData.filter(v=>v.fecha>=rFrom);
     if(rTo)reportData=reportData.filter(v=>v.fecha<=rTo+"T23:59:59");
     
@@ -1882,6 +1905,12 @@ function render(){
           <select class="inp" id="cl_v">
             <option value="">Sin asignar</option>
             ${activeVnds.filter(v=>v.role!=="admin").map(v=>`<option value="${v.name}">${v.name}</option>`).join("")}
+          </select>
+        </div>
+        <div class="fw"><label class="lbl">País *</label>
+          <select class="inp" id="cl_pais">
+            <option value="SV">🇸🇻 El Salvador</option>
+            <option value="GT">🇬🇹 Guatemala</option>
           </select>
         </div>
         <div class="fw"><label class="lbl">Zona / Referencia (opcional)</label>
