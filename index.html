@@ -456,6 +456,35 @@ function saveConvertir(){
 function delSolicitud(id){solicitudes=solicitudes.filter(s=>s.id!==id);sv("sols",solicitudes);render();}
 
 // BAJAS
+function openCambioAroma(cliente){modal={t:"cambioAroma",c:cliente};render();}
+function _openGV(){
+  var eq=selEq||(eqsC&&eqsC.length>0?eqsC[0]:null);
+  if(!selC){showToast("Selecciona un cliente");return;}
+  if(!eq){showToast("Selecciona un equipo");return;}
+  openGradeChange(selC,eq);
+}
+function saveCambioAroma(){
+  const eqId=document.getElementById("ca_eq").value;
+  const newAroma=document.getElementById("ca_aroma").value;
+  const notas=document.getElementById("ca_n").value.trim();
+  if(!eqId||!newAroma){showToast("Selecciona equipo y aroma");return;}
+  const cliente=modal.c;
+  const allEqs=getClientEqs(cliente).filter(e=>!e._del);
+  const eq=allEqs.find(e=>e.id===eqId||e.serie===eqId);
+  if(!eq){showToast("Equipo no encontrado");return;}
+  const oldAroma=eq.aroma||"Sin aroma";
+  const existing=ceq[cliente]||[];
+  const inCustom=existing.find(e=>e.id===eq.id||e.serie===eq.serie);
+  if(inCustom){
+    ceq={...ceq,[cliente]:existing.map(e=>(e.id===eq.id||e.serie===eq.serie)?{...e,aroma:newAroma}:e)};
+  } else {
+    ceq={...ceq,[cliente]:[...existing,{...eq,id:eq.id||uid(),aroma:newAroma}]};
+  }
+  sv("ceq",ceq);
+  const reg={id:uid(),fecha:new Date().toISOString(),vnd:sess.name,cliente,modelo:eq.modelo,serie:eq.serie,area:eq.area||"",esencia:newAroma,ml:0,notas:"Cambio de aroma: "+oldAroma+" → "+newAroma+(notas?" · "+notas:""),cambioAroma:true};
+  visits=[reg,...visits];sv("vis",visits);
+  modal=null;showToast("Aroma cambiado a "+newAroma);
+}
 function openAddBaja(){modal={t:"addBaja"};render()}
 function saveBaja(){
   const c=document.getElementById("bj_c").value.trim();
@@ -714,6 +743,14 @@ function render(){
       <span style="font-size:13px;font-weight:600;flex:1">Visita por problema en equipo</span>
       ${window._prob?`<i class="ti ti-check" style="font-size:16px"></i>`:`<div style="width:18px;height:18px;border:2px solid currentColor;border-radius:50%"></div>`}
     </div>
+    ${selC?`<div style="display:flex;gap:8px;margin-bottom:12px">
+      <button onclick="openCambioAroma('${selC.replace(/'/g,String.fromCharCode(39))}')" style="flex:1;padding:10px;border:1px solid #dde8e2;border-radius:var(--R);background:none;font-size:12px;font-weight:600;color:var(--G);cursor:pointer">
+        <i class="ti ti-refresh"></i> Cambio de aroma
+      </button>
+      <button onclick="_openGV()" style="flex:1;padding:10px;border:1px solid #dde8e2;border-radius:var(--R);background:none;font-size:12px;font-weight:600;color:#3456a0;cursor:pointer">
+        <i class="ti ti-gauge"></i> Cambiar intensidad
+      </button>
+    </div>`:""}
     <button class="btn" onclick="regVisit()">Guardar visita</button>`;
   }
 
@@ -1252,6 +1289,32 @@ function render(){
         <div id="go_preview" style="background:#f0f7f4;border-radius:var(--R);padding:10px 12px;font-size:13px;color:var(--F);margin-bottom:14px;text-align:center">Consumo estimado: calcular...</div>
         <div class="fw"><label class="lbl">Notas</label><textarea class="inp" id="go_n" placeholder="Observaciones..."></textarea></div>
         <div class="mb-act"><button class="btn-c" onclick="modal=null;render()">Cancelar</button><button class="btn" style="background:#3456a0" onclick="saveGradeOnOff()">Guardar</button></div>
+      </div></div>`;
+    }
+    else if(t==="cambioAroma"){
+      const eqsC2=getClientEqs(modal.c).filter(e=>!e._del);
+      mHTML=`<div class="mb-bg" onclick="if(event.target===this){modal=null;render()}"><div class="mb">
+        <div class="mb-t" style="color:var(--G)">Cambio de aroma</div>
+        <p class="ps" style="margin-top:-10px;margin-bottom:16px">${modal.c}</p>
+        <div class="fw"><label class="lbl">Equipo *</label>
+          <select class="inp" id="ca_eq">
+            <option value="">Selecciona el equipo...</option>
+            ${eqsC2.map(eq=>`<option value="${eq.id||eq.serie}">${eq.modelo} · ${eq.serie}${eq.area?" · "+eq.area:""}${eq.aroma?" ("+eq.aroma+")":""}</option>`).join("")}
+          </select>
+        </div>
+        <div class="fw"><label class="lbl">Nuevo aroma *</label>
+          <select class="inp" id="ca_aroma">
+            <option value="">Selecciona aroma...</option>
+            ${getAllScents().map(s=>`<option>${s}</option>`).join("")}
+          </select>
+        </div>
+        <div class="fw"><label class="lbl">Notas (opcional)</label>
+          <textarea class="inp" id="ca_n" placeholder="Motivo del cambio..."></textarea>
+        </div>
+        <div class="mb-act">
+          <button class="btn-c" onclick="modal=null;render()">Cancelar</button>
+          <button class="btn" style="background:var(--G)" onclick="saveCambioAroma()">Confirmar</button>
+        </div>
       </div></div>`;
     }
     else if(t==="addBaja"){
