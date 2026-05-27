@@ -481,6 +481,29 @@ function delEsencia(n){if((inv[n]||0)>0){showToast("Tiene "+inv[n]+"ml. Primero 
 function openEditEsencia(n){modal={t:"editEsencia",nombre:n};render();}
 function saveEditEsencia(){const n=document.getElementById("ees_n").value.trim().toUpperCase();if(!n)return;if(n===modal.nombre){modal=null;render();return;}if(inv[n]!==undefined){showToast("Ya existe ese nombre");return;}const ni={...inv,[n]:inv[modal.nombre]||0};delete ni[modal.nombre];const nm={...nivMin,[n]:nivMin[modal.nombre]||500};delete nm[modal.nombre];inv=ni;nivMin=nm;sv("inv",inv);sv("nvm",nivMin);modal=null;showToast("Esencia renombrada");}
 // CAMBIO AROMA
+function openEditCEq(cliente,eqId,serie){
+  const allEqs=getClientEqs(cliente).filter(e=>!e._del);
+  const eq=allEqs.find(e=>e.id===eqId||e.serie===serie);
+  if(!eq)return;
+  modal={t:"editCEq",c:cliente,eq};render();
+}
+function saveEditCEq(){
+  const cliente=modal.c;
+  const eq=modal.eq;
+  const newSerie=document.getElementById("ec_s").value.trim();
+  const newArea=document.getElementById("ec_a").value.trim();
+  const newAroma=document.getElementById("ec_aroma").value;
+  if(!newSerie){showToast("La serie es requerida");return;}
+  const existing=ceq[cliente]||[];
+  const inCustom=existing.find(e=>e.id===eq.id||e.serie===eq.serie);
+  const updated={...eq,serie:newSerie,area:newArea,aroma:newAroma};
+  if(inCustom){
+    ceq={...ceq,[cliente]:existing.map(e=>(e.id===eq.id||e.serie===eq.serie)?updated:e)};
+  } else {
+    ceq={...ceq,[cliente]:[...existing.filter(e=>e.id!==eq.id&&e.serie!==eq.serie),updated]};
+  }
+  sv("ceq",ceq);modal=null;showToast("Equipo actualizado");
+}
 function openCambioAroma(cliente){modal={t:"cambioAroma",c:cliente};render();}
 function saveCambioAroma(){
   const eqId=document.getElementById("ca_eq").value;
@@ -1088,6 +1111,22 @@ function render(){
         <div id="go_preview" style="background:#f0f7f4;border-radius:var(--R);padding:10px 12px;font-size:13px;color:var(--F);margin-bottom:14px;text-align:center">Consumo estimado...</div>
         <div class="fw"><label class="lbl">Notas</label><textarea class="inp" id="go_n" placeholder="Observaciones..."></textarea></div>
         <div class="mb-act"><button class="btn-c" onclick="modal=null;render()">Cancelar</button><button class="btn" style="background:#3456a0" onclick="saveGradeOnOff()">Guardar</button></div>
+      </div></div>`;
+    }
+    else if(t==="editCEq"){
+      const eq=modal.eq||{};
+      mHTML=`<div class="mb-bg" onclick="if(event.target===this){modal=null;render()}"><div class="mb">
+        <div class="mb-t">Editar equipo</div>
+        <p class="ps" style="margin-top:-10px;margin-bottom:14px">${modal.c}</p>
+        <div class="fw"><label class="lbl">Serie *</label><input class="inp" id="ec_s" value="${eq.serie||''}"/></div>
+        <div class="fw"><label class="lbl">Área / Ubicación</label><input class="inp" id="ec_a" value="${eq.area||''}" placeholder="Ej: Lobby, Baño, Recepción"/></div>
+        <div class="fw"><label class="lbl">Aroma actual</label>
+          <select class="inp" id="ec_aroma">
+            <option value="">Sin aroma</option>
+            ${getAllScents().map(s=>`<option value="${s}" ${eq.aroma===s?"selected":""}>${s}</option>`).join("")}
+          </select>
+        </div>
+        <div class="mb-act"><button class="btn-c" onclick="modal=null;render()">Cancelar</button><button class="btn" onclick="saveEditCEq()">Guardar</button></div>
       </div></div>`;
     }
     else if(t==="cambioAroma"){
