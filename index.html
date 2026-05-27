@@ -234,9 +234,22 @@ function saveCEq(){
   ceq={...ceq,[modal.c]:[...(ceq[modal.c]||[]),{id:uid(),modelo:m,serie:s,area:a,aroma:ar}]};
   sv("ceq",ceq);modal=null;showToast("Equipo agregado");
 }
-function delCEq(c,id){
-  ceq={...ceq,[c]:(ceq[c]||[]).filter(e=>e.id!==id)};
-  sv("ceq",ceq);render();
+function delCEq(c,id,serie){
+  // For custom equipment: filter by id
+  // For base equipment from EQUIPOS_DB: mark as deleted with _del flag
+  const existing=ceq[c]||[];
+  const inCustom=existing.find(e=>e.id===id||e.serie===serie);
+  if(inCustom){
+    ceq={...ceq,[c]:existing.filter(e=>e.id!==id&&e.serie!==serie)};
+  } else {
+    // It's a base equipment - mark as deleted
+    const baseEqs=getClientEqs(c);
+    const baseEq=baseEqs.find(e=>e.id===id||e.serie===serie);
+    if(baseEq){
+      ceq={...ceq,[c]:[...existing,{...baseEq,_del:true}]};
+    }
+  }
+  sv("ceq",ceq);render();showToast("Equipo eliminado");
 }
 function delBaseEq(c,serie){
   // Mark base equipment as deleted by adding to ceq with deleted flag... 
