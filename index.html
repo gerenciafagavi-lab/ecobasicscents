@@ -826,6 +826,90 @@ function render(){
   // CLIENTES (overwrite existing with full version)
   else if(tab==="clts_SKIP"){ con=""; }
 
+  // USUARIOS
+  else if(tab==="usrs"&&isA){
+    con=`<p class="pt">Vendedores</p><p class="ps">${vendors.length} usuarios</p>
+    <button class="btn-add" onclick="modal={t:'addVnd'};render()"><i class="ti ti-plus"></i> Nuevo usuario</button>
+    ${vendors.map(v=>`<div class="card sl" style="border-left-color:${v.role==='admin'?'#3456a0':'var(--F)'}">
+      <div class="ch"><div><div class="ct">${v.name}</div><div class="cs">PIN: ${v.pin} · ${v.role==='admin'?'Admin':'Vendedor'}</div></div>
+      <div style="display:flex;gap:6px">
+        <button class="be" onclick="modal={t:'addVnd',v:${JSON.stringify(v)}};render()">✏️</button>
+        <button class="be" style="font-size:11px;color:${v.active===false?'var(--F)':'var(--D)'}" onclick="vendors=vendors.map(x=>x.id===v.id?{...x,active:${!v.active}}:x);sv('vnd',vendors);render()">${v.active===false?'Activar':'Inactivar'}</button>
+      </div></div>
+    </div>`).join("")}`;
+  }
+
+  // BAJAS
+  else if(tab==="bajas"){
+    const bCards=bajas.map(b=>{
+      const bi=JSON.stringify(b.id);
+      return"<div class='card sl-r'><div class='ch'><div><div class='ct'>"+b.c+"</div><div class='cs'>"+b.vnd+" · "+fmtD(b.fecha)+"</div></div>"
+        +"<div style='display:flex;flex-direction:column;gap:4px;align-items:flex-end'><span class='chip chip-r' style='font-size:10px'>"+b.motivo+"</span>"
+        +(isA?"<button class='del' onclick='delBaja("+bi+")'>Eliminar</button>":"")+"</div></div>"
+        +(b.notas?"<div style='font-size:11px;color:var(--M);margin-top:5px'>"+b.notas+"</div>":"")
+        +"</div>";
+    }).join("");
+    con="<p class='pt'>Bajas de clientes</p><p class='ps'>"+bajas.length+" registros</p>"
+      +"<button class='btn-add' style='background:var(--D)' onclick='openAddBaja()'><i class='ti ti-plus'></i> Registrar baja</button>"
+      +(bajas.length===0?"<div class='empty'><i class='ti ti-user-minus'></i>Sin bajas registradas</div>":bCards);
+  }
+
+  // PERDIDOS
+  else if(tab==="lost"){
+    const demosFall=demos.filter(d=>d.ret&&d.res==="fallida");
+    const allLost=[...bajas.map(b=>({tipo:"baja",c:b.c,motivo:b.motivo,fecha:b.fecha,vnd:b.vnd})),...demosFall.map(d=>({tipo:"demo",c:d.c,motivo:d.motivoRetiro||"",fecha:d.retFecha||d.fecha,vnd:d.vnd}))];
+    const mc={};allLost.forEach(x=>{if(x.motivo)mc[x.motivo]=(mc[x.motivo]||0)+1;});
+    con="<p class='pt'>Clientes perdidos</p><p class='ps'>"+allLost.length+" total</p>"
+      +"<div class='stats'><div class='stat'><div class='sn' style='color:var(--D)'>"+bajas.length+"</div><div class='sl2'>Bajas</div></div>"
+      +"<div class='stat'><div class='sn' style='color:var(--WN)'>"+demosFall.length+"</div><div class='sl2'>Demos fallidas</div></div></div>"
+      +Object.entries(mc).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([m,n])=>"<div class='card' style='margin-bottom:8px'><div class='ch'><span style='font-size:13px;font-weight:600'>"+m+"</span><span class='chip chip-r'>"+n+"</span></div></div>").join("")
+      +allLost.slice(0,20).map(x=>"<div class='card sl-r' style='margin-bottom:6px;padding:10px 12px'><div class='ch'><div><div class='ct' style='font-size:12px'>"+x.c+"</div><div class='cs'>"+x.vnd+" · "+fmtD(x.fecha)+"</div></div><span class='chip chip-r' style='font-size:10px'>"+(x.tipo==="baja"?"Baja":"Demo fallida")+"</span></div>"+(x.motivo?"<div style='font-size:11px;color:var(--M);margin-top:4px'>"+x.motivo+"</div>":"")+"</div>").join("");
+  }
+
+  // INTENSIDAD
+  else if(tab==="grades"){
+    window._G={};
+    const myClientsG=isA?ALL_CLIENTS:(VC[sess.name]||[]);
+    const allGraded=myClientsG.filter(c=>getClientEqs(c).some(e=>!e._del&&(CONSUME[e.modelo]||ONOFF_MODELS.includes(e.modelo))));
+    const filteredG=allGraded.filter(c=>!sq||c.toLowerCase().includes(sq.toLowerCase()));
+    let nG=0;
+    let htmlG="<p class='pt'>Intensidad de equipos</p><p class='ps'>"+allGraded.length+" clientes</p>"
+      +"<div class='sw'><i class='ti ti-search'></i><input class='si2' placeholder='Buscar...' value='"+sq+"' oninput='sq=this.value;render()'/></div>";
+    filteredG.forEach(c=>{
+      const eqs=getClientEqs(c).filter(e=>!e._del&&(CONSUME[e.modelo]||ONOFF_MODELS.includes(e.modelo)));
+      htmlG+="<div class='card' style='margin-bottom:8px'><div class='ct' style='margin-bottom:8px'>"+c+"</div>";
+      eqs.forEach(eq=>{
+        window._G[nG]={c,eq};
+        const gs=getGradeDisplay(eq.serie);
+        htmlG+="<div class='cer'><div style='flex:1'><span style='font-weight:700;font-size:12px'>"+eq.serie+"</span>"+(eq.area?" <span style='font-size:11px;color:var(--M)'>"+eq.area+"</span>":"")+gs+"</div>"
+          +"<button type='button' onclick='_og("+nG+")' style='padding:6px 14px;background:#e8f0ff;color:#3456a0;border:none;border-radius:7px;font-size:13px;font-weight:700;cursor:pointer'>⚡</button></div>";
+        nG++;
+      });
+      htmlG+="</div>";
+    });
+    con=allGraded.length===0?"<p class='pt'>Intensidad</p><div class='empty'><i class='ti ti-gauge'></i>Sin equipos configurables</div>":htmlG;
+  }
+
+  // CONFIG
+  else if(tab==="config"&&isA){
+    const modCards=modelos.map(m=>{
+      const ms=JSON.stringify(m);
+      return"<div class='sr'><div class='sm'>"+m+"</div>"+(!["AE301","AE701","AE3500","Radiant","FMATIC"].includes(m)?"<button class='del' onclick='delModelo("+ms+")'>Eliminar</button>":"<span style='font-size:11px;color:var(--M)'>Original</span>")+"</div>";
+    }).join("");
+    const esCards=Object.keys(inv).filter(s=>!sq||s.toLowerCase().includes(sq.toLowerCase())).map(s=>{
+      const ss=JSON.stringify(s);
+      return"<div class='card' style='margin-bottom:6px;padding:10px 12px'><div class='ch'><div><div class='ct' style='font-size:12px'>"+s+"</div><div class='cs'>"+(inv[s]||0).toLocaleString()+" ml</div></div><div style='display:flex;gap:6px'><button class='be' onclick='openEditEsencia("+ss+")'>✏️</button><button class='del' onclick='delEsencia("+ss+")'>✕</button></div></div></div>";
+    }).join("");
+    con="<p class='pt'>Configuracion</p>"
+      +"<p style='font-size:12px;font-weight:700;color:var(--M);margin-bottom:10px'>MODELOS</p>"
+      +"<div class='card' style='margin-bottom:14px'>"+modCards+"</div>"
+      +"<button class='btn-add' onclick='openAddModelo()'><i class='ti ti-plus'></i> Agregar modelo</button>"
+      +"<p style='font-size:12px;font-weight:700;color:var(--M);margin:16px 0 10px'>ESENCIAS ("+Object.keys(inv).length+")</p>"
+      +"<div class='sw'><i class='ti ti-search'></i><input class='si2' placeholder='Buscar...' value='"+sq+"' oninput='sq=this.value;render()'/></div>"
+      +esCards
+      +"<button class='btn-add' style='margin-top:8px' onclick='openAddEsencia()'><i class='ti ti-plus'></i> Agregar esencia</button>";
+  }
+
   // REPORTES
   else if(tab==="reports"&&isA){
     const rFrom=window._rFrom||"";const rTo=window._rTo||"";const rType=window._rType||"visitas";const rPais=window._rPais||"todos";
