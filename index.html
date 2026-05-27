@@ -421,6 +421,49 @@ function saveGradeOnOff(){
 }
 function updateAE3500Preview(){const on=parseInt(document.getElementById("go_on")?.value)||0;const off=parseInt(document.getElementById("go_off")?.value)||0;const hrs=parseInt(document.getElementById("go_hrs")?.value)||10;const prev=document.getElementById("go_preview");if(!prev)return;if(on>0&&off>0){const ml=calcAE3500(on,off);prev.innerHTML="Consumo estimado: <strong>"+ml+"ml/mes</strong>";prev.style.background=ml>235?"#fdecea":"#f0f7f4";prev.style.color=ml>235?"var(--D)":"var(--F)";}}
 // CLIENTES
+function openRenameCliente(c){modal={t:"renameCliente",c};render();}
+function saveRenameCliente(){
+  const oldName=modal.c;
+  const newName=document.getElementById("rc_n").value.trim().toUpperCase();
+  if(!newName){showToast("Ingresa el nombre");return;}
+  if(newName===oldName){modal=null;render();return;}
+  if(ALL_CLIENTS.includes(newName)){showToast("Ya existe ese cliente");return;}
+  // Update ALL_CLIENTS
+  const idx=ALL_CLIENTS.indexOf(oldName);
+  if(idx>-1)ALL_CLIENTS[idx]=newName;
+  // Update VC
+  Object.keys(VC).forEach(v=>{const i=VC[v].indexOf(oldName);if(i>-1)VC[v][i]=newName;});
+  // Update customclients
+  const cc=ld("customclients",{clients:[],vc:{},pais:{}});
+  const ci=cc.clients.indexOf(oldName);if(ci>-1)cc.clients[ci]=newName;
+  Object.keys(cc.vc||{}).forEach(v=>{const i=(cc.vc[v]||[]).indexOf(oldName);if(i>-1)cc.vc[v][i]=newName;});
+  if(cc.pais&&cc.pais[oldName]){cc.pais[newName]=cc.pais[oldName];delete cc.pais[oldName];}
+  if(window._clientPais&&window._clientPais[oldName]){window._clientPais[newName]=window._clientPais[oldName];delete window._clientPais[oldName];}
+  sv("customclients",cc);
+  // Update ceq
+  if(ceq[oldName]){ceq={...ceq,[newName]:ceq[oldName]};delete ceq[oldName];sv("ceq",ceq);}
+  // Update visits
+  visits=visits.map(v=>v.cliente===oldName?{...v,cliente:newName}:v);sv("vis",visits);
+  modal=null;showToast("Cliente renombrado a "+newName);
+}
+function openDeleteCliente(c){modal={t:"deleteCliente",c};render();}
+function confirmDeleteCliente(){
+  const c=modal.c;
+  // Remove from ALL_CLIENTS
+  const idx=ALL_CLIENTS.indexOf(c);if(idx>-1)ALL_CLIENTS.splice(idx,1);
+  // Remove from VC
+  Object.keys(VC).forEach(v=>{VC[v]=VC[v].filter(x=>x!==c);});
+  // Remove from customclients
+  const cc=ld("customclients",{clients:[],vc:{},pais:{}});
+  cc.clients=cc.clients.filter(x=>x!==c);
+  Object.keys(cc.vc||{}).forEach(v=>{cc.vc[v]=(cc.vc[v]||[]).filter(x=>x!==c);});
+  if(cc.pais)delete cc.pais[c];
+  if(window._clientPais)delete window._clientPais[c];
+  sv("customclients",cc);
+  // Remove ceq
+  if(ceq[c]){const nc={...ceq};delete nc[c];ceq=nc;sv("ceq",ceq);}
+  modal=null;showToast("Cliente eliminado");
+}
 function openAddCliente(){modal={t:"addCliente"};render();}
 function saveCliente(){
   const nombre=document.getElementById("cl_n").value.trim().toUpperCase();
@@ -834,6 +877,8 @@ function render(){
       return"<div class='card'><div class='ch' onclick='togC("+cj+")' style='cursor:pointer'>"
         +"<div><div class='ct' style='font-size:12px'>"+c+gtFlag+"</div><div class='cs'>"+vn+"</div></div>"
         +"<div style='display:flex;align-items:center;gap:5px'><span class='chip'>"+cv.length+"v</span><span class='chip chip-b'>"+allEq.length+"eq</span>"
+        +(isA?"<button onclick='event.stopPropagation();openRenameCliente("+cj+")' style='padding:2px 7px;background:#e8f0ff;color:#3456a0;border:none;border-radius:6px;font-size:11px;cursor:pointer'>✏️</button>":"")
+        +(isA?"<button onclick='event.stopPropagation();openDeleteCliente("+cj+")' style='padding:2px 7px;background:#fdecea;color:var(--D);border:none;border-radius:6px;font-size:11px;cursor:pointer'>✕</button>":"")
         +"<i class='ti ti-chevron-"+(exp?"up":"down")+"' style='font-size:15px;color:var(--M)'></i></div></div>"
         +expDiv+"</div>";
     }).join("");
@@ -1169,6 +1214,26 @@ function render(){
         <div class="fw"><label class="lbl">Motivo *</label><select class="inp" id="bj_mot"><option value="">Selecciona...</option><option>Precio muy alto</option><option>No le gusto el aroma</option><option>Problemas con el equipo</option><option>Cierre del negocio</option><option>Cambio de proveedor</option><option>No vio resultados</option><option>Presupuesto reducido</option><option>Otro</option></select></div>
         <div class="fw"><label class="lbl">Notas</label><textarea class="inp" id="bj_n" placeholder="Detalle..."></textarea></div>
         <div class="mb-act"><button class="btn-c" onclick="modal=null;render()">Cancelar</button><button class="btn" style="background:var(--D)" onclick="saveBaja()">Registrar</button></div>
+      </div></div>`;
+    }
+    else if(t==="renameCliente"){
+      mHTML=`<div class="mb-bg" onclick="if(event.target===this){modal=null;render()}"><div class="mb">
+        <div class="mb-t">Renombrar cliente</div>
+        <div class="fw"><label class="lbl">Nombre actual</label><div style="padding:10px 12px;background:#f0f7f4;border-radius:var(--R);font-weight:600;color:var(--F)">${modal.c}</div></div>
+        <div class="fw"><label class="lbl">Nuevo nombre *</label><input class="inp" id="rc_n" value="${modal.c}" style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()"/></div>
+        <div class="mb-act"><button class="btn-c" onclick="modal=null;render()">Cancelar</button><button class="btn" onclick="saveRenameCliente()">Guardar</button></div>
+      </div></div>`;
+    }
+    else if(t==="deleteCliente"){
+      const eqCount=getClientEqs(modal.c).filter(e=>!e._del).length;
+      const visCount=visits.filter(v=>v.cliente===modal.c).length;
+      mHTML=`<div class="mb-bg" onclick="if(event.target===this){modal=null;render()}"><div class="mb">
+        <div class="mb-t" style="color:var(--D)">Eliminar cliente</div>
+        <p style="font-size:14px;margin-bottom:14px">¿Seguro que deseas eliminar <strong>${modal.c}</strong>?</p>
+        <div style="background:#fdecea;border-radius:var(--R);padding:12px;font-size:12px;color:var(--D);margin-bottom:16px">
+          Este cliente tiene <strong>${eqCount} equipos</strong> y <strong>${visCount} visitas</strong> registradas. Los equipos y visitas no se eliminarán pero el cliente dejará de aparecer en la lista.
+        </div>
+        <div class="mb-act"><button class="btn-c" onclick="modal=null;render()">Cancelar</button><button class="btn" style="background:var(--D)" onclick="confirmDeleteCliente()">Eliminar</button></div>
       </div></div>`;
     }
     else if(t==="addCliente"){
