@@ -575,7 +575,7 @@ function render(){
   if(tab==="visit"){
     const eqHTML=eqsC.length>0
       ?`<div class="eq-list"><div class="eq-tit">Equipos instalados (${eqsC.length})</div>${eqsC.map((eq,i)=>`<div class="eq-it ${selEq?.serie===eq.serie?"sel":""}" onclick="onEqSel(${i})"><span class="eq-b">${eq.modelo}</span><span class="eq-s">${eq.serie}</span><div style="text-align:right"><div class="eq-a">${eq.area||""}</div><div class="eq-ar">${eq.aroma||""}</div></div></div>`).join("")}</div>`
-      :(selC?`<div style="background:#fffbe8;border:1px solid #ffe;border-radius:var(--R);padding:10px 12px;font-size:12px;color:#856404;margin-bottom:12px">Sin equipos registrados. El admin puede agregarlos en Clientes.</div><div class="fw"><div class="fr"><div><label class="lbl">Modelo</label><select class="inp" id="mmm">${MODS.map(m=>`<option>${m}</option>`).join("")}</select></div><div><label class="lbl">Serie</label><input class="inp" placeholder="Nro serie" oninput="selEq={modelo:document.getElementById('mmm').value,serie:this.value,area:'',aroma:''}"/></div></div></div>`:"");
+      :(selC?`<div style="background:#fffbe8;border:1px solid #ffe;border-radius:var(--R);padding:10px 12px;font-size:12px;color:#856404;margin-bottom:12px">Sin equipos registrados. El admin puede agregarlos en Clientes.</div><div class="fw"><div class="fr"><div><label class="lbl">Modelo</label><select class="inp" id="mmm">${modelos.map(m=>`<option>${m}</option>`).join("")}</select></div><div><label class="lbl">Serie</label><input class="inp" placeholder="Nro serie" oninput="selEq={modelo:document.getElementById('mmm').value,serie:this.value,area:'',aroma:''}"/></div></div></div>`:"");
     const aH=selEq?.aroma?`<div class="ah">Aroma asignado: <strong>${selEq.aroma}</strong></div>`:"";
     const probBtnStyle=window._prob?"background:#c0392b;border-color:#c0392b;color:#fff":"background:#fdecea;border-color:#f5c6c6;color:#c0392b";
     con=`<p class="pt">Registrar visita</p><p class="ps">Selecciona cliente y equipo visitado</p>
@@ -762,7 +762,7 @@ function render(){
     const mf=window._mf||"todos";
     con=`<p class="pt">Equipos en oficina</p><p class="ps">Total: ${totEq} unidades</p>
     <div class="card" style="margin-bottom:14px">
-      ${MODS.map(m=>{
+      ${modelos.map(m=>{
         const q=eqStk[m]||0;
         const col=q===0?"var(--D)":q<=2?"var(--WN)":"var(--F)";
         return`<div class="sr">
@@ -1007,7 +1007,7 @@ function render(){
           <datalist id="dm_cl">${mc.map(c=>`<option>${c}</option>`).join("")}</datalist>
         </div>
         <div class="fr">
-          <div class="fw"><label class="lbl">Modelo *</label><select class="inp" id="dm_m">${MODS.map(m=>`<option>${m}</option>`).join("")}</select></div>
+          <div class="fw"><label class="lbl">Modelo *</label><select class="inp" id="dm_m">${modelos.map(m=>`<option>${m}</option>`).join("")}</select></div>
           <div class="fw"><label class="lbl">Serie *</label><input class="inp" id="dm_s" placeholder="Nro serie"/></div>
         </div>
         <div class="fw"><label class="lbl">Dias acordados *</label><input type="number" class="inp" id="dm_d" placeholder="7" min="1"/></div>
@@ -1069,7 +1069,7 @@ function render(){
         </div>`:""}
         `:`
         <div class="fr">
-          <div class="fw"><label class="lbl">Modelo *</label><select class="inp" id="mv_mod">${MODS.map(m=>`<option>${m}</option>`).join("")}</select></div>
+          <div class="fw"><label class="lbl">Modelo *</label><select class="inp" id="mv_mod">${modelos.map(m=>`<option>${m}</option>`).join("")}</select></div>
           <div class="fw"><label class="lbl">Cantidad *</label><input type="number" class="inp" id="mv_cant" placeholder="1" min="1" value="1"/></div>
         </div>
         <div class="fw"><label class="lbl">${esE?"Cliente que devuelve":"Cliente / Destino"}</label>
