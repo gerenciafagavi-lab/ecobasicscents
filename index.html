@@ -963,8 +963,12 @@ function render(){
         <div class="mb-t">Agregar equipo</div>
         <p class="ps" style="margin-top:-10px;margin-bottom:14px">${modal.c}</p>
         <div class="fr">
-          <div class="fw"><label class="lbl">Modelo *</label><select class="inp" id="ceq_m">${MODS.map(m=>`<option>${m}</option>`).join("")}</select></div>
-          <div class="fw"><label class="lbl">Serie *</label><input class="inp" id="ceq_s" placeholder="ES3500_1"/></div>
+          <div class="fw"><label class="lbl">Modelo *</label>
+            <select class="inp" id="ceq_m" onchange="(function(){var m=document.getElementById('ceq_m').value;var s=document.getElementById('ceq_s');if(s)s.value=getNextSerie(m);})()">
+              ${modelos.map(m=>`<option>${m}</option>`).join("")}
+            </select>
+          </div>
+          <div class="fw"><label class="lbl">Serie *</label><input class="inp" id="ceq_s" value="${getNextSerie(modelos[0])}"/></div>
         </div>
         <div class="fw"><label class="lbl">Area instalada</label><input class="inp" id="ceq_a" placeholder="Lobby, Bano H..."/></div>
         <div class="fw"><label class="lbl">Aroma</label><select class="inp" id="ceq_ar"><option value="">Sin aroma</option>${SCENTS.map(s=>`<option>${s}</option>`).join("")}</select></div>
