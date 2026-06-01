@@ -324,9 +324,15 @@ function togVnd(id){vendors=vendors.map(v=>v.id===id?{...v,active:!v.active}:v);
 function saveVnd(){
   const n=document.getElementById("vn_n").value.trim();
   const p=document.getElementById("vn_p").value.trim();
+  const role=document.getElementById("vn_role")?.value||"vendor";
   if(!n||!p||p.length<4){showToast("Nombre y PIN (min 4) requeridos");return;}
-  if(modal.t==="addVnd"){vendors=[...vendors,{id:uid(),name:n,pin:p,active:true}];}
-  else{vendors=vendors.map(v=>v.id===modal.v.id?{...v,name:n,pin:p}:v);}
+  if(modal.t==="addVnd"){
+    if(vendors.find(v=>v.pin===p)){showToast("Ese PIN ya está en uso");return;}
+    vendors=[...vendors,{id:uid(),name:n,pin:p,role,active:true}];
+  } else {
+    if(vendors.find(v=>v.pin===p&&v.id!==modal.v.id)){showToast("Ese PIN ya está en uso");return;}
+    vendors=vendors.map(v=>v.id===modal.v.id?{...v,name:n,pin:p,role}:v);
+  }
   sv("vnd",vendors);modal=null;showToast("Guardado");
 }
 
@@ -517,6 +523,11 @@ function saveConvertir(){
 }
 function delSolicitud(id){solicitudes=solicitudes.filter(s=>s.id!==id);sv("sols",solicitudes);render();}
 // BAJAS
+function delVnd(id){
+  if(vendors.length<=1){showToast("Debe haber al menos un usuario");return;}
+  vendors=vendors.filter(v=>v.id!==id);
+  sv("vnd",vendors);render();showToast("Usuario eliminado");
+}
 function openAddBaja(){modal={t:"addBaja"};render();}
 function saveBaja(){
   const c=document.getElementById("bj_c").value.trim();
@@ -584,6 +595,26 @@ function saveCambioAroma(){
 function getReportData(){const rFrom=window._rFrom||"";const rTo=window._rTo||"";const rType=window._rType||"visitas";let data=rType==="reclamos"?visits.filter(v=>v.prob):visits;const rPais=window._rPais||"todos";if(rPais!=="todos")data=data.filter(v=>rPais==="GT"?(window._clientPais||{})[v.cliente]==="GT":(window._clientPais||{})[v.cliente]!=="GT");if(rFrom)data=data.filter(v=>v.fecha>=rFrom);if(rTo)data=data.filter(v=>v.fecha<=rTo+"T23:59:59");return{data,rType};}
 function doExportCSV(){const{data,rType}=getReportData();if(!data.length){alert("Sin datos");return;}const rows=data.map(v=>({Fecha:fmt(v.fecha),Vendedor:v.vnd||"",Cliente:v.cliente||"",Modelo:v.modelo||"",Serie:v.serie||"",Esencia:v.esencia||"",ML:v.ml||0,Problema:v.prob?"Si":"No",Notas:v.notas||""}));const hdrs='"'+Object.keys(rows[0]).join('","')+'"';const rws=rows.map(r=>Object.values(r).map(v=>'"'+String(v||"").replace(/"/g,"''")+'"').join(","));const csv=[hdrs,...rws].join("\n");const blob=new Blob([csv],{type:"text/csv;charset=utf-8;"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=rType+"_reporte.csv";document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);showToast("CSV descargado");}
 function doExportPDF(){const{data,rType}=getReportData();if(!data.length){alert("Sin datos");return;}const headers=["Fecha","Vendedor","Cliente","Modelo","Serie","Esencia","ML","Problema","Notas"];const rows=data.map(v=>[fmt(v.fecha),v.vnd||"",v.cliente||"",v.modelo||"",v.serie||"",v.esencia||"",v.ml||0,v.prob?"Si":"No",v.notas||""]);modal={t:"reportView",title:rType==="reclamos"?"Reclamos":"Visitas",headers,rows};render();}
+function doExportVendedoresCSV(){
+  const rFrom=window._rFrom||"";const rTo=window._rTo||"";
+  let filtData=visits;
+  if(rFrom)filtData=filtData.filter(v=>v.fecha>=rFrom);
+  if(rTo)filtData=filtData.filter(v=>v.fecha<=rTo+"T23:59:59");
+  const activeVnds=vendors.filter(v=>v.active!==false&&v.role!=="admin");
+  const rows=activeVnds.map(v=>{
+    const vVisits=filtData.filter(x=>x.vnd===v.name);
+    return{Vendedor:v.name,Total:vVisits.length,Clientes:[...new Set(vVisits.map(x=>x.cliente))].length,Reclamos:vVisits.filter(x=>x.prob).length,CambiosAroma:vVisits.filter(x=>x.cambioAroma).length,CambiosIntensidad:vVisits.filter(x=>x.gradeCambio).length};
+  }).sort((a,b)=>b.Total-a.Total);
+  if(!rows.length){alert("Sin datos");return;}
+  const hdrs='"'+Object.keys(rows[0]).join('","')+'"';
+  const rws=rows.map(r=>Object.values(r).map(v=>'"'+String(v||"")+'"').join(","));
+  const csv=[hdrs,...rws].join("\n");
+  const blob=new Blob([csv],{type:"text/csv;charset=utf-8;"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");a.href=url;a.download="reporte_vendedores.csv";
+  document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
+  showToast("CSV descargado");
+}
 function doExportEquiposCSV(){const rPais=window._rPais||"todos";const cf=ALL_CLIENTS.filter(c=>{if(rPais==="SV")return(window._clientPais||{})[c]!=="GT";if(rPais==="GT")return(window._clientPais||{})[c]==="GT";return true;});const rows=[];cf.forEach(c=>{getClientEqs(c).filter(e=>!e._del).forEach(eq=>{const gi=eqGrades[eq.serie]||{};const int=gi.tipo==="onoff"?"On:"+gi.onSec+"s Off:"+gi.offSec+"s":gi.grade?"G"+gi.grade:"Sin config";rows.push({Pais:(window._clientPais||{})[c]==="GT"?"Guatemala":"El Salvador",Cliente:c,Modelo:eq.modelo,Serie:eq.serie,Area:eq.area||"",Aroma:eq.aroma||"",Intensidad:int});});});if(!rows.length){alert("Sin equipos");return;}const hdrs='"'+Object.keys(rows[0]).join('","')+'"';const rws=rows.map(r=>Object.values(r).map(v=>'"'+String(v||"").replace(/"/g,"''")+'"').join(","));const csv=[hdrs,...rws].join("\n");const blob=new Blob([csv],{type:"text/csv;charset=utf-8;"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="equipos_instalados.csv";document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);showToast("CSV descargado");}
 
 function render(){
@@ -698,8 +729,8 @@ function render(){
               <div style="font-weight:700;font-size:14px;color:var(--F)">${vnd}</div>
               <div style="display:flex;gap:5px"><span class="chip">${vv.length} visita${vv.length!==1?"s":""}</span><span class="chip chip-g">${tot}ml</span></div>
             </div>
-            ${vv.map(v=>`<div class="card sl" style="padding:10px 12px;margin-bottom:6px">
-              <div class="ch"><div><div class="ct" style="font-size:12px">${v.cliente}</div><div class="cs">${fmt(v.fecha)}</div></div><span class="chip" style="font-size:10px">${v.ml}ml</span></div>
+            ${vv.map(v=>`<div class="card sl" style="padding:10px 12px;margin-bottom:6px;${!(VC[vnd]||[]).includes(v.cliente)?'border-left-color:#e67e22':''}" >
+              <div class="ch"><div><div class="ct" style="font-size:12px">${v.cliente}${!(VC[vnd]||[]).includes(v.cliente)?'<span style="font-size:9px;background:#fff3cd;color:#856404;border-radius:4px;padding:1px 5px;margin-left:5px;font-weight:600">⚡ No asignado</span>':''}</div><div class="cs">${fmt(v.fecha)}</div></div><span class="chip" style="font-size:10px">${v.ml}ml</span></div>
               <div class="mr"><span class="chip chip-g" style="font-size:10px">${v.esencia}</span>${v.serie?`<span class="chip chip-b" style="font-size:10px">${v.modelo}·${v.serie}</span>`:""}${v.prob?`<span class="chip chip-r" style="font-size:10px"><i class="ti ti-alert-triangle" style="font-size:11px"></i> Problema</span>`:""}</div>
               ${v.notas?`<div style="font-size:11px;color:var(--M);margin-top:5px">${v.notas}</div>`:""}
             </div>`).join("")}
@@ -912,10 +943,11 @@ function render(){
     con=`<p class="pt">Vendedores</p><p class="ps">${vendors.length} usuarios</p>
     <button class="btn-add" onclick="modal={t:'addVnd'};render()"><i class="ti ti-plus"></i> Nuevo usuario</button>
     ${vendors.map(v=>`<div class="card sl" style="border-left-color:${v.role==='admin'?'#3456a0':'var(--F)'}">
-      <div class="ch"><div><div class="ct">${v.name}</div><div class="cs">PIN: ${v.pin} · ${v.role==='admin'?'Admin':'Vendedor'}</div></div>
-      <div style="display:flex;gap:6px">
+      <div class="ch"><div><div class="ct">${v.name}</div><div class="cs">PIN: ${v.pin} · ${v.role==='admin'?'Admin':'Vendedor'} · ${v.active===false?'Inactivo':'Activo'}</div></div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
         <button class="be" onclick="modal={t:'addVnd',v:${JSON.stringify(v)}};render()">✏️</button>
-        <button class="be" style="font-size:11px;color:${v.active===false?'var(--F)':'var(--D)'}" onclick="vendors=vendors.map(x=>x.id===v.id?{...x,active:${!v.active}}:x);sv('vnd',vendors);render()">${v.active===false?'Activar':'Inactivar'}</button>
+        <button class="be" style="font-size:11px;color:${v.active===false?'var(--F)':'var(--WN)'}" onclick="vendors=vendors.map(x=>x.id===v.id?{...x,active:${!v.active}}:x);sv('vnd',vendors);render()">${v.active===false?'Activar':'Inactivar'}</button>
+        <button class="del" onclick="delVnd('${v.id}')">Eliminar</button>
       </div></div>
     </div>`).join("")}`;
   }
@@ -996,6 +1028,21 @@ function render(){
     const rFrom=window._rFrom||"";const rTo=window._rTo||"";const rType=window._rType||"visitas";const rPais=window._rPais||"todos";
     let reportData=rType==="visitas"?visits:rType==="reclamos"?visits.filter(v=>v.prob):[];
     let equiposData=[];
+    let vendedoresData=[];
+    if(rType==="vendedores"){
+      const activeVnds=vendors.filter(v=>v.active!==false&&v.role!=="admin");
+      let filtData=visits;
+      if(rFrom)filtData=filtData.filter(v=>v.fecha>=rFrom);
+      if(rTo)filtData=filtData.filter(v=>v.fecha<=rTo+"T23:59:59");
+      vendedoresData=activeVnds.map(v=>{
+        const vVisits=filtData.filter(x=>x.vnd===v.name);
+        const reclamos=vVisits.filter(x=>x.prob).length;
+        const clientes=[...new Set(vVisits.map(x=>x.cliente))].length;
+        const cambiosAroma=vVisits.filter(x=>x.cambioAroma).length;
+        const cambiosGrade=vVisits.filter(x=>x.gradeCambio).length;
+        return{name:v.name,total:vVisits.length,clientes,reclamos,cambiosAroma,cambiosGrade};
+      }).sort((a,b)=>b.total-a.total);
+    }
     if(rType==="equipos"){
       ALL_CLIENTS.filter(c=>{if(rPais==="SV")return(window._clientPais||{})[c]!=="GT";if(rPais==="GT")return(window._clientPais||{})[c]==="GT";return true;}).forEach(c=>{getClientEqs(c).filter(e=>!e._del).forEach(eq=>{const gi=eqGrades[eq.serie]||{};const intStr=gi.tipo==="onoff"?"On:"+gi.onSec+"s":gi.grade?"G"+gi.grade:"?";equiposData.push({Pais:(window._clientPais||{})[c]==="GT"?"GT":"SV",Cliente:c,Modelo:eq.modelo,Serie:eq.serie,Area:eq.area||"",Aroma:eq.aroma||"",Intensidad:intStr});});});
     } else {
@@ -1003,12 +1050,12 @@ function render(){
       if(rFrom)reportData=reportData.filter(v=>v.fecha>=rFrom);
       if(rTo)reportData=reportData.filter(v=>v.fecha<=rTo+"T23:59:59");
     }
-    const count=rType==="equipos"?equiposData.length:reportData.length;
+    const count=rType==="equipos"?equiposData.length:rType==="vendedores"?vendedoresData.length:reportData.length;
     const abtn=(v,l,c,fn)=>{const act=fn===v;return"<button onclick='window."+fn+"="+JSON.stringify(v)+";render()' style='flex:1;padding:8px;border-radius:var(--R);border:2px solid "+(act?c:"#dde8e2")+";background:"+(act?c:"none")+";color:"+(act?"#fff":"var(--M)")+";font-size:11px;font-weight:600;cursor:pointer'>"+l+"</button>";};
     con="<p class='pt'>Reportes</p><p class='ps'>Exporta datos</p>"
       +"<div class='card' style='margin-bottom:14px'>"
       +"<div style='display:flex;gap:6px;margin-bottom:10px'>"
-      +abtn("visitas","Visitas","var(--F)","_rType")+abtn("reclamos","Reclamos","var(--D)","_rType")+abtn("equipos","Equipos","#3456a0","_rType")
+      +abtn("visitas","Visitas","var(--F)","_rType")+abtn("reclamos","Reclamos","var(--D)","_rType")+abtn("equipos","Equipos","#3456a0","_rType")+abtn("vendedores","Vendedores","#b8892a","_rType")
       +"</div><div style='display:flex;gap:6px;margin-bottom:12px'>"
       +abtn("todos","Todos","var(--F)","_rPais")+abtn("SV","SV","var(--F)","_rPais")+abtn("GT","GT","var(--F)","_rPais")
       +"</div>"
@@ -1019,10 +1066,30 @@ function render(){
       +"<div style='display:flex;gap:8px'>"
       +(rType==="equipos"
         ?"<button onclick='doExportEquiposCSV()' style='padding:9px 14px;background:#3456a0;color:#fff;border:none;border-radius:var(--R);font-size:12px;font-weight:600;cursor:pointer'>CSV</button>"
+        :rType==="vendedores"
+        ?"<button onclick='doExportVendedoresCSV()' style='padding:9px 14px;background:#b8892a;color:#fff;border:none;border-radius:var(--R);font-size:12px;font-weight:600;cursor:pointer'>CSV</button>"
         :"<button onclick='doExportCSV()' style='padding:9px 14px;background:#1b3a2d;color:#fff;border:none;border-radius:var(--R);font-size:12px;font-weight:600;cursor:pointer'>CSV</button><button onclick='doExportPDF()' style='padding:9px 14px;background:#c0392b;color:#fff;border:none;border-radius:var(--R);font-size:12px;font-weight:600;cursor:pointer'>PDF</button>")
       +"</div></div>"
       +(rType==="equipos"
         ?(equiposData.length===0?"<div class='empty'>Sin equipos</div>":equiposData.slice(0,30).map(e=>"<div class='card' style='padding:10px 12px;margin-bottom:6px'><div class='ch'><div><div class='ct' style='font-size:12px'>"+e.Cliente+"</div><div class='cs'>"+e.Serie+" · "+e.Modelo+"</div></div><span class='chip chip-b' style='font-size:10px'>"+(e.Pais==="GT"?"🇬🇹":"🇸🇻")+"</span></div></div>").join(""))
+        :rType==="vendedores"
+        ?(vendedoresData.length===0?"<div class='empty'>Sin datos</div>"
+          :"<div class='card' style='margin-bottom:14px'>"
+          +"<div style='display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:4px;padding:6px 0;border-bottom:2px solid #f0f0f0;margin-bottom:6px'>"
+          +"<span style='font-size:11px;font-weight:700;color:var(--M)'>VENDEDOR</span>"
+          +"<span style='font-size:11px;font-weight:700;color:var(--M);text-align:center'>VISITAS</span>"
+          +"<span style='font-size:11px;font-weight:700;color:var(--M);text-align:center'>CLIENTES</span>"
+          +"<span style='font-size:11px;font-weight:700;color:var(--D);text-align:center'>RECLAMOS</span>"
+          +"</div>"
+          +vendedoresData.map(v=>"<div style='display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:4px;padding:8px 0;border-bottom:1px solid #f5f5f5;align-items:center'>"
+            +"<div><div style='font-weight:700;font-size:13px'>"+v.name+"</div>"
+            +(v.cambiosAroma||v.cambiosGrade?"<div style='font-size:10px;color:var(--M)'>"+( v.cambiosAroma?"🌸 "+v.cambiosAroma+" aromas ":"")+(v.cambiosGrade?"⚡ "+v.cambiosGrade+" intensidad":"")+"</div>":"")
+            +"</div>"
+            +"<div style='text-align:center;font-size:18px;font-weight:700;color:var(--F)'>"+v.total+"</div>"
+            +"<div style='text-align:center;font-size:14px;font-weight:600;color:var(--M)'>"+v.clientes+"</div>"
+            +"<div style='text-align:center;font-size:14px;font-weight:600;color:"+(v.reclamos>0?"var(--D)":"var(--M)")+"'>"+v.reclamos+"</div>"
+            +"</div>").join("")
+          +"</div>")
         :(reportData.length===0?"<div class='empty'>Sin registros</div>":reportData.slice(0,20).map(v=>"<div class='card sl' style='padding:10px 12px;margin-bottom:6px'><div class='ch'><div><div class='ct' style='font-size:12px'>"+v.cliente+"</div><div class='cs'>"+fmt(v.fecha)+" · "+(v.vnd||"")+"</div></div><span class='chip' style='font-size:10px'>"+(v.ml||0)+"ml</span></div></div>").join("")+(reportData.length>20?"<div style='text-align:center;font-size:12px;color:var(--M);padding:10px'>+"+( reportData.length-20)+" más</div>":"")));
   }
 
@@ -1032,10 +1099,17 @@ function render(){
     const t=modal.t;
     if(t==="addVnd"||t==="editVnd"){
       const v=modal.v||{};
-      mHTML=`<div class="mb-bg" onclick="if(event.target===this)modal=null;render()"><div class="mb">
-        <div class="mb-t">${t==="addVnd"?"Nuevo vendedor":"Editar vendedor"}</div>
-        <div class="fw"><label class="lbl">Nombre</label><input class="inp" id="vn_n" value="${v.name||""}" placeholder="Nombre completo"/></div>
-        <div class="fw"><label class="lbl">PIN</label><input type="password" class="inp" id="vn_p" value="${v.pin||""}" placeholder="Min 4 digitos"/></div>
+      mHTML=`<div class="mb-bg" onclick="if(event.target===this){modal=null;render()}"><div class="mb">
+        <div class="mb-t">${t==="addVnd"?"Nuevo usuario":"Editar usuario"}</div>
+        <div class="fw"><label class="lbl">Nombre *</label><input class="inp" id="vn_n" value="${v.name||""}" placeholder="Nombre completo"/></div>
+        <div class="fw"><label class="lbl">PIN * (mínimo 4 dígitos)</label><input type="number" class="inp" id="vn_p" value="${v.pin||""}" placeholder="Ej: 1234"/></div>
+        <div class="fw"><label class="lbl">Rol *</label>
+          <div style="display:flex;gap:8px">
+            <button type="button" id="role_vendor" onclick="document.getElementById('vn_role').value='vendor';document.getElementById('role_vendor').style.background='var(--F)';document.getElementById('role_vendor').style.color='#fff';document.getElementById('role_admin').style.background='none';document.getElementById('role_admin').style.color='var(--M)'" style="flex:1;padding:10px;border-radius:var(--R);border:1px solid #dde8e2;background:${(v.role||'vendor')==='vendor'?'var(--F)':'none'};color:${(v.role||'vendor')==='vendor'?'#fff':'var(--M)'};font-size:12px;font-weight:700;cursor:pointer">Vendedor</button>
+            <button type="button" id="role_admin" onclick="document.getElementById('vn_role').value='admin';document.getElementById('role_admin').style.background='#3456a0';document.getElementById('role_admin').style.color='#fff';document.getElementById('role_vendor').style.background='none';document.getElementById('role_vendor').style.color='var(--M)'" style="flex:1;padding:10px;border-radius:var(--R);border:1px solid #dde8e2;background:${v.role==='admin'?'#3456a0':'none'};color:${v.role==='admin'?'#fff':'var(--M)'};font-size:12px;font-weight:700;cursor:pointer">Admin</button>
+          </div>
+          <input type="hidden" id="vn_role" value="${v.role||'vendor'}"/>
+        </div>
         <div class="mb-act"><button class="btn-c" onclick="modal=null;render()">Cancelar</button><button class="btn" onclick="saveVnd()">${t==="addVnd"?"Agregar":"Guardar"}</button></div>
       </div></div>`;
     }
