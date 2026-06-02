@@ -384,6 +384,7 @@ function getNextSerie(modelo){
 }
 function onDemoModChange(m){const el=document.getElementById("dm_s");if(el)el.value=getNextSerie(m);}
 function getAllScents(){return Object.keys(inv).sort();}
+function setSelEqManual(serie){selEq={modelo:document.getElementById("mmm")?.value||"",serie,area:"",aroma:""};render();}
 function _og(n){var r=window._G&&window._G[n];if(r)openGradeChange(r.c,r.eq);else showToast("Error ref "+n);}
 function _openGV(){var eq=selEq||(eqsC&&eqsC.length>0?eqsC[0]:null);if(!selC){showToast("Selecciona un cliente");return;}if(!eq){showToast("Selecciona un equipo");return;}openGradeChange(selC,eq);}
 // GRADE FUNCTIONS
@@ -661,9 +662,11 @@ function render(){
   // REGISTRAR
   if(tab==="visit"){
     const eqHTML=eqsC.length>0
-      ?`<div class="eq-list"><div class="eq-tit">Equipos instalados (${eqsC.length})</div>${eqsC.map((eq,i)=>`<div class="eq-it ${selEq?.serie===eq.serie?"sel":""}" onclick="onEqSel(${i})"><span class="eq-b">${eq.modelo}</span><span class="eq-s">${eq.serie}</span><div style="text-align:right"><div class="eq-a">${eq.area||""}</div><div class="eq-ar">${eq.aroma||""}</div></div></div>`).join("")}</div>`
-      :(selC?`<div style="background:#fffbe8;border:1px solid #ffe;border-radius:var(--R);padding:10px 12px;font-size:12px;color:#856404;margin-bottom:12px">Sin equipos registrados. El admin puede agregarlos en Clientes.</div><div class="fw"><div class="fr"><div><label class="lbl">Modelo</label><select class="inp" id="mmm">${modelos.map(m=>`<option>${m}</option>`).join("")}</select></div><div><label class="lbl">Serie</label><input class="inp" placeholder="Nro serie" oninput="selEq={modelo:document.getElementById('mmm').value,serie:this.value,area:'',aroma:''}"/></div></div></div>`:"");
-    const aH=selEq?.aroma?`<div class="ah">Aroma asignado: <strong>${selEq.aroma}</strong></div>`:"";
+      ?(()=>{
+        const eqItems=eqsC.map((eq,i)=>"<div class='eq-it "+(selEq?.serie===eq.serie?"sel":"")+"' onclick='onEqSel("+i+")'><span class='eq-b'>"+eq.modelo+"</span><span class='eq-s'>"+eq.serie+"</span><div style='text-align:right'><div class='eq-a'>"+(eq.area||"")+"</div><div class='eq-ar'>"+(eq.aroma||"")+"</div></div></div>").join("");
+        return"<div class='eq-list'><div class='eq-tit'>Equipos instalados ("+eqsC.length+")</div>"+eqItems+"</div>";
+      })()      :(selC?"<div style='background:#fffbe8;border:1px solid #ffe;border-radius:var(--R);padding:10px 12px;font-size:12px;color:#856404;margin-bottom:12px'>Sin equipos registrados. El admin puede agregarlos en Clientes.</div><div class='fw'><div class='fr'><div><label class='lbl'>Modelo</label><select class='inp' id='mmm'>"+modelos.map(m=>"<option>"+m+"</option>").join("")+"</select></div><div><label class='lbl'>Serie</label><input class='inp' placeholder='Nro serie' oninput='setSelEqManual(this.value)'/></div></div></div>":"");
+    const aH=selEq?.aroma?"<div class='ah'>Aroma asignado: <strong>"+selEq.aroma+"</strong></div>":"";
     const probBtnStyle=window._prob?"background:#c0392b;border-color:#c0392b;color:#fff":"background:#fdecea;border-color:#f5c6c6;color:#c0392b";
     con=`<p class="pt">Registrar visita</p><p class="ps">Selecciona cliente y equipo visitado</p>
     <div class="fw"><label class="lbl">Cliente *</label>
@@ -688,7 +691,7 @@ function render(){
     <div style="display:flex;align-items:center;gap:10px;border:1px solid;border-radius:var(--R);padding:11px 14px;margin-bottom:12px;cursor:pointer;${probBtnStyle}" onclick="window._prob=!window._prob;render()">
       <i class="ti ti-alert-triangle" style="font-size:18px"></i>
       <span style="font-size:13px;font-weight:600;flex:1">Visita por problema en equipo</span>
-      ${window._prob?`<i class="ti ti-check" style="font-size:16px"></i>`:`<div style="width:18px;height:18px;border:2px solid currentColor;border-radius:50%"></div>`}
+      ${window._prob?"<i class='ti ti-check' style='font-size:16px'></i>":"<div style='width:18px;height:18px;border:2px solid currentColor;border-radius:50%'></div>"}
     </div>
     ${selC?`<div style="display:flex;gap:8px;margin-bottom:12px">
       <button type="button" onclick="openCambioAroma('${selC.replace(/'/g,"\'")}')" style="flex:1;padding:10px;border:1px solid #dde8e2;border-radius:var(--R);background:none;font-size:12px;font-weight:600;color:var(--G);cursor:pointer">
@@ -729,18 +732,25 @@ function render(){
               <div style="font-weight:700;font-size:14px;color:var(--F)">${vnd}</div>
               <div style="display:flex;gap:5px"><span class="chip">${vv.length} visita${vv.length!==1?"s":""}</span><span class="chip chip-g">${tot}ml</span></div>
             </div>
-            ${vv.map(v=>`<div class="card sl" style="padding:10px 12px;margin-bottom:6px;${!(VC[vnd]||[]).includes(v.cliente)?'border-left-color:#e67e22':''}" >
-              <div class="ch"><div><div class="ct" style="font-size:12px">${v.cliente}${!(VC[vnd]||[]).includes(v.cliente)?'<span style="font-size:9px;background:#fff3cd;color:#856404;border-radius:4px;padding:1px 5px;margin-left:5px;font-weight:600">⚡ No asignado</span>':''}</div><div class="cs">${fmt(v.fecha)}</div></div><span class="chip" style="font-size:10px">${v.ml}ml</span></div>
-              <div class="mr"><span class="chip chip-g" style="font-size:10px">${v.esencia}</span>${v.serie?`<span class="chip chip-b" style="font-size:10px">${v.modelo}·${v.serie}</span>`:""}${v.prob?`<span class="chip chip-r" style="font-size:10px"><i class="ti ti-alert-triangle" style="font-size:11px"></i> Problema</span>`:""}</div>
-              ${v.notas?`<div style="font-size:11px;color:var(--M);margin-top:5px">${v.notas}</div>`:""}
-            </div>`).join("")}
+            ${vv.map(v=>{
+                const notOwn=!(VC[vnd]||[]).includes(v.cliente);
+                const border=notOwn?"border-left-color:#e67e22":"";
+                const badge=notOwn?"<span style='font-size:9px;background:#fff3cd;color:#856404;border-radius:4px;padding:1px 5px;margin-left:5px;font-weight:600'>No asignado</span>":"";
+                const serieBadge=v.serie?"<span class='chip chip-b' style='font-size:10px'>"+v.modelo+"·"+v.serie+"</span>":"";
+                const probBadge=v.prob?"<span class='chip chip-r' style='font-size:10px'><i class='ti ti-alert-triangle' style='font-size:11px'></i> Problema</span>":"";
+                const notaDiv=v.notas?"<div style='font-size:11px;color:var(--M);margin-top:5px'>"+v.notas+"</div>":"";
+                return"<div class='card sl' style='padding:10px 12px;margin-bottom:6px;"+border+"'>"
+                  +"<div class='ch'><div><div class='ct' style='font-size:12px'>"+v.cliente+badge+"</div><div class='cs'>"+fmt(v.fecha)+"</div></div><span class='chip' style='font-size:10px'>"+v.ml+"ml</span></div>"
+                  +"<div class='mr'><span class='chip chip-g' style='font-size:10px'>"+v.esencia+"</span>"+serieBadge+probBadge+"</div>"
+                  +notaDiv+"</div>";
+              }).join("")}
           </div>`;
         }).join(`<div style="height:1px;background:#eee;margin:4px 0 14px"></div>`)
       :fv.slice(0,40).map(v=>`<div class="card sl">
         <div class="ch"><div><div class="ct">${v.cliente}</div><div class="cs">${fmt(v.fecha)}</div></div>
           <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px"><span class="chip">${v.ml}ml</span>${isA?`<button class="del" onclick="delVisit('${v.id}')">Eliminar</button>`:""}</div>
         </div>
-        <div class="mr"><span class="chip chip-g">${v.esencia}</span>${v.serie?`<span class="chip chip-b">${v.modelo}·${v.serie}</span>`:""} ${isA?`<span class="chip" style="background:#f0f7f3">${v.vnd}</span>`:""} ${v.prob?`<span class="chip chip-r" style="font-size:10px"><i class="ti ti-alert-triangle" style="font-size:11px"></i> Problema</span>`:""}</div>
+        <div class="mr"><span class="chip chip-g">${v.esencia}</span>${v.serie?"<span class='chip chip-b'>"+v.modelo+"·"+v.serie+"</span>":""} ${isA?"<span class='chip' style='background:#f0f7f3'>"+v.vnd+"</span>":""} ${v.prob?"<span class='chip chip-r' style='font-size:10px'><i class='ti ti-alert-triangle' style='font-size:11px'></i> Problema</span>":""}</div>
         ${v.notas?`<div style="font-size:11px;color:var(--M);margin-top:6px">${v.notas}</div>`:""}
       </div>`).join("")}`;
   }
@@ -822,26 +832,21 @@ function render(){
           </div>
         </div>
         <div class="mr"><span class="chip chip-b">${d.modelo}${d.serie?" · "+d.serie:""}</span><span class="chip">${d.dias}d acordados</span></div>
-        ${d.notas?`<div style="font-size:11px;color:var(--M);margin-top:5px">${d.notas}</div>`:""}
+        ${d.notas?"<div style='font-size:11px;color:var(--M);margin-top:5px'>"+d.notas+"</div>":""}
       </div>`;
     }).join("")}
-    ${done.length>0?`<div style="display:flex;align-items:center;justify-content:space-between;margin:16px 0 10px">
-      <p style="font-size:12px;color:var(--M);font-weight:700">DEMOS RETIRADAS (${done.length})</p>
-      <div style="display:flex;gap:5px">
-        <button onclick="window._df=window._df==='cerrado'?null:'cerrado';render()" style="padding:3px 9px;border-radius:20px;border:1px solid ${df==="cerrado"?"var(--F)":"#dde8e2"};background:${df==="cerrado"?"var(--F)":"none"};color:${df==="cerrado"?"#fff":"var(--F)"};font-size:11px;cursor:pointer">Cerradas</button>
-        <button onclick="window._df=window._df==='fallida'?null:'fallida';render()" style="padding:3px 9px;border-radius:20px;border:1px solid ${df==="fallida"?"var(--D)":"#dde8e2"};background:${df==="fallida"?"var(--D)":"none"};color:${df==="fallida"?"#fff":"var(--D)"};font-size:11px;cursor:pointer">Fallidas</button>
-      </div>
-    </div>
-    ${(df?done.filter(d=>d.res===df):done).slice(0,20).map(d=>`<div class="card" style="opacity:.75">
-      <div class="ch">
-        <div><div class="ct" style="color:#999">${d.c}</div><div class="cs">${d.vnd} · ${d.retFecha?fmtD(d.retFecha):""}</div></div>
-        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
-          ${d.res==="cerrado"?`<span class="chip" style="font-size:10px"><i class="ti ti-circle-check" style="font-size:11px"></i> Cerrado</span>`:d.res==="fallida"?`<span class="chip chip-r" style="font-size:10px"><i class="ti ti-circle-x" style="font-size:11px"></i> Fallida</span>`:`<span class="chip chip-w" style="font-size:10px">Retirada</span>`}
-          ${isA?`<button class="del" onclick="delDemo('${d.id}')">Eliminar</button>`:""}
-        </div>
-      </div>
-      <div class="mr"><span class="chip chip-b" style="font-size:10px">${d.modelo}${d.serie?" · "+d.serie:""}</span></div>
-    </div>`).join("")}`:""}`;
+    ${(()=>{
+      if(!done.length)return"";
+      const cerBtn="<button onclick=\"window._df=window._df==='cerrado'?null:'cerrado';render()\" style='padding:3px 9px;border-radius:20px;border:1px solid "+(df==="cerrado"?"var(--F)":"#dde8e2")+";background:"+(df==="cerrado"?"var(--F)":"none")+";color:"+(df==="cerrado"?"#fff":"var(--F)")+";font-size:11px;cursor:pointer'>Cerradas</button>";
+      const falBtn="<button onclick=\"window._df=window._df==='fallida'?null:'fallida';render()\" style='padding:3px 9px;border-radius:20px;border:1px solid "+(df==="fallida"?"var(--D)":"#dde8e2")+";background:"+(df==="fallida"?"var(--D)":"none")+";color:"+(df==="fallida"?"#fff":"var(--D)")+";font-size:11px;cursor:pointer'>Fallidas</button>";
+      const header="<div style='display:flex;align-items:center;justify-content:space-between;margin:16px 0 10px'><p style='font-size:12px;color:var(--M);font-weight:700'>DEMOS RETIRADAS ("+done.length+")</p><div style='display:flex;gap:5px'>"+cerBtn+falBtn+"</div></div>";
+      const dCards=(df?done.filter(d=>d.res===df):done).slice(0,20).map(d=>{
+        const rb=d.res==="cerrado"?"<span class='chip' style='font-size:10px'><i class='ti ti-circle-check' style='font-size:11px'></i> Cerrado</span>":d.res==="fallida"?"<span class='chip chip-r' style='font-size:10px'><i class='ti ti-circle-x' style='font-size:11px'></i> Fallida</span>":"<span class='chip chip-w' style='font-size:10px'>Retirada</span>";
+        const db=isA?"<button class='del' onclick='delDemo("+JSON.stringify(d.id)+")'>Eliminar</button>":"";
+        return"<div class='card' style='opacity:.75'><div class='ch'><div><div class='ct' style='color:#999'>"+d.c+"</div><div class='cs'>"+d.vnd+" · "+(d.retFecha?fmtD(d.retFecha):"")+"</div></div><div style='display:flex;flex-direction:column;align-items:flex-end;gap:4px'>"+rb+db+"</div></div><div class='mr'><span class='chip chip-b' style='font-size:10px'>"+d.modelo+(d.serie?" · "+d.serie:"")+"</span></div>"+(d.notas?"<div style='font-size:11px;color:var(--M);margin-top:5px'>"+d.notas+"</div>":"")+"</div>";
+      }).join("");
+      return header+dCards;
+    })()}`;
   }
 
   // EQUIPOS
@@ -862,21 +867,29 @@ function render(){
       <button class="btn-add" style="flex:1;margin-bottom:0;background:var(--F)" onclick="openMov('entrada')"><i class="ti ti-arrow-down-circle"></i> Entrada</button>
       <button class="btn-add" style="flex:1;margin-bottom:0;background:var(--D)" onclick="openMov('salida')"><i class="ti ti-arrow-up-circle"></i> Salida</button>
     </div>
-    ${isA?`<p style="font-size:12px;font-weight:700;color:var(--M);margin-bottom:10px">MOVIMIENTOS</p>
-    <div style="display:flex;gap:6px;margin-bottom:12px">
-      ${["todos","entrada","salida"].map(f=>`<button onclick="window._mf='${f}';render()" style="padding:4px 12px;border-radius:20px;border:1px solid ${mf===f?"var(--F)":"#dde8e2"};background:${mf===f?"var(--F)":"none"};color:${mf===f?"#fff":"var(--M)"};font-size:12px;cursor:pointer">${f.charAt(0).toUpperCase()+f.slice(1)}</button>`).join("")}
-    </div>
-    ${(()=>{const ml=isA?movs:movs.filter(m=>m.vnd===sess.name);const mf2=window._mf||"todos";const ms=mf2==="todos"?ml:ml.filter(m=>m.tipo===mf2);
-    return ms.length===0?`<div class="empty" style="padding:24px"><i class="ti ti-arrow-right-circle"></i>Sin movimientos</div>`
-    :ms.slice(0,40).map(m=>`<div class="card ${m.tipo==="entrada"?"sl":"sl-r"}" style="margin-bottom:8px">
-      <div class="ch">
-        <div><div class="ct" style="font-size:13px">${m.modelo} · <span style="color:${m.tipo==="entrada"?"var(--F)":"var(--D)"}">${m.tipo==="entrada"?"↓ Entrada":"↑ Salida"}</span></div>
-          <div class="cs">${fmt(m.fecha)} · ${m.vnd}</div></div>
-        <span class="chip ${m.tipo==="entrada"?"":"chip-r"}" style="font-size:13px;font-weight:700">${m.tipo==="entrada"?"+":"-"}${m.cant}</span>
-      </div>
-      <div class="mr"><span class="chip chip-g" style="font-size:10px">${m.motivo}</span>${m.serie?`<span class="chip" style="font-size:10px;background:#f0f7f3">${m.serie}</span>`:""} ${m.cliente?`<span class="chip chip-b" style="font-size:10px">${m.cliente}</span>`:""}</div>
-      ${m.notas?`<div style="font-size:11px;color:var(--M);margin-top:5px">${m.notas}</div>`:""}
-    </div>`).join("");})()}`:""}`;
+    ${(()=>{
+      if(!isA)return"";
+      const ml=movs;const ms=(window._mf||"todos")==="todos"?ml:ml.filter(m=>m.tipo===(window._mf));
+      const fBtns=["todos","entrada","salida"].map(f=>"<button onclick='window._mf="+JSON.stringify(f)+";render()' style='padding:4px 12px;border-radius:20px;border:1px solid "+( mf===f?"var(--F)":"#dde8e2")+";background:"+(mf===f?"var(--F)":"none")+";color:"+(mf===f?"#fff":"var(--M)")+";font-size:12px;cursor:pointer'>"+f.charAt(0).toUpperCase()+f.slice(1)+"</button>").join("");
+      const movCards=ms.length===0?"<div class='empty' style='padding:24px'><i class='ti ti-arrow-right-circle'></i>Sin movimientos</div>"
+        :ms.slice(0,40).map(m=>{
+          const typeColor=m.tipo==="entrada"?"var(--F)":"var(--D)";
+          const typeLabel=m.tipo==="entrada"?"↓ Entrada":"↑ Salida";
+          const chipClass=m.tipo==="entrada"?"sl":"sl-r";
+          const amtSign=m.tipo==="entrada"?"+":"-";
+          const serieBadge=m.serie?"<span class='chip' style='font-size:10px;background:#f0f7f3'>"+m.serie+"</span>":"";
+          const cliBadge=m.cliente?"<span class='chip chip-b' style='font-size:10px'>"+m.cliente+"</span>":"";
+          const notaDiv=m.notas?"<div style='font-size:11px;color:var(--M);margin-top:5px'>"+m.notas+"</div>":"";
+          return"<div class='card "+chipClass+"' style='margin-bottom:8px'>"
+            +"<div class='ch'><div><div class='ct' style='font-size:13px'>"+m.modelo+" · <span style='color:"+typeColor+"'>"+typeLabel+"</span></div>"
+            +"<div class='cs'>"+fmt(m.fecha)+" · "+m.vnd+"</div></div>"
+            +"<span class='chip "+(m.tipo==="entrada"?"":"chip-r")+"' style='font-size:13px;font-weight:700'>"+amtSign+m.cant+"</span></div>"
+            +"<div class='mr'><span class='chip chip-g' style='font-size:10px'>"+m.motivo+"</span> "+serieBadge+" "+cliBadge+"</div>"
+            +notaDiv+"</div>";
+        }).join("");
+      return"<p style='font-size:12px;font-weight:700;color:var(--M);margin-bottom:10px'>MOVIMIENTOS</p>"
+        +"<div style='display:flex;gap:6px;margin-bottom:12px'>"+fBtns+"</div>"+movCards;
+    })()}`;
   }
 
   // CLIENTES
@@ -1354,7 +1367,7 @@ function render(){
           <button type="button" onclick="setSolTipo('cliente')" style="flex:1;padding:10px;border-radius:var(--R);border:2px solid ${tipoSol==='cliente'?'#3456a0':'#dde8e2'};background:${tipoSol==='cliente'?'#e8f0ff':'none'};color:${tipoSol==='cliente'?'#3456a0':'var(--M)'};font-size:12px;font-weight:700;cursor:pointer">Cliente existente</button>
         </div></div>
         <div class="fw"><label class="lbl">${tipoSol==="cliente"?"Motivo *":"Nombre del prospecto *"}</label><input class="inp" id="sol_n" placeholder="${tipoSol==="cliente"?"Revision, problema...":"Ej: Restaurante El Jardin"}"/></div>
-        ${tipoSol==="cliente"?`<div class="fw"><label class="lbl">Cliente *</label><input class="inp" id="sol_ce" placeholder="Nombre del cliente" list="sol_cl"/><datalist id="sol_cl">${ALL_CLIENTS.map(c=>`<option>${c}</option>`).join("")}</datalist></div>`:""}
+        ${tipoSol==="cliente"?"<div class='fw'><label class='lbl'>Cliente *</label><input class='inp' id='sol_ce' placeholder='Nombre del cliente' list='sol_cl'/><datalist id='sol_cl'>"+ALL_CLIENTS.map(c=>"<option>"+c+"</option>").join("")+"</datalist></div>":""}
         <div class="fw"><label class="lbl">Vendedor *</label><select class="inp" id="sol_v"><option value="">Selecciona...</option>${activeVnds2.map(v=>`<option value="${v.name}" ${v.name===sess.name?"selected":""}>${v.name}</option>`).join("")}</select></div>
         <div class="fw"><label class="lbl">Notas</label><textarea class="inp" id="sol_notas" placeholder="Instrucciones..."></textarea></div>
         <div class="mb-act"><button class="btn-c" onclick="modal=null;render()">Cancelar</button><button class="btn" style="background:#3456a0" onclick="saveSolicitud()">Enviar</button></div>
@@ -1404,7 +1417,7 @@ function render(){
     <div class="cnt">${con}</div>
   </div>
   ${mHTML}
-  ${toast?`<div class="toast">${toast}</div>`:""}`;
+  ${toast?"<div class='toast'>"+toast+"</div>":""}`;
 }
 
 render();
