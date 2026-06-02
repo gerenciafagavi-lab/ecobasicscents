@@ -694,6 +694,7 @@ function render(){
       <span style="font-size:13px;font-weight:600;flex:1">Visita por problema en equipo</span>
       ${window._prob?"<i class='ti ti-check' style='font-size:16px'></i>":"<div style='width:18px;height:18px;border:2px solid currentColor;border-radius:50%'></div>"}
     </div>
+    ${selC?`<div style="background:#fff3cd;border:1px solid #ffc107;border-radius:var(--R);padding:10px 12px;margin-bottom:12px;display:${!isA&&!myOwnC.includes(selC)?'flex':'none'};align-items:center;gap:8px"><i class="ti ti-alert-triangle" style="color:#e67e22;font-size:18px"></i><div style="font-size:12px;color:#856404"><strong>Cliente de otro vendedor</strong><br>La visita quedará registrada a tu nombre.</div></div>`:""}
     ${selC?`<div style="display:flex;gap:8px;margin-bottom:12px">
       <button type="button" onclick="openCambioAroma('${selC.replace(/'/g,"\'")}')" style="flex:1;padding:10px;border:1px solid #dde8e2;border-radius:var(--R);background:none;font-size:12px;font-weight:600;color:var(--G);cursor:pointer">
         <i class="ti ti-refresh"></i> Cambio de aroma
