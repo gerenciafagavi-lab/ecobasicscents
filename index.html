@@ -645,7 +645,8 @@ function render(){
     return;
   }
 
-  const myC=isA?ALL_CLIENTS:(VC[sess.name]||ALL_CLIENTS);
+  const myOwnC=VC[sess.name]||[];
+  const myC=isA?ALL_CLIENTS:[...myOwnC,...ALL_CLIENTS.filter(c=>!myOwnC.includes(c))];
   const myV=isA?visits:visits.filter(v=>v.vnd===sess.name);
   const eqsC=selC?getClientEqs(selC).filter(e=>!e._del):[];
   const totML=Object.values(inv).reduce((a,b)=>a+b,0);
