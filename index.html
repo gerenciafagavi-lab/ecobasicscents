@@ -207,12 +207,74 @@ function getClientEqs(c){
 function regVisit(){
   if(!selC||!selS||!mlV||parseInt(mlV)<=0){showToast("Completa los campos requeridos");return;}
   const ml=parseInt(mlV);
-  if((inv[selS]||0)<ml){showToast("Stock insuficiente");return;}
+  if((inv[selS]||0)<ml){showToast("Stock insuficiente: "+selS);return;}
   const v={id:uid(),fecha:new Date().toISOString(),vnd:sess.name,cliente:selC,modelo:selEq?.modelo||"",serie:selEq?.serie||"",area:selEq?.area||"",esencia:selS,ml,notas:notV,prob:!!(window._prob)};
   visits=[v,...visits];inv={...inv,[selS]:(inv[selS]||0)-ml};
   sv("vis",visits);sv("inv",inv);
   selC="";selEq=null;selS="";mlV="";notV="";window._prob=false;
   showToast("Visita registrada");
+}
+function regVisitMulti(){
+  // Save all equipment entries at once
+  const ev=window._eqVisit||{};
+  const entries=Object.values(ev).filter(e=>e.done);
+  if(!selC){showToast("Selecciona un cliente");return;}
+  if(!entries.length){showToast("Marca al menos un equipo como atendido");return;}
+  const fecha=new Date().toISOString();
+  const prob=!!(window._probM);
+  const notasG=document.getElementById("notv_multi")?.value||"";
+  let saved=0;
+  entries.forEach(e=>{
+    // Save visit record
+    const v={id:uid(),fecha,vnd:sess.name,cliente:selC,modelo:e.modelo,serie:e.serie,area:e.area||"",esencia:e.esencia||"",ml:e.ml||0,notas:e.notas||(notasG||""),prob};
+    visits=[v,...visits];
+    // Deduct inventory
+    if(e.esencia&&e.ml>0){
+      if(e.tipo==="cartucho"){
+        // Deduct from cartuchos
+        if((cartuchos[e.esencia]||0)>0){cartuchos={...cartuchos,[e.esencia]:(cartuchos[e.esencia]||0)-1};}
+        else showToast("Sin stock de "+e.esencia);
+      } else if(e.tipo==="rejilla"){
+        // Deduct from cartuchos (rejillas stored there too)
+        if((cartuchos[e.esencia]||0)>0){cartuchos={...cartuchos,[e.esencia]:(cartuchos[e.esencia]||0)-1};}
+        else showToast("Sin stock de "+e.esencia);
+      } else {
+        // Deduct from inv (ml)
+        if((inv[e.esencia]||0)>=e.ml){inv={...inv,[e.esencia]:(inv[e.esencia]||0)-e.ml};}
+        else showToast("Stock bajo de "+e.esencia+", se descontó lo disponible");
+      }
+    }
+    saved++;
+  });
+  sv("vis",visits);sv("inv",inv);sv("cartuchos",cartuchos);
+  window._eqVisit={};window._probM=false;selC="";selEq=null;
+  showToast(saved+" equipo"+(saved>1?"s":"")+" registrado"+(saved>1?"s":""));
+}
+function toggleEqVisit(serie,modelo,area){
+  if(!window._eqVisit)window._eqVisit={};
+  if(window._eqVisit[serie]?.done){
+    window._eqVisit[serie]={...window._eqVisit[serie],done:false};
+  } else {
+    window._eqVisit[serie]={serie,modelo,area,done:true,esencia:window._eqVisit[serie]?.esencia||"",ml:window._eqVisit[serie]?.ml||0,notas:window._eqVisit[serie]?.notas||""};
+  }
+  render();
+}
+function _uev(el,serie,field){
+  const f=field||el.name||"val";
+  const val=el.value;
+  if(!window._eqVisit)window._eqVisit={};
+  if(!window._eqVisit[serie])window._eqVisit[serie]={serie,done:false};
+  window._eqVisit[serie]={...window._eqVisit[serie],[f]:f==="ml"?parseInt(val)||0:val};
+}
+function _uevN(el,serie){
+  if(!window._eqVisit)window._eqVisit={};
+  if(!window._eqVisit[serie])window._eqVisit[serie]={serie,done:false};
+  window._eqVisit[serie]={...window._eqVisit[serie],notas:el.value};
+}
+function updEqVisit(serie,field,val){
+  if(!window._eqVisit)window._eqVisit={};
+  if(!window._eqVisit[serie])window._eqVisit[serie]={serie,done:false};
+  window._eqVisit[serie]={...window._eqVisit[serie],[field]:val};
 }
 function delVisit(id){
   const v=visits.find(x=>x.id===id);
@@ -662,48 +724,121 @@ function render(){
 
   // REGISTRAR
   if(tab==="visit"){
-    const eqHTML=eqsC.length>0
-      ?(()=>{
-        const eqItems=eqsC.map((eq,i)=>"<div class='eq-it "+(selEq?.serie===eq.serie?"sel":"")+"' onclick='onEqSel("+i+")'><span class='eq-b'>"+eq.modelo+"</span><span class='eq-s'>"+eq.serie+"</span><div style='text-align:right'><div class='eq-a'>"+(eq.area||"")+"</div><div class='eq-ar'>"+(eq.aroma||"")+"</div></div></div>").join("");
-        return"<div class='eq-list'><div class='eq-tit'>Equipos instalados ("+eqsC.length+")</div>"+eqItems+"</div>";
-      })()      :(selC?"<div style='background:#fffbe8;border:1px solid #ffe;border-radius:var(--R);padding:10px 12px;font-size:12px;color:#856404;margin-bottom:12px'>Sin equipos registrados. El admin puede agregarlos en Clientes.</div><div class='fw'><div class='fr'><div><label class='lbl'>Modelo</label><select class='inp' id='mmm'>"+modelos.map(m=>"<option>"+m+"</option>").join("")+"</select></div><div><label class='lbl'>Serie</label><input class='inp' placeholder='Nro serie' oninput='setSelEqManual(this.value)'/></div></div></div>":"");
-    const aH=selEq?.aroma?"<div class='ah'>Aroma asignado: <strong>"+selEq.aroma+"</strong></div>":"";
-    const probBtnStyle=window._prob?"background:#c0392b;border-color:#c0392b;color:#fff":"background:#fdecea;border-color:#f5c6c6;color:#c0392b";
-    con=`<p class="pt">Registrar visita</p><p class="ps">Selecciona cliente y equipo visitado</p>
-    <div class="fw"><label class="lbl">Cliente *</label>
-      <select class="inp" onchange="onCChange(this.value)"><option value="">Selecciona cliente...</option>
-        ${myC.map(c=>`<option value="${c}" ${c===selC?"selected":""}>${c}</option>`).join("")}
-      </select>
-    </div>
-    ${eqHTML}${aH}
-    <div class="fr">
-      <div class="fw"><label class="lbl">Esencia *</label>
-        <select class="inp" onchange="selS=this.value"><option value="">Selecciona...</option>
-          ${SCENTS.map(s=>`<option value="${s}" ${s===selS?"selected":""}>${s} (${inv[s]||0}ml)</option>`).join("")}
-        </select>
-      </div>
-      <div class="fw"><label class="lbl">ML *</label>
-        <input type="number" class="inp" placeholder="100" min="1" value="${mlV}" oninput="mlV=this.value"/>
-      </div>
-    </div>
-    <div class="fw"><label class="lbl">Notas</label>
-      <textarea class="inp" placeholder="Estado del equipo..." oninput="notV=this.value">${notV}</textarea>
-    </div>
-    <div style="display:flex;align-items:center;gap:10px;border:1px solid;border-radius:var(--R);padding:11px 14px;margin-bottom:12px;cursor:pointer;${probBtnStyle}" onclick="window._prob=!window._prob;render()">
-      <i class="ti ti-alert-triangle" style="font-size:18px"></i>
-      <span style="font-size:13px;font-weight:600;flex:1">Visita por problema en equipo</span>
-      ${window._prob?"<i class='ti ti-check' style='font-size:16px'></i>":"<div style='width:18px;height:18px;border:2px solid currentColor;border-radius:50%'></div>"}
-    </div>
-    ${selC?`<div style="background:#fff3cd;border:1px solid #ffc107;border-radius:var(--R);padding:10px 12px;margin-bottom:12px;display:${!isA&&!myOwnC.includes(selC)?'flex':'none'};align-items:center;gap:8px"><i class="ti ti-alert-triangle" style="color:#e67e22;font-size:18px"></i><div style="font-size:12px;color:#856404"><strong>Cliente de otro vendedor</strong><br>La visita quedará registrada a tu nombre.</div></div>`:""}
-    ${selC?`<div style="display:flex;gap:8px;margin-bottom:12px">
-      <button type="button" onclick="openCambioAroma('${selC.replace(/'/g,"\'")}')" style="flex:1;padding:10px;border:1px solid #dde8e2;border-radius:var(--R);background:none;font-size:12px;font-weight:600;color:var(--G);cursor:pointer">
-        <i class="ti ti-refresh"></i> Cambio de aroma
-      </button>
-      <button type="button" onclick="_openGV()" style="flex:1;padding:10px;border:1px solid #dde8e2;border-radius:var(--R);background:none;font-size:12px;font-weight:600;color:#3456a0;cursor:pointer">
-        <i class="ti ti-gauge"></i> Cambiar intensidad
-      </button>
-    </div>`:""}
-    <button class="btn" onclick="regVisit()">Guardar visita</button>`;
+    if(!window._eqVisit)window._eqVisit={};
+    const allScents=getAllScents();
+    const cartuchoKeys=Object.keys(cartuchos);
+    const isFmatic=(m)=>m&&(m.toLowerCase().includes("fmatic"));
+    const isGoteo=(m)=>m&&m.toLowerCase().includes("goteo");
+    const isUrinal=(m)=>m&&(m.toLowerCase().includes("urinal")||m.toLowerCase().includes("airin")||m.toLowerCase().includes("airfin"));
+
+    // CLIENT SELECTOR
+    let html="<p class='pt'>Registrar visita</p>";
+    html+="<div class='fw'><label class='lbl'>Cliente *</label>"
+      +"<select class='inp' onchange='onCChange(this.value)'><option value=''>Selecciona cliente...</option>"
+      +myC.map(c=>"<option value='"+c+"' "+(c===selC?"selected":"")+">"+c+(myOwnC.includes(c)?"":" ↩")+"</option>").join("")
+      +"</select></div>";
+
+    if(selC){
+      // Non-assigned warning
+      if(!isA&&!myOwnC.includes(selC)){
+        html+="<div style='background:#fff3cd;border:1px solid #ffc107;border-radius:var(--R);padding:10px 12px;margin-bottom:12px;display:flex;align-items:center;gap:8px'>"
+          +"<i class='ti ti-alert-triangle' style='color:#e67e22;font-size:18px'></i>"
+          +"<div style='font-size:12px;color:#856404'><strong>Cliente de otro vendedor</strong><br>La visita quedará registrada a tu nombre.</div></div>";
+      }
+
+      if(eqsC.length===0){
+        // No equipment registered - manual entry
+        html+="<div style='background:#fffbe8;border:1px solid #ffe;border-radius:var(--R);padding:10px 12px;font-size:12px;color:#856404;margin-bottom:12px'>Sin equipos registrados. El admin puede agregarlos en Clientes.</div>"
+          +"<div class='fw'><label class='lbl'>Modelo</label><select class='inp' id='mmm'>"+modelos.map(m=>"<option>"+m+"</option>").join("")+"</select></div>"
+          +"<div class='fw'><label class='lbl'>Serie</label><input class='inp' placeholder='Nro serie' oninput='setSelEqManual(this.value)'/></div>"
+          +"<div class='fw'><label class='lbl'>Esencia *</label><select class='inp' onchange='selS=this.value'><option value=''>Selecciona...</option>"+allScents.map(s=>"<option value='"+s+"'"+(s===selS?" selected":"")+">"+s+"</option>").join("")+"</select></div>"
+          +"<div class='fw'><label class='lbl'>ML usados *</label><input type='number' class='inp' placeholder='0' min='1' oninput='mlV=this.value' value='"+( mlV||"")+"'/></div>"
+          +"<div class='fw'><label class='lbl'>Notas</label><textarea class='inp' id='notv_s' rows='2' placeholder='Observaciones...' oninput='notV=this.value'>"+( notV||"")+"</textarea></div>"
+          +"<button class='btn' onclick='regVisit()'>Guardar visita</button>";
+      } else {
+        // Multi-equipment mode
+        html+="<div style='font-size:12px;font-weight:700;color:var(--M);margin-bottom:10px'>EQUIPOS ("+eqsC.length+") — Marca los que atendiste:</div>";
+
+        eqsC.forEach(eq=>{
+          const ev=window._eqVisit[eq.serie]||{};
+          const done=ev.done||false;
+          const fmatic=isFmatic(eq.modelo);
+          const goteo=isGoteo(eq.modelo);
+          const urinal=isUrinal(eq.modelo);
+          const gradeStr=getGradeDisplay(eq.serie);
+          const borderColor=done?"var(--F)":"#dde8e2";
+          const bgColor=done?"#f0f7f4":"#fff";
+
+          html+="<div style='border:2px solid "+borderColor+";border-radius:var(--R);padding:12px;margin-bottom:10px;background:"+bgColor+"'>";
+
+          // Header with checkbox
+          html+="<div style='display:flex;align-items:center;gap:10px;margin-bottom:"+(done?"10px":"0")+"' onclick='toggleEqVisit("+JSON.stringify(eq.serie)+","+JSON.stringify(eq.modelo)+","+JSON.stringify(eq.area||"")+")'  style='cursor:pointer'>"
+            +"<div style='width:22px;height:22px;border:2px solid "+(done?"var(--F)":"#ccc")+";border-radius:6px;background:"+(done?"var(--F)":"#fff")+";display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0'>"
+            +(done?"<i class='ti ti-check' style='color:#fff;font-size:14px'></i>":"")+"</div>"
+            +"<div style='flex:1'>"
+            +"<div style='font-weight:700;font-size:13px'>"+eq.modelo+" <span style='font-size:11px;color:var(--M)'>· "+eq.serie+"</span></div>"
+            +(eq.area?"<div style='font-size:11px;color:var(--M)'>"+eq.area+"</div>":"")
+            +(eq.aroma?"<div style='font-size:11px;color:var(--G)'>"+eq.aroma+"</div>":"")
+            +gradeStr
+            +"</div></div>";
+
+          if(done){
+            if(fmatic){
+              // FMATIC: select cartucho
+              html+="<div class='fw' style='margin-top:8px'><label class='lbl' style='font-size:11px'>Cartucho instalado</label>"
+                +"<select class='inp' style='font-size:12px' data-serie='"+eq.serie+"' onchange='_uev(this,this.dataset.serie,\"esencia\");updEqVisit(this.dataset.serie,\"ml\",1);updEqVisit(this.dataset.serie,\"tipo\",\"cartucho\")'>"
+                +"<option value=''>Sin cambio de cartucho</option>"
+                +cartuchoKeys.map(k=>"<option value='"+k+"'"+(ev.esencia===k?" selected":"")+">"+k+" ("+( cartuchos[k]||0)+" en stock)</option>").join("")
+                +"</select></div>";
+            } else if(urinal){
+              // URINAL: select rejilla
+              html+="<div class='fw' style='margin-top:8px'><label class='lbl' style='font-size:11px'>Rejilla instalada</label>"
+                +"<select class='inp' style='font-size:12px' data-serie='"+eq.serie+"' onchange='_uev(this,this.dataset.serie,\"esencia\");updEqVisit(this.dataset.serie,\"ml\",1);updEqVisit(this.dataset.serie,\"tipo\",\"rejilla\")'>"
+                +"<option value=''>Sin cambio de rejilla</option>"
+                +cartuchoKeys.map(k=>"<option value='"+k+"'"+(ev.esencia===k?" selected":"")+">"+k+" ("+( cartuchos[k]||0)+" disponibles)</option>").join("")
+                +"</select></div>";
+            } else if(goteo){
+              // GOTEO: esencia + ML relleno
+              html+="<div class='fr' style='margin-top:8px;gap:8px'>"
+                +"<div class='fw'><label class='lbl' style='font-size:11px'>Esencia rellenada</label>"
+                +"<select class='inp' style='font-size:12px' data-serie='"+eq.serie+"' onchange='_uev(this,this.dataset.serie,\"esencia\");updEqVisit(this.dataset.serie,\"tipo\",\"ml\")'>"
+                +"<option value=''>Selecciona...</option>"
+                +allScents.map(s=>"<option value='"+s+"'"+(ev.esencia===s?" selected":"")+">"+s+"</option>").join("")
+                +"</select></div>"
+                +"<div class='fw'><label class='lbl' style='font-size:11px'>ML rellenados *</label>"
+                +"<input type='number' class='inp' style='font-size:12px' placeholder='0' min='1' value='"+(ev.ml||"")+"' data-serie='"+eq.serie+"' oninput='_uev(this,this.dataset.serie,this.name)' name='ml'</div>"
+                +"</div>";
+            } else {
+              // Regular AE model: esencia + ML
+              html+="<div class='fr' style='margin-top:8px;gap:8px'>"
+                +"<div class='fw'><label class='lbl' style='font-size:11px'>Esencia *</label>"
+                +"<select class='inp' style='font-size:12px' data-serie='"+eq.serie+"' onchange='_uev(this,this.dataset.serie,\"esencia\");updEqVisit(this.dataset.serie,\"tipo\",\"ml\")'>"
+                +"<option value=''>Selecciona...</option>"
+                +allScents.map(s=>"<option value='"+s+"'"+(ev.esencia===s?" selected":"")+">"+s+"</option>").join("")
+                +"</select></div>"
+                +"<div class='fw'><label class='lbl' style='font-size:11px'>ML usados *</label>"
+                +"<input type='number' class='inp' style='font-size:12px' placeholder='0' min='1' value='"+(ev.ml||"")+"' data-serie='"+eq.serie+"' oninput='_uev(this,this.dataset.serie,this.name)' name='ml'</div>"
+                +"</div>";
+            }
+            // Notes per equipment
+            html+="<div class='fw' style='margin-top:6px'><label class='lbl' style='font-size:11px'>Notas del equipo</label>"
+              +"<input class='inp' style='font-size:12px' placeholder='Observación...' value='"+(ev.notas||"")+"' data-serie='"+eq.serie+"' oninput='_uevN(this,this.dataset.serie)'/></div>";
+          }
+          html+="</div>";
+        });
+
+        // General notes + problem flag + save
+        const atendidos=Object.values(window._eqVisit).filter(e=>e.done).length;
+        html+="<div class='fw' style='margin-top:4px'><label class='lbl'>Notas generales</label>"
+          +"<textarea class='inp' id='notv_multi' rows='2' placeholder='Observaciones generales...'></textarea></div>"
+          +"<div style='display:flex;align-items:center;gap:10px;border:1px solid "+(window._probM?"var(--D)":"#dde8e2")+";border-radius:var(--R);padding:11px 14px;margin-bottom:12px;cursor:pointer;color:"+(window._probM?"var(--D)":"var(--M)")+"' onclick='window._probM=!window._probM;render()'>"
+          +"<i class='ti ti-alert-triangle' style='font-size:18px'></i>"
+          +"<span style='font-size:13px;font-weight:600;flex:1'>Problema en equipo</span>"
+          +(window._probM?"<i class='ti ti-check' style='font-size:16px'></i>":"<div style='width:18px;height:18px;border:2px solid currentColor;border-radius:50%'></div>")+"</div>"
+          +"<button class='btn' onclick='regVisitMulti()' style='width:100%'>Guardar "+atendidos+" equipo"+(atendidos!==1?"s":"")+" atendido"+(atendidos!==1?"s":"")+"</button>";
+      }
+    }
+    con=html;
   }
 
   // VISITAS
