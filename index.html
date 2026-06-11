@@ -678,6 +678,25 @@ function doExportVendedoresCSV(){
   document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
   showToast("CSV descargado");
 }
+function doExportConsumoCSV(){
+  const rFrom=window._rFrom||"";const rTo=window._rTo||"";const rPais=window._rPais||"todos";
+  let filtData=visits.filter(v=>v.ml>0&&v.esencia);
+  if(rFrom)filtData=filtData.filter(v=>v.fecha>=rFrom);
+  if(rTo)filtData=filtData.filter(v=>v.fecha<=rTo+"T23:59:59");
+  if(rPais!=="todos")filtData=filtData.filter(v=>rPais==="GT"?(window._clientPais||{})[v.cliente]==="GT":(window._clientPais||{})[v.cliente]!=="GT");
+  const rows=[];
+  filtData.forEach(v=>{rows.push({Fecha:fmt(v.fecha),Cliente:v.cliente,Vendedor:v.vnd||"",Esencia:v.esencia,ML:v.ml,Modelo:v.modelo||"",Serie:v.serie||""});});
+  rows.sort((a,b)=>a.Esencia.localeCompare(b.Esencia));
+  if(!rows.length){alert("Sin datos");return;}
+  const hdrs='"'+Object.keys(rows[0]).join('","')+'"';
+  const rws=rows.map(r=>Object.values(r).map(v=>'"'+String(v||"").replace(/"/g,"''")+'"').join(","));
+  const csv=[hdrs,...rws].join("\n");
+  const blob=new Blob([csv],{type:"text/csv;charset=utf-8;"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");a.href=url;a.download="consumo_esencias.csv";
+  document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
+  showToast("CSV descargado");
+}
 function doExportEquiposCSV(){const rPais=window._rPais||"todos";const cf=ALL_CLIENTS.filter(c=>{if(rPais==="SV")return(window._clientPais||{})[c]!=="GT";if(rPais==="GT")return(window._clientPais||{})[c]==="GT";return true;});const rows=[];cf.forEach(c=>{getClientEqs(c).filter(e=>!e._del).forEach(eq=>{const gi=eqGrades[eq.serie]||{};const int=gi.tipo==="onoff"?"On:"+gi.onSec+"s Off:"+gi.offSec+"s":gi.grade?"G"+gi.grade:"Sin config";rows.push({Pais:(window._clientPais||{})[c]==="GT"?"Guatemala":"El Salvador",Cliente:c,Modelo:eq.modelo,Serie:eq.serie,Area:eq.area||"",Aroma:eq.aroma||"",Intensidad:int});});});if(!rows.length){alert("Sin equipos");return;}const hdrs='"'+Object.keys(rows[0]).join('","')+'"';const rws=rows.map(r=>Object.values(r).map(v=>'"'+String(v||"").replace(/"/g,"''")+'"').join(","));const csv=[hdrs,...rws].join("\n");const blob=new Blob([csv],{type:"text/csv;charset=utf-8;"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="equipos_instalados.csv";document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);showToast("CSV descargado");}
 
 function render(){
@@ -1193,6 +1212,23 @@ function render(){
         return{name:v.name,total:vVisits.length,clientes,reclamos,cambiosAroma,cambiosGrade};
       }).sort((a,b)=>b.total-a.total);
     }
+    let consumoData=[];
+    if(rType==="consumo"){
+      let filtData=visits.filter(v=>v.ml>0&&v.esencia);
+      if(rFrom)filtData=filtData.filter(v=>v.fecha>=rFrom);
+      if(rTo)filtData=filtData.filter(v=>v.fecha<=rTo+"T23:59:59");
+      if(rPais!=="todos")filtData=filtData.filter(v=>rPais==="GT"?(window._clientPais||{})[v.cliente]==="GT":(window._clientPais||{})[v.cliente]!=="GT");
+      // Group by esencia + cliente
+      const byEsencia={};
+      filtData.forEach(v=>{
+        const key=v.esencia;
+        if(!byEsencia[key])byEsencia[key]={esencia:key,total:0,clientes:{}};
+        byEsencia[key].total+=v.ml;
+        if(!byEsencia[key].clientes[v.cliente])byEsencia[key].clientes[v.cliente]=0;
+        byEsencia[key].clientes[v.cliente]+=v.ml;
+      });
+      consumoData=Object.values(byEsencia).sort((a,b)=>b.total-a.total);
+    }
     if(rType==="equipos"){
       ALL_CLIENTS.filter(c=>{if(rPais==="SV")return(window._clientPais||{})[c]!=="GT";if(rPais==="GT")return(window._clientPais||{})[c]==="GT";return true;}).forEach(c=>{getClientEqs(c).filter(e=>!e._del).forEach(eq=>{const gi=eqGrades[eq.serie]||{};const intStr=gi.tipo==="onoff"?"On:"+gi.onSec+"s":gi.grade?"G"+gi.grade:"?";equiposData.push({Pais:(window._clientPais||{})[c]==="GT"?"GT":"SV",Cliente:c,Modelo:eq.modelo,Serie:eq.serie,Area:eq.area||"",Aroma:eq.aroma||"",Intensidad:intStr});});});
     } else {
@@ -1200,12 +1236,12 @@ function render(){
       if(rFrom)reportData=reportData.filter(v=>v.fecha>=rFrom);
       if(rTo)reportData=reportData.filter(v=>v.fecha<=rTo+"T23:59:59");
     }
-    const count=rType==="equipos"?equiposData.length:rType==="vendedores"?vendedoresData.length:reportData.length;
+    const count=rType==="equipos"?equiposData.length:rType==="vendedores"?vendedoresData.length:rType==="consumo"?consumoData.length:reportData.length;
     const abtn=(v,l,c,fn)=>{const act=fn===v;return"<button onclick='window."+fn+"="+JSON.stringify(v)+";render()' style='flex:1;padding:8px;border-radius:var(--R);border:2px solid "+(act?c:"#dde8e2")+";background:"+(act?c:"none")+";color:"+(act?"#fff":"var(--M)")+";font-size:11px;font-weight:600;cursor:pointer'>"+l+"</button>";};
     con="<p class='pt'>Reportes</p><p class='ps'>Exporta datos</p>"
       +"<div class='card' style='margin-bottom:14px'>"
-      +"<div style='display:flex;gap:6px;margin-bottom:10px'>"
-      +abtn("visitas","Visitas","var(--F)","_rType")+abtn("reclamos","Reclamos","var(--D)","_rType")+abtn("equipos","Equipos","#3456a0","_rType")+abtn("vendedores","Vendedores","#b8892a","_rType")
+      +"<div style='display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap'>"
+      +abtn("visitas","Visitas","var(--F)","_rType")+abtn("reclamos","Reclamos","var(--D)","_rType")+abtn("equipos","Equipos","#3456a0","_rType")+abtn("vendedores","Vendedores","#b8892a","_rType")+abtn("consumo","Consumo","#6b4c9a","_rType")
       +"</div><div style='display:flex;gap:6px;margin-bottom:12px'>"
       +abtn("todos","Todos","var(--F)","_rPais")+abtn("SV","SV","var(--F)","_rPais")+abtn("GT","GT","var(--F)","_rPais")
       +"</div>"
@@ -1218,6 +1254,8 @@ function render(){
         ?"<button onclick='doExportEquiposCSV()' style='padding:9px 14px;background:#3456a0;color:#fff;border:none;border-radius:var(--R);font-size:12px;font-weight:600;cursor:pointer'>CSV</button>"
         :rType==="vendedores"
         ?"<button onclick='doExportVendedoresCSV()' style='padding:9px 14px;background:#b8892a;color:#fff;border:none;border-radius:var(--R);font-size:12px;font-weight:600;cursor:pointer'>CSV</button>"
+        :rType==="consumo"
+        ?"<button onclick='doExportConsumoCSV()' style='padding:9px 14px;background:#6b4c9a;color:#fff;border:none;border-radius:var(--R);font-size:12px;font-weight:600;cursor:pointer'>CSV</button>"
         :"<button onclick='doExportCSV()' style='padding:9px 14px;background:#1b3a2d;color:#fff;border:none;border-radius:var(--R);font-size:12px;font-weight:600;cursor:pointer'>CSV</button><button onclick='doExportPDF()' style='padding:9px 14px;background:#c0392b;color:#fff;border:none;border-radius:var(--R);font-size:12px;font-weight:600;cursor:pointer'>PDF</button>")
       +"</div></div>"
       +(rType==="equipos"
@@ -1240,6 +1278,31 @@ function render(){
             +"<div style='text-align:center;font-size:14px;font-weight:600;color:"+(v.reclamos>0?"var(--D)":"var(--M)")+"'>"+v.reclamos+"</div>"
             +"</div>").join("")
           +"</div>")
+        :rType==="consumo"
+        ?(consumoData.length===0?"<div class='empty'>Sin datos de consumo</div>"
+          :consumoData.map(e=>{
+            const topClientes=Object.entries(e.clientes).sort((a,b)=>b[1]-a[1]).slice(0,5);
+            const expKey="ce_"+e.esencia.replace(/\W/g,"_");
+            const expanded=window._ceExp&&window._ceExp[expKey];
+            return"<div class='card' style='margin-bottom:10px'>"
+              +"<div style='display:flex;align-items:center;justify-content:space-between;cursor:pointer' onclick='if(!window._ceExp)window._ceExp={};window._ceExp["+JSON.stringify(expKey)+"]=!window._ceExp["+JSON.stringify(expKey)+"];render()'>"
+              +"<div><div style='font-weight:700;font-size:13px'>"+e.esencia+"</div>"
+              +"<div style='font-size:11px;color:var(--M)'>"+Object.keys(e.clientes).length+" clientes</div></div>"
+              +"<div style='display:flex;align-items:center;gap:8px'>"
+              +"<span style='font-size:18px;font-weight:700;color:var(--F)'>"+e.total.toLocaleString()+"ml</span>"
+              +"<i class='ti ti-chevron-"+(expanded?"up":"down")+"' style='font-size:14px;color:var(--M)'></i>"
+              +"</div></div>"
+              +(expanded
+                ?"<div style='margin-top:10px;border-top:1px solid #f0f0f0;padding-top:10px'>"
+                  +topClientes.map(([c,ml])=>"<div style='display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f8f8f8'>"
+                    +"<span style='font-size:12px'>"+c+"</span>"
+                    +"<span style='font-size:12px;font-weight:600;color:var(--F)'>"+ml.toLocaleString()+"ml</span>"
+                    +"</div>").join("")
+                  +(Object.keys(e.clientes).length>5?"<div style='font-size:11px;color:var(--M);padding-top:5px'>+"+(Object.keys(e.clientes).length-5)+" clientes más</div>":"")
+                  +"</div>"
+                :"")
+              +"</div>";
+          }).join(""))
         :(reportData.length===0?"<div class='empty'>Sin registros</div>":reportData.slice(0,20).map(v=>"<div class='card sl' style='padding:10px 12px;margin-bottom:6px'><div class='ch'><div><div class='ct' style='font-size:12px'>"+v.cliente+"</div><div class='cs'>"+fmt(v.fecha)+" · "+(v.vnd||"")+"</div></div><span class='chip' style='font-size:10px'>"+(v.ml||0)+"ml</span></div></div>").join("")+(reportData.length>20?"<div style='text-align:center;font-size:12px;color:var(--M);padding:10px'>+"+( reportData.length-20)+" más</div>":"")));
   }
 
