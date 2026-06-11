@@ -600,6 +600,21 @@ function saveBaja(){
   bajas=[{id:uid(),fecha:today(),c,vnd:sess.name,motivo,notas},...bajas];
   sv("bajas",bajas);modal=null;showToast("Baja registrada");
 }
+function reactivarCliente(id){
+  const baja=bajas.find(b=>b.id===id);
+  if(!baja)return;
+  // Remove from bajas
+  bajas=bajas.filter(b=>b.id!==id);
+  sv("bajas",bajas);
+  // Make sure client is back in active list
+  if(!ALL_CLIENTS.includes(baja.c)){
+    ALL_CLIENTS.push(baja.c);
+    const cc=ld("customclients",{clients:[],vc:{},pais:{}});
+    if(!cc.clients.includes(baja.c))cc.clients.push(baja.c);
+    sv("customclients",cc);
+  }
+  showToast(baja.c+" reactivado");
+}
 function delBaja(id){bajas=bajas.filter(b=>b.id!==id);sv("bajas",bajas);render();}
 // CONFIG
 function openAddModelo(){modal={t:"addModelo"};render();}
@@ -727,7 +742,9 @@ function render(){
   }
 
   const myOwnC=VC[sess.name]||[];
-  const myC=isA?ALL_CLIENTS:[...myOwnC,...ALL_CLIENTS.filter(c=>!myOwnC.includes(c))];
+  const bajasClientes=new Set(bajas.map(b=>b.c));
+  const activeClients=ALL_CLIENTS.filter(c=>!bajasClientes.has(c));
+  const myC=isA?activeClients:[...myOwnC.filter(c=>!bajasClientes.has(c)),...activeClients.filter(c=>!(VC[sess.name]||[]).includes(c))];
   const myV=isA?visits:visits.filter(v=>v.vnd===sess.name);
   const eqsC=selC?getClientEqs(selC).filter(e=>!e._del):[];
   const totML=Object.values(inv).reduce((a,b)=>a+b,0);
@@ -737,7 +754,7 @@ function render(){
 
   const tabs=isA
     ?[{k:"visit",i:"ti-clipboard-plus",l:"Registrar"},{k:"hist",i:"ti-list",l:"Visitas"},{k:"inv",i:"ti-box",l:"Esencias"},{k:"demos",i:"ti-eye",l:"Demos"},{k:"eqs",i:"ti-device-ipad",l:"Equipos"},{k:"clts",i:"ti-building",l:"Clientes"},{k:"sols",i:"ti-bell",l:"Solicitudes",badge:solicitudes.filter(s=>s.vendedor===sess?.name&&s.estado==="pendiente").length},{k:"usrs",i:"ti-users",l:"Usuarios"},{k:"bajas",i:"ti-user-minus",l:"Bajas"},{k:"lost",i:"ti-trending-down",l:"Perdidos"},{k:"grades",i:"ti-gauge",l:"Intensidad"},{k:"reports",i:"ti-file-export",l:"Reportes"},{k:"config",i:"ti-settings",l:"Config"}]
-    :[{k:"visit",i:"ti-clipboard-plus",l:"Registrar"},{k:"hist",i:"ti-list",l:"Mis Visitas"},{k:"inv",i:"ti-box",l:"Esencias"},{k:"demos",i:"ti-eye",l:"Demos"},{k:"eqs",i:"ti-device-ipad",l:"Equipos"},{k:"bajas",i:"ti-user-minus",l:"Bajas"},{k:"sols",i:"ti-bell",l:"Solicitudes",badge:solicitudes.filter(s=>s.vendedor===sess?.name&&s.estado==="pendiente").length}];
+    :[{k:"visit",i:"ti-clipboard-plus",l:"Registrar"},{k:"hist",i:"ti-list",l:"Mis Visitas"},{k:"inv",i:"ti-box",l:"Esencias"},{k:"demos",i:"ti-eye",l:"Demos"},{k:"eqs",i:"ti-device-ipad",l:"Equipos"},{k:"clts",i:"ti-building",l:"Clientes"},{k:"bajas",i:"ti-user-minus",l:"Bajas"},{k:"sols",i:"ti-bell",l:"Solicitudes",badge:solicitudes.filter(s=>s.vendedor===sess?.name&&s.estado==="pendiente").length}];
 
   let con="";
 
@@ -1049,18 +1066,18 @@ function render(){
   }
 
   // CLIENTES
-  else if(tab==="clts"&&isA){
+  else if(tab==="clts"){
     const paisFilter=window._paisFilter||"todos";
-    const clientesFiltrados=ALL_CLIENTS.filter(c=>{
+    const clientesFiltrados=activeClients.filter(c=>{
       if(paisFilter==="SV")return(window._clientPais||{})[c]!=="GT";
       if(paisFilter==="GT")return(window._clientPais||{})[c]==="GT";
       return true;
     });
     const fc=clientesFiltrados.filter(c=>!sq||c.toLowerCase().includes(sq.toLowerCase()));
-    const svCount=ALL_CLIENTS.filter(c=>(window._clientPais||{})[c]!=="GT").length;
-    const gtCount=ALL_CLIENTS.filter(c=>(window._clientPais||{})[c]==="GT").length;
+    const svCount=activeClients.filter(c=>(window._clientPais||{})[c]!=="GT").length;
+    const gtCount=activeClients.filter(c=>(window._clientPais||{})[c]==="GT").length;
     const pfBtn=(v,l)=>"<button onclick='window._paisFilter="+JSON.stringify(v)+";render()' style='flex:1;padding:8px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid "+(paisFilter===v?"var(--F)":"#dde8e2")+";background:"+(paisFilter===v?"var(--F)":"none")+";color:"+(paisFilter===v?"#fff":"var(--M)")+"'>"+l+"</button>";
-    con="<p class='pt'>Clientes</p><p class='ps'>"+ALL_CLIENTS.length+" clientes</p>"
+    con="<p class='pt'>Clientes</p><p class='ps'>"+activeClients.length+" clientes activos</p>"
       +"<button class='btn-add' onclick='openAddCliente()'><i class='ti ti-user-plus'></i> Agregar cliente</button>"
       +"<div style='display:flex;gap:6px;margin-bottom:12px'>"+pfBtn("todos","Todos ("+ALL_CLIENTS.length+")")+pfBtn("SV","SV ("+svCount+")")+pfBtn("GT","GT ("+gtCount+")")+"</div>"
       +"<div class='sw'><i class='ti ti-search'></i><input class='si2' placeholder='Buscar...' value='"+sq+"' oninput='sq=this.value;render()'/></div>";
@@ -1127,7 +1144,8 @@ function render(){
       const bi=JSON.stringify(b.id);
       return"<div class='card sl-r'><div class='ch'><div><div class='ct'>"+b.c+"</div><div class='cs'>"+b.vnd+" · "+fmtD(b.fecha)+"</div></div>"
         +"<div style='display:flex;flex-direction:column;gap:4px;align-items:flex-end'><span class='chip chip-r' style='font-size:10px'>"+b.motivo+"</span>"
-        +(isA?"<button class='del' onclick='delBaja("+bi+")'>Eliminar</button>":"")+"</div></div>"
+        +(isA?"<button style='padding:3px 8px;font-size:11px;background:#e8f5ee;color:var(--F);border:none;border-radius:6px;cursor:pointer;margin-right:4px' onclick='reactivarCliente("+bi+")'>♻️ Reactivar</button>":"")
+          +(isA?"<button class='del' onclick='delBaja("+bi+")'>Eliminar</button>":"")+"</div></div>"
         +(b.notas?"<div style='font-size:11px;color:var(--M);margin-top:5px'>"+b.notas+"</div>":"")
         +"</div>";
     }).join("");
