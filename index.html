@@ -200,6 +200,8 @@ function onEqSel(i){
 function getClientEqs(c){
   if(!c)return[];
   const custom=ceq[c]||[];
+  const replaceFull=new Set(["CEPA AEROPUERTO"]);
+  if(replaceFull.has(c))return custom;
   const base=EQUIPOS_DB[c]||[];
   const extra=base.filter(b=>!custom.find(x=>x.serie===b.serie));
   return [...custom,...extra];
