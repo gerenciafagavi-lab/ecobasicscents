@@ -131,9 +131,10 @@ const fmtD=d=>{try{return new Date(d).toLocaleDateString("es-SV")}catch{return d
 const ld=(k,fb)=>{try{const v=localStorage.getItem("eco_"+k);return v?JSON.parse(v):fb}catch{return fb}};
 const SB_URL="https://bdyuhphgqehnzputlgiy.supabase.co";
 const SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJkeXVocGhncWVobnpwdXRsZ2l5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkxOTk0NjUsImV4cCI6MjA5NDc3NTQ2NX0.gJ8JQb2dHIbupktg1ags10uYXfepAE6ou3Da6EAra9M";
-const SB_KEYS=["vis","inv","demos","eqs","movs","eqgrades","ceq","bajas","nvm","vnd","modelos","stkseries","cartuchos","customclients","sols"];
+const SB_KEYS=["vis","inv","demos","eqs","movs","eqgrades","ceq","bajas","nvm","vnd","modelos","stkseries","cartuchos","customclients","sols","rejillas"];
 async function sbSet(k,v){try{await fetch(SB_URL+"/rest/v1/app_data",{method:"POST",headers:{"apikey":SB_KEY,"Authorization":"Bearer "+SB_KEY,"Content-Type":"application/json","Prefer":"resolution=merge-duplicates"},body:JSON.stringify({key:k,value:JSON.stringify(v),updated_at:new Date().toISOString()})});}catch{}}
-async function syncDown(){try{const r=await fetch(SB_URL+"/rest/v1/app_data?key=in.("+SB_KEYS.map(k=>'"'+k+'"').join(",")+")&select=key,value",{headers:{"apikey":SB_KEY,"Authorization":"Bearer "+SB_KEY}});const rows=await r.json();if(!Array.isArray(rows)||!rows.length)return false;rows.forEach(row=>{try{const val=JSON.parse(row.value);localStorage.setItem("eco_"+row.key,JSON.stringify(val));if(row.key==="vis")visits=val;if(row.key==="inv")inv=val;if(row.key==="demos")demos=val;if(row.key==="eqs")eqStk=val;if(row.key==="movs")movs=val;if(row.key==="eqgrades")eqGrades=val;if(row.key==="ceq")ceq=val;if(row.key==="bajas")bajas=val;if(row.key==="nvm")nivMin=val;if(row.key==="vnd")vendors=val;if(row.key==="modelos")modelos=val;if(row.key==="stkseries")stkSeries=val;if(row.key==="cartuchos")cartuchos=val;if(row.key==="sols")solicitudes=val;if(row.key==="customclients"){if(val.clients){val.clients.forEach(c=>{if(!ALL_CLIENTS.includes(c))ALL_CLIENTS.push(c);});}if(val.vc){Object.keys(val.vc).forEach(v=>{if(!VC[v])VC[v]=[];val.vc[v].forEach(c=>{if(!VC[v].includes(c))VC[v].push(c);});});}if(val.pais){if(!window._clientPais)window._clientPais={};Object.assign(window._clientPais,val.pais);}}}catch{}});return true;}catch{return false;}}
+async function syncDown(){try{const r=await fetch(SB_URL+"/rest/v1/app_data?key=in.("+SB_KEYS.map(k=>'"'+k+'"').join(",")+")&select=key,value",{headers:{"apikey":SB_KEY,"Authorization":"Bearer "+SB_KEY}});const rows=await r.json();if(!Array.isArray(rows)||!rows.length)return false;rows.forEach(row=>{try{const val=JSON.parse(row.value);localStorage.setItem("eco_"+row.key,JSON.stringify(val));if(row.key==="vis")visits=val;if(row.key==="inv")inv=val;if(row.key==="demos")demos=val;if(row.key==="eqs")eqStk=val;if(row.key==="movs")movs=val;if(row.key==="eqgrades")eqGrades=val;if(row.key==="ceq")ceq=val;if(row.key==="bajas")bajas=val;if(row.key==="nvm")nivMin=val;if(row.key==="vnd")vendors=val;if(row.key==="modelos")modelos=val;if(row.key==="stkseries")stkSeries=val;if(row.key==="cartuchos")cartuchos=val;
+            if(row.key==="rejillas")rejillas=val;if(row.key==="sols")solicitudes=val;if(row.key==="customclients"){if(val.clients){val.clients.forEach(c=>{if(!ALL_CLIENTS.includes(c))ALL_CLIENTS.push(c);});}if(val.vc){Object.keys(val.vc).forEach(v=>{if(!VC[v])VC[v]=[];val.vc[v].forEach(c=>{if(!VC[v].includes(c))VC[v].push(c);});});}if(val.pais){if(!window._clientPais)window._clientPais={};Object.assign(window._clientPais,val.pais);}}}catch{}});return true;}catch{return false;}}
 const sv=(k,v)=>{try{localStorage.setItem("eco_"+k,JSON.stringify(v))}catch{} if(SB_KEYS.includes(k))sbSet(k,v);};
 const today=()=>new Date().toISOString().split("T")[0];
 const daysDiff=(a,b)=>Math.round((new Date(b)-new Date(a))/(864e5));
@@ -150,6 +151,7 @@ let movs=ld("movs",[]);
 let bajas=ld("bajas",[]);
 let solicitudes=ld("sols",[]);
 let cartuchos=ld("cartuchos",null);if(!cartuchos){cartuchos={"Cartucho Sweet Lemon":0,"Cartucho Tropical Paradise":0,"Cartucho Mountain Breeze":0};}
+let rejillas=ld("rejillas",null);if(!rejillas){rejillas={"AirFin Mountain Breeze":0};}
 let modelos=ld("modelos",["AE301","AE701","AE3500","Radiant","FMATIC Blanco","FMATIC Negro","Equipo de Goteo","AirFin Urinal"]);
 const CONSUME_101BAT={1:15,2:25,3:40,4:60,5:90};
 const ONOFF_MODELS=["AE3500","Radiant","AE TOWER BLACK"];
@@ -237,8 +239,7 @@ function regVisitMulti(){
         if((cartuchos[e.esencia]||0)>0){cartuchos={...cartuchos,[e.esencia]:(cartuchos[e.esencia]||0)-1};}
         else showToast("Sin stock de "+e.esencia);
       } else if(e.tipo==="rejilla"){
-        // Deduct from cartuchos (rejillas stored there too)
-        if((cartuchos[e.esencia]||0)>0){cartuchos={...cartuchos,[e.esencia]:(cartuchos[e.esencia]||0)-1};}
+        if((rejillas[e.esencia]||0)>0){rejillas={...rejillas,[e.esencia]:(rejillas[e.esencia]||0)-1};sv("rejillas",rejillas);}
         else showToast("Sin stock de "+e.esencia);
       } else {
         // Deduct from inv (ml)
@@ -457,7 +458,7 @@ function openGradeChange(cliente,eq){
     if(!eq){showToast("Error: sin equipo");return;}
     if(!eq.modelo){showToast("Error: sin modelo");return;}
     let tipo;
-    if(eq.modelo==="AE3500"||eq.modelo==="Radiant")tipo="gradeOnOff";
+    if(ONOFF_MODELS.includes(eq.modelo))tipo="gradeOnOff";
     else if(eq.modelo==="AE101BAT")tipo="grade101bat";
     else tipo="gradeChange";
     modal={t:tipo,c:cliente,eq};render();
@@ -554,6 +555,9 @@ function saveCliente(){
 }
 // CARTUCHOS
 function updCartucho(nombre,val){const n=parseInt(val);if(isNaN(n)||n<0)return;cartuchos={...cartuchos,[nombre]:n};sv("cartuchos",cartuchos);render();}
+function updRejilla(nombre,val){const n=parseInt(val);if(isNaN(n)||n<0)return;rejillas={...rejillas,[nombre]:n};sv("rejillas",rejillas);render();}
+function addRejilla(){const n=document.getElementById("rej_n")?.value?.trim();if(!n)return;if(rejillas.hasOwnProperty(n)){showToast("Ya existe");return;}rejillas={...rejillas,[n]:0};sv("rejillas",rejillas);modal=null;showToast("Rejilla agregada");}
+function delRejilla(nombre){if(rejillas[nombre]>0){showToast("Tiene stock. Ponlo en 0 primero.");return;}const nr={...rejillas};delete nr[nombre];rejillas=nr;sv("rejillas",rejillas);render();}
 function addCartucho(){const n=document.getElementById("cart_n")?.value?.trim();if(!n)return;const nf="Cartucho "+n.toUpperCase();if(cartuchos.hasOwnProperty(nf)){showToast("Ya existe");return;}cartuchos={...cartuchos,[nf]:0};sv("cartuchos",cartuchos);modal=null;showToast("Cartucho agregado");}
 function delCartucho(nombre){if(cartuchos[nombre]>0){showToast("Tiene stock. Ponlo en 0 primero.");return;}const nc={...cartuchos};delete nc[nombre];cartuchos=nc;sv("cartuchos",cartuchos);render();}
 // SOLICITUDES
@@ -833,7 +837,7 @@ function render(){
               html+="<div class='fw' style='margin-top:8px'><label class='lbl' style='font-size:11px'>Rejilla instalada</label>"
                 +"<select class='inp' style='font-size:12px' data-serie='"+eq.serie+"' onchange='_uev(this,this.dataset.serie,\"esencia\");updEqVisit(this.dataset.serie,\"ml\",1);updEqVisit(this.dataset.serie,\"tipo\",\"rejilla\")'>"
                 +"<option value=''>Sin cambio de rejilla</option>"
-                +cartuchoKeys.map(k=>"<option value='"+k+"'"+(ev.esencia===k?" selected":"")+">"+k+" ("+( cartuchos[k]||0)+" disponibles)</option>").join("")
+                +Object.keys(rejillas).map(k=>"<option value='"+k+"'"+(ev.esencia===k?" selected":"")+">"+k+" ("+( rejillas[k]||0)+" disponibles)</option>").join("")
                 +"</select></div>";
             } else if(goteo){
               // GOTEO: esencia + ML relleno
@@ -936,6 +940,8 @@ function render(){
     const maxML=Math.max(...Object.values(inv),1);
     const totCart=Object.values(cartuchos).reduce((a,b)=>a+b,0);
     const zeroCart=Object.values(cartuchos).filter(v=>v===0).length;
+    const totRej=Object.values(rejillas).reduce((a,b)=>a+b,0);
+    const zeroRej=Object.values(rejillas).filter(v=>v===0).length;
     con=`<p class="pt">Inventario de esencias</p><p class="ps">Stock actual · ${Object.keys(inv).length} esencias</p>
     <div class="stats">
       <div class="stat"><div class="sn">${totML.toLocaleString()}</div><div class="sl2">Total ml</div></div>
@@ -1007,7 +1013,23 @@ function render(){
           </div>
         </div>
         <div class="mr"><span class="chip chip-b">${d.modelo}${d.serie?" · "+d.serie:""}</span><span class="chip">${d.dias}d acordados</span></div>
-        ${d.notas?"<div style='font-size:11px;color:var(--M);margin-top:5px'>"+d.notas+"</div>":""}
+        ${d.notas?"<div style='font-size:11px;color:var(--M);margin-top:5px'>"+d.notas+"</div>"
+    +"<div style='background:#2d6a4f;border-radius:var(--R);padding:12px 14px;margin-bottom:14px;color:#fff'>"
+      +"<div style='font-size:11px;font-weight:700;letter-spacing:1px;margin-bottom:10px;opacity:.8'>REJILLAS AIRFIN URINAL</div>"
+      +"<div style='display:flex;gap:8px;margin-bottom:10px'>"
+        +"<div style='flex:1;background:rgba(255,255,255,.15);border-radius:10px;padding:10px;text-align:center'><div style='font-size:22px;font-weight:700'>"+totRej+"</div><div style='font-size:10px;opacity:.75'>Total unidades</div></div>"
+        +"<div style='flex:1;background:rgba(255,255,255,.15);border-radius:10px;padding:10px;text-align:center'><div style='font-size:22px;font-weight:700;color:#e8c97a'>"+zeroRej+"</div><div style='font-size:10px;opacity:.75'>Sin stock</div></div>"
+      +"</div>"
+      +Object.entries(rejillas).map(([n,u])=>"<div style='display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.1)'>"
+        +"<span style='font-size:13px'>"+n+"</span>"
+        +"<div style='display:flex;align-items:center;gap:8px'>"
+          +(isA?"<button onclick='updRejilla("+JSON.stringify(n)+","+(u-1)+")' style='width:28px;height:28px;border:1px solid rgba(255,255,255,.3);border-radius:7px;background:none;color:#fff;font-size:16px;cursor:pointer'>−</button>":"")
+          +"<span style='font-size:18px;font-weight:700;color:"+(u===0?"#e8c97a":"#fff")+"'>"+u+"</span>"
+          +(isA?"<button onclick='updRejilla("+JSON.stringify(n)+","+(u+1)+")' style='width:28px;height:28px;border:1px solid rgba(255,255,255,.3);border-radius:7px;background:none;color:#fff;font-size:16px;cursor:pointer'>+</button>":"")
+        +"</div></div>"
+      ).join("")
+      +(isA?"<button onclick='modal={t:\'addRejilla\'};render()' style='display:flex;align-items:center;gap:6px;width:100%;margin-top:10px;padding:9px;background:rgba(255,255,255,.15);border:none;border-radius:10px;color:#fff;font-size:12px;font-weight:600;cursor:pointer;justify-content:center'>+ Agregar rejilla</button>":"")
+    +"</div>":""}
       </div>`;
     }).join("")}
     ${(()=>{
@@ -1601,6 +1623,13 @@ function render(){
         <div class="fw"><label class="lbl">Nombre oficial *</label><input class="inp" id="cc_n" value="${sol.nombre.toUpperCase()}" style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()"/></div>
         <div class="fw"><label class="lbl">Asignar a vendedor</label><select class="inp" id="cc_v">${activeVnds3.map(v=>`<option value="${v.name}" ${v.name===sol.vendedor?"selected":""}>${v.name}</option>`).join("")}</select></div>
         <div class="mb-act"><button class="btn-c" onclick="modal=null;render()">Cancelar</button><button class="btn" onclick="saveConvertir()">Crear cliente</button></div>
+      </div></div>`;
+    }
+    else if(t==="addRejilla"){
+      mHTML=`<div class="mb-bg" onclick="if(event.target===this){modal=null;render()}"><div class="mb">
+        <div class="mb-t">Agregar rejilla AirFin</div>
+        <div class="fw"><label class="lbl">Fragancia *</label><input class="inp" id="rej_n" placeholder="Ej: Mountain Breeze" style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()"/></div>
+        <div class="mb-act"><button class="btn-c" onclick="modal=null;render()">Cancelar</button><button class="btn" onclick="addRejilla()">Agregar</button></div>
       </div></div>`;
     }
     else if(t==="addCartucho"){
