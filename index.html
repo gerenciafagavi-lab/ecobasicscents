@@ -938,48 +938,80 @@ function render(){
   else if(tab==="inv"){
     const ents=Object.entries(inv).sort((a,b)=>b[1]-a[1]);
     const maxML=Math.max(...Object.values(inv),1);
+    const totML=Object.values(inv).reduce((a,b)=>a+b,0);
+    const zeroC=Object.values(inv).filter(v=>v===0).length;
+    const lowC=Object.values(inv).filter((v,i)=>v>0&&v<=(nivMin[Object.keys(inv)[i]]||500)).length;
     const totCart=Object.values(cartuchos).reduce((a,b)=>a+b,0);
     const zeroCart=Object.values(cartuchos).filter(v=>v===0).length;
     const totRej=Object.values(rejillas).reduce((a,b)=>a+b,0);
     const zeroRej=Object.values(rejillas).filter(v=>v===0).length;
-    con=`<p class="pt">Inventario de esencias</p><p class="ps">Stock actual · ${Object.keys(inv).length} esencias</p>
-    <div class="stats">
-      <div class="stat"><div class="sn">${totML.toLocaleString()}</div><div class="sl2">Total ml</div></div>
-      <div class="stat"><div class="sn" style="color:var(--WN)">${lowC}</div><div class="sl2">Stock bajo</div></div>
-      <div class="stat"><div class="sn" style="color:var(--D)">${zeroC}</div><div class="sl2">Sin stock</div></div>
-    </div>
-    <div style="background:var(--F);border-radius:var(--R);padding:12px 14px;margin-bottom:14px;color:#fff">
-      <div style="font-size:11px;font-weight:700;letter-spacing:1px;margin-bottom:10px;opacity:.8">CARTUCHOS FMATIC</div>
-      <div style="display:flex;gap:8px;margin-bottom:10px">
-        <div style="flex:1;background:rgba(255,255,255,.15);border-radius:10px;padding:10px;text-align:center"><div style="font-size:22px;font-weight:700">${totCart}</div><div style="font-size:10px;opacity:.75">Total unidades</div></div>
-        <div style="flex:1;background:rgba(255,255,255,.15);border-radius:10px;padding:10px;text-align:center"><div style="font-size:22px;font-weight:700;color:#e8c97a">${zeroCart}</div><div style="font-size:10px;opacity:.75">Sin stock</div></div>
-      </div>
-      ${Object.entries(cartuchos).map(([n,u])=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.1)">
-        <span style="font-size:13px">${n}</span>
-        <div style="display:flex;align-items:center;gap:8px">
-          ${isA?`<button onclick="updCartucho('${n.replace(/'/g,"\'")}',${u-1})" style="width:28px;height:28px;border:1px solid rgba(255,255,255,.3);border-radius:7px;background:none;color:#fff;font-size:16px;cursor:pointer">−</button>`:""}
-          <span style="font-size:18px;font-weight:700;color:${u===0?"#e8c97a":"#fff"}">${u}</span>
-          ${isA?`<button onclick="updCartucho('${n.replace(/'/g,"\'")}',${u+1})" style="width:28px;height:28px;border:1px solid rgba(255,255,255,.3);border-radius:7px;background:none;color:#fff;font-size:16px;cursor:pointer">+</button>`:""}
-        </div>
-      </div>`).join("")}
-      ${isA?`<button onclick="modal={t:'addCartucho'};render()" style="display:flex;align-items:center;gap:6px;width:100%;margin-top:10px;padding:9px;background:rgba(255,255,255,.15);border:none;border-radius:10px;color:#fff;font-size:12px;font-weight:600;cursor:pointer;justify-content:center">+ Agregar cartucho</button>`:""}
-    </div>
-        ${ents.map(([s,ml])=>{
+
+    // Cartuchos block
+    const cartRows=Object.entries(cartuchos).map(([n,u])=>{
+      const ns=JSON.stringify(n);
+      return"<div style='display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.1)'>"
+        +"<span style='font-size:13px'>"+n+"</span>"
+        +"<div style='display:flex;align-items:center;gap:8px'>"
+        +(isA?"<button onclick='updCartucho("+ns+","+(u-1)+")' style='width:28px;height:28px;border:1px solid rgba(255,255,255,.3);border-radius:7px;background:none;color:#fff;font-size:16px;cursor:pointer'>−</button>":"")
+        +"<span style='font-size:18px;font-weight:700;color:"+(u===0?"#e8c97a":"#fff")+"'>"+u+"</span>"
+        +(isA?"<button onclick='updCartucho("+ns+","+(u+1)+")' style='width:28px;height:28px;border:1px solid rgba(255,255,255,.3);border-radius:7px;background:none;color:#fff;font-size:16px;cursor:pointer'>+</button>":"")
+        +"</div></div>";
+    }).join("");
+    const cartBlock="<div style='background:var(--F);border-radius:var(--R);padding:12px 14px;margin-bottom:14px;color:#fff'>"
+      +"<div style='font-size:11px;font-weight:700;letter-spacing:1px;margin-bottom:10px;opacity:.8'>CARTUCHOS FMATIC</div>"
+      +"<div style='display:flex;gap:8px;margin-bottom:10px'>"
+        +"<div style='flex:1;background:rgba(255,255,255,.15);border-radius:10px;padding:10px;text-align:center'><div style='font-size:22px;font-weight:700'>"+totCart+"</div><div style='font-size:10px;opacity:.75'>Total unidades</div></div>"
+        +"<div style='flex:1;background:rgba(255,255,255,.15);border-radius:10px;padding:10px;text-align:center'><div style='font-size:22px;font-weight:700;color:#e8c97a'>"+zeroCart+"</div><div style='font-size:10px;opacity:.75'>Sin stock</div></div>"
+      +"</div>"
+      +cartRows
+      +(isA?"<button onclick='modal={t:\'addCartucho\'};render()' style='display:flex;align-items:center;gap:6px;width:100%;margin-top:10px;padding:9px;background:rgba(255,255,255,.15);border:none;border-radius:10px;color:#fff;font-size:12px;font-weight:600;cursor:pointer;justify-content:center'>+ Agregar cartucho</button>":"")
+      +"</div>";
+
+    // Rejillas block
+    const rejRows=Object.entries(rejillas).map(([n,u])=>{
+      const ns=JSON.stringify(n);
+      return"<div style='display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.1)'>"
+        +"<span style='font-size:13px'>"+n+"</span>"
+        +"<div style='display:flex;align-items:center;gap:8px'>"
+        +(isA?"<button onclick='updRejilla("+ns+","+(u-1)+")' style='width:28px;height:28px;border:1px solid rgba(255,255,255,.3);border-radius:7px;background:none;color:#fff;font-size:16px;cursor:pointer'>−</button>":"")
+        +"<span style='font-size:18px;font-weight:700;color:"+(u===0?"#e8c97a":"#fff")+"'>"+u+"</span>"
+        +(isA?"<button onclick='updRejilla("+ns+","+(u+1)+")' style='width:28px;height:28px;border:1px solid rgba(255,255,255,.3);border-radius:7px;background:none;color:#fff;font-size:16px;cursor:pointer'>+</button>":"")
+        +"</div></div>";
+    }).join("");
+    const rejBlock="<div style='background:#2d6a4f;border-radius:var(--R);padding:12px 14px;margin-bottom:14px;color:#fff'>"
+      +"<div style='font-size:11px;font-weight:700;letter-spacing:1px;margin-bottom:10px;opacity:.8'>REJILLAS AIRFIN URINAL</div>"
+      +"<div style='display:flex;gap:8px;margin-bottom:10px'>"
+        +"<div style='flex:1;background:rgba(255,255,255,.15);border-radius:10px;padding:10px;text-align:center'><div style='font-size:22px;font-weight:700'>"+totRej+"</div><div style='font-size:10px;opacity:.75'>Total unidades</div></div>"
+        +"<div style='flex:1;background:rgba(255,255,255,.15);border-radius:10px;padding:10px;text-align:center'><div style='font-size:22px;font-weight:700;color:#e8c97a'>"+zeroRej+"</div><div style='font-size:10px;opacity:.75'>Sin stock</div></div>"
+      +"</div>"
+      +rejRows
+      +(isA?"<button onclick='modal={t:\'addRejilla\'};render()' style='display:flex;align-items:center;gap:6px;width:100%;margin-top:10px;padding:9px;background:rgba(255,255,255,.15);border:none;border-radius:10px;color:#fff;font-size:12px;font-weight:600;cursor:pointer;justify-content:center'>+ Agregar rejilla</button>":"")
+      +"</div>";
+
+    // Esencias list
+    const esRows=ents.map(([s,ml])=>{
       const min=nivMin[s]||500;
       const pct=Math.round((ml/maxML)*100);
       const cls=ml===0?"bd":ml<=min?"bw":"";
       const col=ml===0?"var(--D)":ml<=min?"var(--WN)":"var(--F)";
-      return`<div class="ii">
-        <div class="ih"><span style="font-weight:700">${s}</span><span style="font-weight:700;color:${col}">${ml.toLocaleString()}ml</span></div>
-        <div class="bb"><div class="bar ${cls}" style="width:${pct}%"></div></div>
-        ${isA?`<div style="margin-top:6px;display:flex;gap:6px;align-items:center">
-          <input type="number" min="0" value="${ml}" class="si" onblur="updStock('${s}',this.value)" title="Stock actual"/>
-          <span style="font-size:11px;color:var(--M)">stock</span>
-          <input type="number" min="0" value="${min}" class="si si-o" onblur="updMin('${s}',this.value)" title="Stock minimo"/>
-          <span style="font-size:11px;color:var(--WN)">min</span>
-        </div>`:""}
-      </div>`;
-    }).join("")}`;
+      const ss=JSON.stringify(s);
+      return"<div class='ii'>"
+        +"<div class='ih'><span style='font-weight:700'>"+s+"</span><span style='font-weight:700;color:"+col+"'>"+ml.toLocaleString()+"ml</span></div>"
+        +"<div class='bb'><div class='bar "+cls+"' style='width:"+pct+"%'></div></div>"
+        +(isA?"<div style='margin-top:6px;display:flex;gap:6px;align-items:center'>"
+          +"<input type='number' min='0' value='"+ml+"' class='si' onblur='updStock("+ss+",this.value)' title='Stock actual'/>"
+          +"<span style='font-size:11px;color:var(--M)'>stock</span>"
+          +"<input type='number' min='0' value='"+min+"' class='si si-o' onblur='updMin("+ss+",this.value)' title='Stock minimo'/>"
+          +"<span style='font-size:11px;color:var(--WN)'>min</span></div>":"")
+        +"</div>";
+    }).join("");
+
+    con="<p class='pt'>Inventario de esencias</p><p class='ps'>Stock actual · "+Object.keys(inv).length+" esencias</p>"
+      +"<div class='stats'><div class='stat'><div class='sn'>"+totML.toLocaleString()+"</div><div class='sl2'>Total ml</div></div>"
+      +"<div class='stat'><div class='sn' style='color:var(--WN)'>"+lowC+"</div><div class='sl2'>Stock bajo</div></div>"
+      +"<div class='stat'><div class='sn' style='color:var(--D)'>"+zeroC+"</div><div class='sl2'>Sin stock</div></div></div>"
+      +cartBlock+rejBlock+esRows
+      +(isA?"<button class='btn-add' onclick='openAddEsencia()'><i class='ti ti-plus'></i> Agregar esencia</button>":"");
   }
 
   // DEMOS
