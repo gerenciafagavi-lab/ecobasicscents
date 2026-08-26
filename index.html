@@ -153,9 +153,9 @@ let eqGrades=ld("eqgrades",{});
 let solicitudes=ld("sols",[]);
 let cartuchos=ld("cartuchos",null);if(!cartuchos){cartuchos={"Cartucho Sweet Lemon":0,"Cartucho Tropical Paradise":0,"Cartucho Mountain Breeze":0};}
 let rejillas=ld("rejillas",null);if(!rejillas){rejillas={"AirFin Mountain Breeze":0};}
-let modelos=ld("modelos",["AE301","AE701","AE3500","Radiant","FMATIC Blanco","FMATIC Negro","Equipo de Goteo","AirFin Urinal"]);
+let modelos=ld("modelos",["AE301","AE701","AE801","AE3500","Radiant","AE TOWER BLACK","FMATIC Blanco","FMATIC Negro","Equipo de Goteo","AirFin Urinal"]);
 const CONSUME_101BAT={1:15,2:25,3:40,4:60,5:90};
-const ONOFF_MODELS=["AE3500","Radiant","AE TOWER BLACK"];
+const ONOFF_MODELS=["AE3500","Radiant","AE TOWER BLACK","AE801"];
 const CONSUME={"AE701":{1:26.0,2:28.9,3:32.5,4:37.1,5:43.3,6:51.8,7:64.6,8:85.7,9:127.4,10:248.1},"AE301":{1:20.9,2:23.3,3:26.2,4:29.9,5:34.8,6:41.7,7:52.1,8:69.3,9:103.3,10:203.3}};
 function calcAE3500(on,off){if(!on||!off||on<=0||off<=0)return null;return Math.round((on/(on+off))*10*3600*0.00099537*31*10)/10;}
 const _customClients=ld("customclients",null);
