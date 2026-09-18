@@ -146,7 +146,7 @@ let visits=ld("vis",[]);
 let vendors=ld("vnd",[{id:"v1",name:"Kelvin",pin:"1111",role:"vendor",active:true},{id:"v2",name:"Noe",pin:"2222",role:"vendor",active:true},{id:"v3",name:"Angel",pin:"3333",role:"vendor",active:true},{id:"v4",name:"Gerardo",pin:"4444",role:"admin",active:true},{id:"v5",name:"Francisco",pin:"5555",role:"admin",active:true}]);
 let ceq=ld("ceq",{}); // custom client equipment overrides
 let demos=ld("demos",[]);
-let eqStk=ld("eqs",{"AE301":0,"AE701":0,"AE3500":0,"Radiant":0,"FMATIC":0});
+let eqStk=ld("eqs",{});
 let movs=ld("movs",[]);
 let bajas=ld("bajas",[]);
 let eqGrades=ld("eqgrades",{});
@@ -465,6 +465,14 @@ function openGradeChange(cliente,eq){
     modal={t:tipo,c:cliente,eq};render();
   }catch(e){showToast("Error: "+e.message);}
 }
+function selGrade(g){
+  document.querySelectorAll(".gb").forEach(b=>{
+    b.style.background="none";b.style.color="var(--M)";b.style.borderColor="#dde8e2";
+  });
+  const btn=document.getElementById("gb"+g);
+  if(btn){btn.style.background="var(--F)";btn.style.color="#fff";btn.style.borderColor="var(--F)";}
+  const inp=document.getElementById("gr_grade");if(inp)inp.value=g;
+}
 function saveGradeChange(){
   const newGrade=parseInt(document.getElementById("gr_grade").value);
   const notas=document.getElementById("gr_n").value.trim();
@@ -559,7 +567,9 @@ function updCartucho(nombre,val){const n=parseInt(val);if(isNaN(n)||n<0)return;c
 function updRejilla(nombre,val){const n=parseInt(val);if(isNaN(n)||n<0)return;rejillas={...rejillas,[nombre]:n};sv("rejillas",rejillas);render();}
 function addRejilla(){const n=document.getElementById("rej_n")?.value?.trim();if(!n)return;if(rejillas.hasOwnProperty(n)){showToast("Ya existe");return;}rejillas={...rejillas,[n]:0};sv("rejillas",rejillas);modal=null;showToast("Rejilla agregada");}
 function delRejilla(nombre){if(rejillas[nombre]>0){showToast("Tiene stock. Ponlo en 0 primero.");return;}const nr={...rejillas};delete nr[nombre];rejillas=nr;sv("rejillas",rejillas);render();}
-function addCartucho(){const n=document.getElementById("cart_n")?.value?.trim();if(!n)return;const nf="Cartucho "+n.toUpperCase();if(cartuchos.hasOwnProperty(nf)){showToast("Ya existe");return;}cartuchos={...cartuchos,[nf]:0};sv("cartuchos",cartuchos);modal=null;showToast("Cartucho agregado");}
+function openAddCartucho(){modal={t:"addCartucho"};render();}
+function openAddRejilla(){modal={t:"addRejilla"};render();}
+function addCartucho(){const n=document.getElementById("cart_n")?.value?.trim();if(!n)return;const nf="Cartucho "+n.toUpperCase();if(cartuchos.hasOwnProperty(nf)){showToast("Ya existe");return;}cartuchos={...cartuchos,[nf]:0};sv("cartuchos",cartuchos);modal=null;render();showToast("Cartucho agregado");}
 function delCartucho(nombre){if(cartuchos[nombre]>0){showToast("Tiene stock. Ponlo en 0 primero.");return;}const nc={...cartuchos};delete nc[nombre];cartuchos=nc;sv("cartuchos",cartuchos);render();}
 // SOLICITUDES
 function openAddSolicitud(){modal={t:"addSolicitud",tipo:"prospecto"};render();}
@@ -593,6 +603,9 @@ function saveConvertir(){
 }
 function delSolicitud(id){solicitudes=solicitudes.filter(s=>s.id!==id);sv("sols",solicitudes);render();}
 // BAJAS
+function editVnd(id){const v=window._vRefs&&window._vRefs[id];if(v){modal={t:"addVnd",v};render();}}
+function addNewVnd(){modal={t:"addVnd"};render();}
+function toggleVnd(id){vendors=vendors.map(x=>x.id===id?{...x,active:!x.active}:x);sv("vnd",vendors);render();}
 function delVnd(id){
   if(vendors.length<=1){showToast("Debe haber al menos un usuario");return;}
   vendors=vendors.filter(v=>v.id!==id);
@@ -737,7 +750,7 @@ function render(){
         <button class="rb" onclick="setRole('admin')">Admin</button>
       </div>
       <div id="vwrap" class="fw"><label class="lbl">Vendedor</label>
-        <select class="inp" id="lvnd">${actVnd.map(v=>`<option value="${v.id}">${v.name}</option>`).join("")}</select>
+        <select class="inp" id="lvnd">${actVnd.map(v=>"<option value='"+ v.id+"'>"+v.name+"</option>").join("")}</select>
       </div>
       <div class="fw"><label class="lbl">PIN</label>
         <input type="password" class="inp" id="lpin" placeholder="••••" maxlength="20" onkeydown="if(event.key==='Enter')doLogin()"/>
@@ -965,7 +978,7 @@ function render(){
         +"<div style='flex:1;background:rgba(255,255,255,.15);border-radius:10px;padding:10px;text-align:center'><div style='font-size:22px;font-weight:700;color:#e8c97a'>"+zeroCart+"</div><div style='font-size:10px;opacity:.75'>Sin stock</div></div>"
       +"</div>"
       +cartRows
-      +(isA?"<button onclick='modal={t:\'addCartucho\'};render()' style='display:flex;align-items:center;gap:6px;width:100%;margin-top:10px;padding:9px;background:rgba(255,255,255,.15);border:none;border-radius:10px;color:#fff;font-size:12px;font-weight:600;cursor:pointer;justify-content:center'>+ Agregar cartucho</button>":"")
+      +(isA?"<button onclick='openAddCartucho()'>+ Agregar cartucho</button>":"")
       +"</div>";
 
     // Rejillas block
@@ -986,7 +999,7 @@ function render(){
         +"<div style='flex:1;background:rgba(255,255,255,.15);border-radius:10px;padding:10px;text-align:center'><div style='font-size:22px;font-weight:700;color:#e8c97a'>"+zeroRej+"</div><div style='font-size:10px;opacity:.75'>Sin stock</div></div>"
       +"</div>"
       +rejRows
-      +(isA?"<button onclick='modal={t:\'addRejilla\'};render()' style='display:flex;align-items:center;gap:6px;width:100%;margin-top:10px;padding:9px;background:rgba(255,255,255,.15);border:none;border-radius:10px;color:#fff;font-size:12px;font-weight:600;cursor:pointer;justify-content:center'>+ Agregar rejilla</button>":"")
+      +(isA?"<button onclick='openAddRejilla()'>+ Agregar rejilla</button>":"")
       +"</div>";
 
     // Esencias list
@@ -1183,16 +1196,26 @@ function render(){
 
   // USUARIOS
   else if(tab==="usrs"&&isA){
-    con=`<p class="pt">Vendedores</p><p class="ps">${vendors.length} usuarios</p>
-    <button class="btn-add" onclick="modal={t:'addVnd'};render()"><i class="ti ti-plus"></i> Nuevo usuario</button>
-    ${vendors.map(v=>`<div class="card sl" style="border-left-color:${v.role==='admin'?'#3456a0':'var(--F)'}">
-      <div class="ch"><div><div class="ct">${v.name}</div><div class="cs">PIN: ${v.pin} · ${v.role==='admin'?'Admin':'Vendedor'} · ${v.active===false?'Inactivo':'Activo'}</div></div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
-        <button class="be" onclick="modal={t:'addVnd',v:${JSON.stringify(v)}};render()">✏️</button>
-        <button class="be" style="font-size:11px;color:${v.active===false?'var(--F)':'var(--WN)'}" onclick="vendors=vendors.map(x=>x.id===v.id?{...x,active:${!v.active}}:x);sv('vnd',vendors);render()">${v.active===false?'Activar':'Inactivar'}</button>
-        <button class="del" onclick="delVnd('${v.id}')">Eliminar</button>
-      </div></div>
-    </div>`).join("")}`;
+    if(!window._vRefs)window._vRefs={};
+    const vCards=vendors.map(v=>{
+      window._vRefs[v.id]=v;
+      const borderC=v.role==="admin"?"#3456a0":"var(--F)";
+      const roleL=v.role==="admin"?"Admin":"Vendedor";
+      const activeL=v.active===false?"Inactivo":"Activo";
+      const activeColor=v.active===false?"var(--F)":"var(--WN)";
+      const activeLabel=v.active===false?"Activar":"Inactivar";
+      const vid=JSON.stringify(v.id);
+      return"<div class='card sl' style='border-left-color:"+borderC+"'>"
+        +"<div class='ch'><div><div class='ct'>"+v.name+"</div><div class='cs'>PIN: "+v.pin+" · "+roleL+" · "+activeL+"</div></div>"
+        +"<div style='display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end'>"
+        +"<button class='be' onclick='editVnd("+vid+")'>✏️</button>"
+        +"<button class='be' style='font-size:11px;color:"+activeColor+"' onclick='toggleVnd("+vid+")'>"+activeLabel+"</button>"
+        +"<button class='del' onclick='delVnd("+vid+")'>Eliminar</button>"
+        +"</div></div></div>";
+    }).join("");
+    con="<p class='pt'>Vendedores</p><p class='ps'>"+vendors.length+" usuarios</p>"
+      +"<button class='btn-add' onclick='addNewVnd()'><i class='ti ti-plus'></i> Nuevo usuario</button>"
+      +vCards;
   }
 
   // BAJAS
@@ -1408,13 +1431,13 @@ function render(){
         <div class="fr">
           <div class="fw"><label class="lbl">Modelo *</label>
             <select class="inp" id="ceq_m" onchange="(function(){var m=document.getElementById('ceq_m').value;var s=document.getElementById('ceq_s');if(s)s.value=getNextSerie(m);})()">
-              ${modelos.map(m=>`<option>${m}</option>`).join("")}
+              ${modelos.map(m=>"<option>"+m+"</option>").join("")}
             </select>
           </div>
           <div class="fw"><label class="lbl">Serie *</label><input class="inp" id="ceq_s" value="${getNextSerie(modelos[0])}"/></div>
         </div>
         <div class="fw"><label class="lbl">Area instalada</label><input class="inp" id="ceq_a" placeholder="Lobby, Bano H..."/></div>
-        <div class="fw"><label class="lbl">Aroma</label><select class="inp" id="ceq_ar"><option value="">Sin aroma</option>${SCENTS.map(s=>`<option>${s}</option>`).join("")}</select></div>
+        <div class="fw"><label class="lbl">Aroma</label><select class="inp" id="ceq_ar"><option value="">Sin aroma</option>${SCENTS.map(s=>"<option>"+s+"</option>").join("")}</select></div>
         <div class="mb-act"><button class="btn-c" onclick="modal=null;render()">Cancelar</button><button class="btn" onclick="saveCEq()">Agregar</button></div>
       </div></div>`;
     }
@@ -1424,10 +1447,10 @@ function render(){
         <div class="mb-t">Registrar demo</div>
         <div class="fw"><label class="lbl">Cliente / Prospecto *</label>
           <input class="inp" id="dm_c" placeholder="Nombre del cliente" list="dm_cl"/>
-          <datalist id="dm_cl">${mc.map(c=>`<option>${c}</option>`).join("")}</datalist>
+          <datalist id="dm_cl">${mc.map(c=>"<option>"+c+"</option>").join("")}</datalist>
         </div>
         <div class="fr">
-          <div class="fw"><label class="lbl">Modelo *</label><select class="inp" id="dm_m">${modelos.map(m=>`<option>${m}</option>`).join("")}</select></div>
+          <div class="fw"><label class="lbl">Modelo *</label><select class="inp" id="dm_m">${modelos.map(m=>"<option>"+m+"</option>").join("")}</select></div>
           <div class="fw"><label class="lbl">Serie *</label><input class="inp" id="dm_s" placeholder="Nro serie"/></div>
         </div>
         <div class="fw"><label class="lbl">Dias acordados *</label><input type="number" class="inp" id="dm_d" placeholder="7" min="1"/></div>
@@ -1456,67 +1479,66 @@ function render(){
     }
     else if(t==="mov"){
       const esE=modal.tipo==="entrada";
-      const motE=isA?["Compra nueva","Retiro de cliente","Devolucion de demo","Ajuste de inventario","Otro"]:["Retiro de cliente","Devolucion de demo","Otro"];
+      const motE=isA?["Compra nueva","Retiro de cliente","Devolucion de demo","Ajuste de inventario","Otro"]:["Retiro de cliente","Devolucion de demo"];
       const motS=["Instalacion en cliente","Demo","Prestamo","Traslado","Baja/Danado","Otro"];
       const mots=esE?motE:motS;
       const curMot=modal.motivo||(esE?"Compra nueva":"Instalacion en cliente");
       const isRet=esE&&curMot==="Retiro de cliente";
       const retC=modal.retC||"";
       const retEqs=retC?getClientEqs(retC).filter(e=>!e._del):[];
-      mHTML=`<div class="mb-bg" onclick="if(event.target===this){modal=null;render()}"><div class="mb">
-        <div class="mb-t" style="color:${esE?"var(--F)":"var(--D)"}">${esE?"Entrada de equipo":"Salida de equipo"}</div>
-        <div class="fw"><label class="lbl">Motivo *</label>
-          <select class="inp" id="mv_mot" onchange="onMotChange(this.value)">
-            ${mots.map(m=>`<option value="${m}" ${m===curMot?"selected":""}>${m}</option>`).join("")}
-          </select>
-        </div>
-        ${isRet?`
-        <div class="fw"><label class="lbl">Cliente *</label>
-          <select class="inp" id="mv_retc" onchange="onRetCChange(this.value)">
-            <option value="">Selecciona cliente...</option>
-            ${ALL_CLIENTS.map(c=>`<option value="${c}" ${c===retC?"selected":""}>${c}</option>`).join("")}
-          </select>
-        </div>
-        ${retC?`<div class="fw"><label class="lbl">Equipos en ${retC}</label>
-          ${retEqs.length===0?`<div style="font-size:13px;color:var(--M);padding:10px;background:#f8fbf9;border-radius:8px;text-align:center">Sin equipos registrados</div>`
-          :`<div style="background:#f0f7f4;border-radius:10px;padding:8px;border:1px solid #d0e8dc">
-            ${retEqs.map(eq=>`<label style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;cursor:pointer;margin-bottom:4px;background:#fff;border:1px solid #e0ece8">
-              <input type="checkbox" class="ceq-chk" data-id="${eq.id}" data-m="${eq.modelo}" data-s="${eq.serie||""}" style="width:18px;height:18px;accent-color:var(--F);cursor:pointer"/>
-              <div style="flex:1"><div style="font-weight:700;font-size:13px">${eq.modelo} · ${eq.serie}</div>
-              <div style="font-size:11px;color:var(--M)">${eq.area||""}${eq.aroma?" · "+eq.aroma:""}</div></div>
-            </label>`).join("")}
-          </div>`}
-        </div>`:""}
-        `:`
-        <div class="fr">
-          <div class="fw"><label class="lbl">Modelo *</label><select class="inp" id="mv_mod">${modelos.map(m=>`<option>${m}</option>`).join("")}</select></div>
-          <div class="fw"><label class="lbl">Cantidad *</label><input type="number" class="inp" id="mv_cant" placeholder="1" min="1" value="1"/></div>
-        </div>
-        <div class="fw"><label class="lbl">${esE?"Cliente que devuelve":"Cliente / Destino"}</label>
-          <input class="inp" id="mv_cl" placeholder="${esE?"Ej: Club Campestre":"Ej: Hotel Intercontinental"}" list="mv_cl_l"/>
-          <datalist id="mv_cl_l">${ALL_CLIENTS.map(c=>`<option>${c}</option>`).join("")}</datalist>
-        </div>`}
-        <div class="fw"><label class="lbl">Notas</label><textarea class="inp" id="mv_n" placeholder="Observaciones..."></textarea></div>
-        <div class="mb-act"><button class="btn-c" onclick="modal=null;render()">Cancelar</button>
-          <button class="btn" style="background:${esE?"var(--F)":"var(--D)"}" onclick="saveMov()">Registrar ${esE?"entrada":"salida"}</button>
-        </div>
-      </div></div>`;
+      const motOpts=mots.map(m=>"<option value='"+m+"' "+(m===curMot?"selected":"")+">"+m+"</option>").join("");
+      const clientOpts="<option value=''>Selecciona cliente...</option>"+ALL_CLIENTS.map(c=>"<option value='"+c+"' "+(c===retC?"selected":"")+">"+c+"</option>").join("");
+      let retBlock="";
+      if(isRet){
+        retBlock+="<div class='fw'><label class='lbl'>Cliente *</label><select class='inp' id='mv_retc' onchange='onRetCChange(this.value)'>"+clientOpts+"</select></div>";
+        if(retC){
+          let eqsHtml="";
+          if(retEqs.length===0){
+            eqsHtml="<div style='font-size:13px;color:var(--M);padding:10px;background:#f8fbf9;border-radius:8px;text-align:center'>Sin equipos registrados</div>";
+          } else {
+            eqsHtml="<div style='background:#f0f7f4;border-radius:10px;padding:8px;border:1px solid #d0e8dc'>"
+              +retEqs.map(eq=>"<label style='display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;cursor:pointer;margin-bottom:4px;background:#fff;border:1px solid #e0ede6'>"
+                +"<input type='checkbox' class='ceq-chk' data-id='"+(eq.id||"")+"' data-m='"+eq.modelo+"' data-s='"+(eq.serie||"")+"' style='width:18px;height:18px'>"
+                +"<div style='flex:1'><div style='font-weight:700;font-size:13px'>"+eq.modelo+" · "+eq.serie+"</div>"
+                +"<div style='font-size:11px;color:var(--M)'>"+(eq.area||"")+(eq.aroma?" · "+eq.aroma:"")+"</div></div></label>").join("")
+              +"</div>";
+          }
+          retBlock+="<div class='fw'><label class='lbl'>Equipos en "+retC+"</label>"+eqsHtml+"</div>";
+        }
+      } else {
+        retBlock+="<div class='fr'><div class='fw'><label class='lbl'>Modelo *</label><select class='inp' id='mv_mod'>"+modelos.map(m=>"<option>"+m+"</option>").join("")+"</select></div>"
+          +"<div class='fw'><label class='lbl'>Cantidad *</label><input type='number' class='inp' id='mv_cant' placeholder='1' min='1' value='1'/></div></div>"
+          +"<div class='fw'><label class='lbl'>"+(esE?"Cliente que devuelve":"Cliente / Destino")+"</label>"
+          +"<input class='inp' id='mv_cl' placeholder='"+(esE?"Ej: Club Campestre":"Ej: Hotel Intercontinental")+"' list='mv_cl_l'/>"
+          +"<datalist id='mv_cl_l'>"+ALL_CLIENTS.map(c=>"<option>"+c+"</option>").join("")+"</datalist></div>";
+      }
+      mHTML="<div class='mb-bg' onclick='if(event.target===this){modal=null;render()}'><div class='mb'>"
+        +"<div class='mb-t' style='color:"+(esE?"var(--F)":"var(--D)")+"'>"+(esE?"Entrada de equipo":"Salida de equipo")+"</div>"
+        +"<div class='fw'><label class='lbl'>Motivo *</label><select class='inp' id='mv_mot' onchange='onMotChange(this.value)'>"+motOpts+"</select></div>"
+        +retBlock
+        +"<div class='fw'><label class='lbl'>Notas</label><textarea class='inp' id='mv_n' placeholder='Observaciones...'></textarea></div>"
+        +"<div class='mb-act'><button class='btn-c' onclick='modal=null;render()'>Cancelar</button>"
+        +"<button class='btn' style='background:"+(esE?"var(--F)":"var(--D)")+"' onclick='saveMov()'>Registrar "+(esE?"entrada":"salida")+"</button></div>"
+        +"</div></div>";
     }
     else if(t==="gradeChange"){
       const eq=modal.eq||{};const gi=eqGrades[eq.serie]||{};const curGrade=gi.grade||null;
-      mHTML=`<div class="mb-bg" onclick="if(event.target===this){modal=null;render()}"><div class="mb">
-        <div class="mb-t" style="color:#3456a0">Cambiar intensidad</div>
-        <p class="ps" style="margin-top:-10px;margin-bottom:14px">${eq.modelo} · ${eq.serie}${eq.area?" · "+eq.area:""}</p>
-        ${curGrade?`<div style="background:#e8f0ff;border-radius:10px;padding:10px;text-align:center;margin-bottom:14px"><div style="font-size:11px;color:#3456a0;font-weight:600">GRADO ACTUAL</div><div style="font-size:28px;font-weight:700;color:#3456a0">G${curGrade}</div></div>`:""}
-        <div class="fw"><label class="lbl">Nuevo grado *</label>
-          <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:6px">
-            ${[1,2,3,4,5,6,7,8,9,10].map(g=>`<button type="button" onclick="document.querySelectorAll('.gb').forEach(b=>{b.style.background='none';b.style.color='var(--M)';b.style.borderColor='#dde8e2'});this.style.background='var(--F)';this.style.color='#fff';this.style.borderColor='var(--F)';document.getElementById('gr_grade').value='${g}'" class="gb" style="padding:8px 4px;border:2px solid ${curGrade===g?'var(--F)':'#dde8e2'};border-radius:8px;background:${curGrade===g?'var(--F)':'none'};color:${curGrade===g?'#fff':'var(--M)'};cursor:pointer;font-weight:700;font-size:12px"><div>G${g}</div><div style="font-size:9px;font-weight:400">${CONSUME[eq.modelo]?CONSUME[eq.modelo][g]:""}ml</div></button>`).join("")}
-          </div>
-          <input type="hidden" id="gr_grade" value="${curGrade||''}"/>
-        </div>
-        <div class="fw"><label class="lbl">Notas</label><textarea class="inp" id="gr_n" placeholder="Motivo del cambio..."></textarea></div>
-        <div class="mb-act"><button class="btn-c" onclick="modal=null;render()">Cancelar</button><button class="btn" style="background:#3456a0" onclick="saveGradeChange()">Guardar</button></div>
-      </div></div>`;
+      const gradeBtns=[1,2,3,4,5,6,7,8,9,10].map(g=>{
+        const isSelected=curGrade===g;
+        const ml=CONSUME[eq.modelo]?CONSUME[eq.modelo][g]:"";
+        const mlStr=ml?"<div style='font-size:9px;font-weight:400'>"+ml+"ml</div>":"";
+        return"<button type='button' onclick='selGrade("+g+")' class='gb' id='gb"+g+"' style='padding:8px 4px;border:2px solid "+(isSelected?"var(--F)":"#dde8e2")+";border-radius:8px;background:"+(isSelected?"var(--F)":"none")+";color:"+(isSelected?"#fff":"var(--M)")+";cursor:pointer;font-weight:700;font-size:12px'><div>G"+g+"</div>"+mlStr+"</button>";
+      }).join("");
+      mHTML="<div class='mb-bg' onclick='if(event.target===this){modal=null;render()}'><div class='mb'>"
+        +"<div class='mb-t' style='color:#3456a0'>Cambiar intensidad</div>"
+        +"<p class='ps' style='margin-top:-10px;margin-bottom:14px'>"+eq.modelo+" · "+eq.serie+(eq.area?" · "+eq.area:"")+"</p>"
+        +(curGrade?"<div style='background:#e8f0ff;border-radius:10px;padding:10px;text-align:center;margin-bottom:14px'><div style='font-size:11px;color:#3456a0;font-weight:600'>GRADO ACTUAL</div><div style='font-size:28px;font-weight:700;color:#3456a0'>G"+curGrade+"</div></div>":"")
+        +"<div class='fw'><label class='lbl'>Nuevo grado *</label>"
+        +"<div style='display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:6px'>"+gradeBtns+"</div>"
+        +"<input type='hidden' id='gr_grade' value='"+(curGrade||"")+"'/></div>"
+        +"<div class='fw'><label class='lbl'>Notas</label><textarea class='inp' id='gr_n' placeholder='Motivo del cambio...'></textarea></div>"
+        +"<div class='mb-act'><button class='btn-c' onclick='modal=null;render()'>Cancelar</button><button class='btn' style='background:#3456a0' onclick='saveGradeChange()'>Guardar</button></div>"
+        +"</div></div>";
     }
     else if(t==="gradeOnOff"){
       const eq=modal.eq||{};const gi=eqGrades[eq.serie]||{};
@@ -1543,7 +1565,7 @@ function render(){
         <div class="fw"><label class="lbl">Aroma actual</label>
           <select class="inp" id="ec_aroma">
             <option value="">Sin aroma</option>
-            ${getAllScents().map(s=>`<option value="${s}" ${eq.aroma===s?"selected":""}>${s}</option>`).join("")}
+            ${getAllScents().map(s=>"<option value='"+s+"' "+(eq.aroma===s?"selected":"")+">"+s+"</option>").join("")}
           </select>
         </div>
         <div class="mb-act"><button class="btn-c" onclick="modal=null;render()">Cancelar</button><button class="btn" onclick="saveEditCEq()">Guardar</button></div>
@@ -1556,12 +1578,12 @@ function render(){
         <p class="ps" style="margin-top:-10px;margin-bottom:16px">${modal.c}</p>
         <div class="fw"><label class="lbl">Equipo *</label>
           <select class="inp" id="ca_eq"><option value="">Selecciona el equipo...</option>
-            ${eqsC2.map(eq=>`<option value="${eq.id||eq.serie}">${eq.modelo} · ${eq.serie}${eq.area?" · "+eq.area:""}${eq.aroma?" ("+eq.aroma+")":""}</option>`).join("")}
+            ${eqsC2.map(eq=>"<option value='"+( eq.id||eq.serie)+"'>"+eq.modelo+" · "+eq.serie+""+eq.area?" · "+eq.area:""+""+eq.aroma?" ("+eq.aroma+")":""+"</option>").join("")}
           </select>
         </div>
         <div class="fw"><label class="lbl">Nuevo aroma *</label>
           <select class="inp" id="ca_aroma"><option value="">Selecciona aroma...</option>
-            ${getAllScents().map(s=>`<option>${s}</option>`).join("")}
+            ${getAllScents().map(s=>"<option>"+s+"</option>").join("")}
           </select>
         </div>
         <div class="fw"><label class="lbl">Notas</label><textarea class="inp" id="ca_n" placeholder="Motivo del cambio..."></textarea></div>
@@ -1572,7 +1594,7 @@ function render(){
       const mc2=isA?ALL_CLIENTS:(VC[sess.name]||ALL_CLIENTS);
       mHTML=`<div class="mb-bg" onclick="if(event.target===this){modal=null;render()}"><div class="mb">
         <div class="mb-t">Registrar baja</div>
-        <div class="fw"><label class="lbl">Cliente *</label><input class="inp" id="bj_c" placeholder="Nombre del cliente" list="bj_cl"/><datalist id="bj_cl">${mc2.map(c=>`<option>${c}</option>`).join("")}</datalist></div>
+        <div class="fw"><label class="lbl">Cliente *</label><input class="inp" id="bj_c" placeholder="Nombre del cliente" list="bj_cl"/><datalist id="bj_cl">${mc2.map(c=>"<option>"+c+"</option>").join("")}</datalist></div>
         <div class="fw"><label class="lbl">Motivo *</label><select class="inp" id="bj_mot"><option value="">Selecciona...</option><option>Precio muy alto</option><option>No le gusto el aroma</option><option>Problemas con el equipo</option><option>Cierre del negocio</option><option>Cambio de proveedor</option><option>No vio resultados</option><option>Presupuesto reducido</option><option>Otro</option></select></div>
         <div class="fw"><label class="lbl">Notas</label><textarea class="inp" id="bj_n" placeholder="Detalle..."></textarea></div>
         <div class="mb-act"><button class="btn-c" onclick="modal=null;render()">Cancelar</button><button class="btn" style="background:var(--D)" onclick="saveBaja()">Registrar</button></div>
@@ -1603,7 +1625,7 @@ function render(){
       mHTML=`<div class="mb-bg" onclick="if(event.target===this){modal=null;render()}"><div class="mb">
         <div class="mb-t">Agregar cliente</div>
         <div class="fw"><label class="lbl">Nombre *</label><input class="inp" id="cl_n" placeholder="Ej: HOTEL SHERATON" style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()"/></div>
-        <div class="fw"><label class="lbl">Vendedor</label><select class="inp" id="cl_v"><option value="">Sin asignar</option>${activeVnds.map(v=>`<option value="${v.name}">${v.name}</option>`).join("")}</select></div>
+        <div class="fw"><label class="lbl">Vendedor</label><select class="inp" id="cl_v"><option value="">Sin asignar</option>${activeVnds.map(v=>"<option value='"+v.name+"'>"+ v.name+"</option>").join("")}</select></div>
         <div class="fw"><label class="lbl">País *</label><select class="inp" id="cl_pais"><option value="SV">🇸🇻 El Salvador</option><option value="GT">🇬🇹 Guatemala</option></select></div>
         <div class="mb-act"><button class="btn-c" onclick="modal=null;render()">Cancelar</button><button class="btn" onclick="saveCliente()">Agregar</button></div>
       </div></div>`;
@@ -1643,7 +1665,7 @@ function render(){
         </div></div>
         <div class="fw"><label class="lbl">${tipoSol==="cliente"?"Motivo *":"Nombre del prospecto *"}</label><input class="inp" id="sol_n" placeholder="${tipoSol==="cliente"?"Revision, problema...":"Ej: Restaurante El Jardin"}"/></div>
         ${tipoSol==="cliente"?"<div class='fw'><label class='lbl'>Cliente *</label><input class='inp' id='sol_ce' placeholder='Nombre del cliente' list='sol_cl'/><datalist id='sol_cl'>"+ALL_CLIENTS.map(c=>"<option>"+c+"</option>").join("")+"</datalist></div>":""}
-        <div class="fw"><label class="lbl">Vendedor *</label><select class="inp" id="sol_v"><option value="">Selecciona...</option>${activeVnds2.map(v=>`<option value="${v.name}" ${v.name===sess.name?"selected":""}>${v.name}</option>`).join("")}</select></div>
+        <div class="fw"><label class="lbl">Vendedor *</label><select class="inp" id="sol_v"><option value="">Selecciona...</option>${activeVnds2.map(v=>"<option value='"+v.name+"' "+(v.name===sess.name?"selected":"")+">"+v.name+"</option>").join("")}</select></div>
         <div class="fw"><label class="lbl">Notas</label><textarea class="inp" id="sol_notas" placeholder="Instrucciones..."></textarea></div>
         <div class="mb-act"><button class="btn-c" onclick="modal=null;render()">Cancelar</button><button class="btn" style="background:#3456a0" onclick="saveSolicitud()">Enviar</button></div>
       </div></div>`;
@@ -1654,7 +1676,7 @@ function render(){
         <div class="mb-t">Convertir a cliente</div>
         <p class="ps" style="margin-top:-10px;margin-bottom:14px">Prospecto: <strong>${sol.nombre}</strong></p>
         <div class="fw"><label class="lbl">Nombre oficial *</label><input class="inp" id="cc_n" value="${sol.nombre.toUpperCase()}" style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()"/></div>
-        <div class="fw"><label class="lbl">Asignar a vendedor</label><select class="inp" id="cc_v">${activeVnds3.map(v=>`<option value="${v.name}" ${v.name===sol.vendedor?"selected":""}>${v.name}</option>`).join("")}</select></div>
+        <div class="fw"><label class="lbl">Asignar a vendedor</label><select class="inp" id="cc_v">${activeVnds3.map(v=>"<option value='"+v.name+"' "+(v.name===sol.vendedor?"selected":"")+">"+v.name+"</option>").join("")}</select></div>
         <div class="mb-act"><button class="btn-c" onclick="modal=null;render()">Cancelar</button><button class="btn" onclick="saveConvertir()">Crear cliente</button></div>
       </div></div>`;
     }
@@ -1695,7 +1717,11 @@ function render(){
         <button class="btn-o" onclick="doSync()" style="margin-right:4px">⟳</button><button class="btn-o" onclick="logout()">Salir</button>
       </div>
     </div>
-    <div class="nav">${tabs.map(t=>`<button class="nt ${tab===t.k?"on":""}" onclick="tab='${t.k}';sq='';render()" style="position:relative"><i class="ti ${t.i}"></i>${t.l}${t.badge?'<span style="position:absolute;top:4px;right:4px;background:var(--D);color:#fff;border-radius:50%;width:16px;height:16px;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center">'+t.badge+'</span>':""}</button>`).join("")}</div>
+    <div class="nav">${tabs.map(t=>{
+    const cls="nt "+(tab===t.k?"on":"");
+    const badge=t.badge?"<span style=\'position:absolute;top:4px;right:4px;background:var(--D);color:#fff;border-radius:50%;width:16px;height:16px;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center\'>"+ t.badge+"</span>":"";
+    return"<button class=\'"+cls+"\' onclick=\'tab="+JSON.stringify(t.k)+";sq=\'\';render()\' style=\'position:relative\'><i class=\'ti "+t.i+"\' style=\'display:block\'></i>"+t.l+badge+"</button>";
+  }).join("")}</div>>
     <div class="cnt">${con}</div>
   </div>
   ${mHTML}
