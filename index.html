@@ -1721,7 +1721,7 @@ function render(){
     const cls="nt "+(tab===t.k?"on":"");
     const badge=t.badge?"<span style=\'position:absolute;top:4px;right:4px;background:var(--D);color:#fff;border-radius:50%;width:16px;height:16px;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center\'>"+ t.badge+"</span>":"";
     return"<button class=\'"+cls+"\' onclick=\'tab="+JSON.stringify(t.k)+";sq=\'\';render()\' style=\'position:relative\'><i class=\'ti "+t.i+"\' style=\'display:block\'></i>"+t.l+badge+"</button>";
-  }).join("")}</div>>
+  }).join("")}</div>
     <div class="cnt">${con}</div>
   </div>
   ${mHTML}
