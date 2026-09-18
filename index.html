@@ -228,7 +228,7 @@ function onCChange(v){selC=v;selEq=null;window._eqVisit={};render();}
 function updStock(s,v){const n=parseInt(v)||0;inv={...inv,[s]:n};sv("inv",inv);}
 function updMin(s,v){const n=parseInt(v)||0;nivMin={...nivMin,[s]:n};sv("nvm",nivMin);}
 function logout(){sess=null;sv("sess",null);selC="";selEq=null;tab="visit";render();}
-function setRole(r){document.getElementById("lrole").value=r;document.querySelectorAll(".rb").forEach(b=>b.classList.remove("on"));event.target.classList.add("on");}
+function setRole(r){document.getElementById("lrole").value=r;document.querySelectorAll(".rb").forEach(b=>b.classList.remove("on"));event.target.classList.add("on");const vwrap=document.getElementById("vwrap");if(vwrap)vwrap.style.display=r==="admin"?"none":"block";const lpin=document.getElementById("lpin");if(lpin){lpin.value="";lpin.placeholder=r==="admin"?"PIN de admin":"PIN";}}
 function doSync(){showToast("Sincronizando...");syncDown().then(ok=>{if(ok){const cc=ld("customclients",{clients:[],vc:{},pais:{}});if(cc.clients)cc.clients.forEach(c=>{if(!ALL_CLIENTS.includes(c))ALL_CLIENTS.push(c);});if(cc.vc)Object.keys(cc.vc).forEach(v=>{if(!VC[v])VC[v]=[];cc.vc[v].forEach(c=>{if(!VC[v].includes(c))VC[v].push(c);});});if(cc.pais)Object.assign(window._clientPais,cc.pais);render();showToast("\u2713 Sincronizado");}else showToast("Error de conexion");});}
 
 // ── AUTH ──
