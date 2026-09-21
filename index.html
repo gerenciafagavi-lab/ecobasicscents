@@ -101,9 +101,12 @@ const SB_KEYS=["vis","inv","demos","eqs","movs","eqgrades","ceq","bajas","nvm","
 async function sbSet(k,v){try{await fetch(SB_URL+"/rest/v1/app_data",{method:"POST",headers:{"apikey":SB_KEY,"Authorization":"Bearer "+SB_KEY,"Content-Type":"application/json","Prefer":"resolution=merge-duplicates"},body:JSON.stringify({key:k,value:JSON.stringify(v),updated_at:new Date().toISOString()})});}catch{}}
 async function syncDown(){
   try{
-    const r=await fetch(SB_URL+"/rest/v1/app_data?key=in.("+SB_KEYS.map(k=>'"'+k+'"').join(",")+")\u0026select=key,value",{headers:{"apikey":SB_KEY,"Authorization":"Bearer "+SB_KEY}});
+    const url=SB_URL+"/rest/v1/app_data?key=in.("+SB_KEYS.map(k=>'"'+k+'"').join(",")+")&select=key,value";
+    const r=await fetch(url,{headers:{"apikey":SB_KEY,"Authorization":"Bearer "+SB_KEY,"Accept":"application/json"}});
+    if(!r.ok)return false;
     const rows=await r.json();
-    if(!Array.isArray(rows)||!rows.length)return false;
+    if(!Array.isArray(rows))return false;
+    if(!rows.length)return true;
     rows.forEach(row=>{
       try{
         const val=JSON.parse(row.value);
