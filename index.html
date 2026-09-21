@@ -98,11 +98,11 @@ window.onerror=function(msg,src,line){
 const SB_URL="https://bdyuhphgqehnzputlgiy.supabase.co";
 const SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJkeXVocGhncWVobnpwdXRsZ2l5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkxOTk0NjUsImV4cCI6MjA5NDc3NTQ2NX0.gJ8JQb2dHIbupktg1ags10uYXfepAE6ou3Da6EAra9M";
 const SB_KEYS=["vis","inv","demos","eqs","movs","eqgrades","ceq","bajas","nvm","vnd","modelos","stkseries","cartuchos","customclients","sols","rejillas"];
-async function sbSet(k,v){try{await fetch(SB_URL+"/rest/v1/app_data",{method:"POST",headers:{"apikey":SB_KEY,"Authorization":"Bearer "+SB_KEY,"Content-Type":"application/json","Prefer":"resolution=merge-duplicates"},body:JSON.stringify({key:k,value:JSON.stringify(v),updated_at:new Date().toISOString()})});}catch{}}
+async function sbSet(k,v){try{await fetch(SB_URL+"/rest/v1/app_data",{method:"POST",mode:"cors",credentials:"omit",headers:{"apikey":SB_KEY,"Authorization":"Bearer "+SB_KEY,"Content-Type":"application/json","Prefer":"resolution=merge-duplicates","X-Client-Info":"ecobasicscents/1.0"},body:JSON.stringify({key:k,value:JSON.stringify(v),updated_at:new Date().toISOString()})});}catch{}}
 async function syncDown(){
   try{
     const url=SB_URL+"/rest/v1/app_data?key=in.("+SB_KEYS.map(k=>'"'+k+'"').join(",")+")&select=key,value";
-    const r=await fetch(url,{mode:"cors",credentials:"omit",headers:{"apikey":SB_KEY,"Authorization":"Bearer "+SB_KEY,"Accept":"application/json","Content-Type":"application/json"}});
+    const r=await fetch(url,{mode:"cors",credentials:"omit",cache:"no-store",headers:{"apikey":SB_KEY,"Authorization":"Bearer "+SB_KEY,"Accept":"application/json","X-Client-Info":"ecobasicscents/1.0"}});
     if(!r.ok){console.error("Supabase HTTP error:",r.status,r.statusText);return false;}
     const rows=await r.json();
     if(!Array.isArray(rows)){console.error("Supabase bad response:",rows);return false;}
