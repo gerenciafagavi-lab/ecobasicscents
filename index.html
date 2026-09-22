@@ -97,7 +97,7 @@ window.onerror=function(msg,src,line){
 // ── SUPABASE ──
 const SB_URL="https://bdyuhphgqehnzputlgiy.supabase.co";
 const SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJkeXVocGhncWVobnpwdXRsZ2l5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkxOTk0NjUsImV4cCI6MjA5NDc3NTQ2NX0.gJ8JQb2dHIbupktg1ags10uYXfepAE6ou3Da6EAra9M";
-const SB_KEYS=["vis","inv","demos","eqs","movs","eqgrades","ceq","bajas","nvm","vnd","modelos","stkseries","cartuchos","customclients","sols","rejillas"];
+const SB_KEYS=["vis","inv","demos","eqs","movs","eqgrades","ceq","bajas","nvm","vnd","modelos","stkseries","cartuchos","customclients","sols","rejillas","baterias"];
 async function sbSet(k,v){try{await fetch(SB_URL+"/rest/v1/app_data",{method:"POST",mode:"cors",credentials:"omit",headers:{"apikey":SB_KEY,"Authorization":"Bearer "+SB_KEY,"Content-Type":"application/json","Prefer":"resolution=merge-duplicates","X-Client-Info":"ecobasicscents/1.0"},body:JSON.stringify({key:k,value:JSON.stringify(v),updated_at:new Date().toISOString()})});}catch{}}
 async function syncDown(){
   try{
@@ -124,6 +124,7 @@ async function syncDown(){
         if(row.key==="modelos")modelos=val;
         if(row.key==="cartuchos")cartuchos=val;
         if(row.key==="rejillas")rejillas=val;
+        if(row.key==="baterias")baterias=val;
         if(row.key==="sols")solicitudes=val;
         if(row.key==="customclients"){
           if(val.clients)val.clients.forEach(c=>{if(!ALL_CLIENTS.includes(c))ALL_CLIENTS.push(c);});
@@ -165,6 +166,7 @@ let bajas=ld("bajas",[]);
 let solicitudes=ld("sols",[]);
 let cartuchos=ld("cartuchos",null);if(!cartuchos){cartuchos={"Cartucho Sweet Lemon":0,"Cartucho Tropical Paradise":0,"Cartucho Mountain Breeze":0};}
 let rejillas=ld("rejillas",null);if(!rejillas){rejillas={"AirFin Mountain Breeze":0};}
+let baterias=ld("baterias",0);if(isNaN(baterias)||baterias<0)baterias=0;
 let modelos=ld("modelos",["AE301","AE701","AE801","AE3500","Radiant","AE TOWER BLACK","FMATIC Blanco","FMATIC Negro","Equipo de Goteo","AirFin Urinal"]);
 let nivMin=ld("nvm",{});
 let vendors=ld("vnd",[
@@ -285,16 +287,17 @@ function regVisitMulti(){
   const notasG=document.getElementById("notv_multi")?.value||"";
   let saved=0;
   entries.forEach(e=>{
-    const v={id:uid(),fecha,vnd:sess.name,cliente:selC,modelo:e.modelo,serie:e.serie,area:e.area||"",esencia:e.esencia||"",ml:e.ml||0,notas:e.notas||(notasG||""),prob};
+    const v={id:uid(),fecha,vnd:sess.name,cliente:selC,modelo:e.modelo,serie:e.serie,area:e.area||"",esencia:e.esencia||"",ml:e.ml||0,mlLlegada:e.mlLlegada||null,mlSalida:e.mlSalida||null,baterias:e.baterias||null,notas:e.notas||(notasG||""),prob};
     visits=[v,...visits];
     if(e.esencia&&e.ml>0){
       if(e.tipo==="cartucho"){if((cartuchos[e.esencia]||0)>0){cartuchos={...cartuchos,[e.esencia]:(cartuchos[e.esencia]||0)-1};}}
       else if(e.tipo==="rejilla"){if((rejillas[e.esencia]||0)>0){rejillas={...rejillas,[e.esencia]:(rejillas[e.esencia]||0)-1};sv("rejillas",rejillas);}}
       else{if((inv[e.esencia]||0)>=e.ml){inv={...inv,[e.esencia]:(inv[e.esencia]||0)-e.ml};}}
     }
+    if(e.baterias>0){baterias=Math.max(0,baterias-e.baterias);}
     saved++;
   });
-  sv("vis",visits);sv("inv",inv);sv("cartuchos",cartuchos);
+  sv("vis",visits);sv("inv",inv);sv("cartuchos",cartuchos);sv("baterias",baterias);
   window._eqVisit={};window._probM=false;selC="";selEq=null;
   showToast(saved+" equipo"+(saved>1?"s":"")+" registrado"+(saved>1?"s":""));
 }
@@ -537,6 +540,8 @@ function delCartucho(nombre){if(cartuchos[nombre]>0){showToast("Tiene stock. Pon
 function updRejilla(nombre,val){const n=parseInt(val);if(isNaN(n)||n<0)return;rejillas={...rejillas,[nombre]:n};sv("rejillas",rejillas);render();}
 function openAddRejilla(){modal={t:"addRejilla"};render();}
 function addRejilla(){const n=document.getElementById("rej_n")?.value?.trim();if(!n)return;if(rejillas.hasOwnProperty(n)){showToast("Ya existe");return;}rejillas={...rejillas,[n]:0};sv("rejillas",rejillas);modal=null;render();showToast("Rejilla agregada");}
+function updBaterias(val){const n=parseInt(val);if(isNaN(n)||n<0)return;baterias=n;sv("baterias",baterias);render();}
+function updBateriasDelta(d){const n=Math.max(0,baterias+d);baterias=n;sv("baterias",baterias);render();}
 
 // ── BAJAS ──
 function openAddBaja(){modal={t:"addBaja"};render();}
@@ -640,7 +645,7 @@ function doExportCSV(){
   if(rFrom)data=data.filter(v=>v.fecha>=rFrom);
   if(rTo)data=data.filter(v=>v.fecha<=rTo+"T23:59:59");
   if(!data.length){alert("Sin datos");return;}
-  const rows=data.map(v=>({Fecha:fmt(v.fecha),Vendedor:v.vnd||"",Cliente:v.cliente||"",Modelo:v.modelo||"",Serie:v.serie||"",Esencia:v.esencia||"",ML:v.ml||0,Problema:v.prob?"Si":"No",Notas:v.notas||""}));
+  const rows=data.map(v=>({Fecha:fmt(v.fecha),Vendedor:v.vnd||"",Cliente:v.cliente||"",Modelo:v.modelo||"",Serie:v.serie||"",Esencia:v.esencia||"",ML:v.ml||0,"ML Llegada":v.mlLlegada??""  ,"ML Salida":v.mlSalida??"","Consumo equipo":(v.mlLlegada!=null&&v.mlSalida!=null?v.mlSalida-v.mlLlegada:""),"Baterias D":v.baterias||"",Problema:v.prob?"Si":"No",Notas:v.notas||""}));
   const hdrs='"'+Object.keys(rows[0]).join('","')+'"';
   const rws=rows.map(r=>Object.values(r).map(v=>'"'+String(v||"").replace(/"/g,"''")+'"').join(","));
   const csv=[hdrs,...rws].join("\n");
@@ -760,6 +765,7 @@ function render(){
     const isFmatic=m=>m&&m.toLowerCase().includes("fmatic");
     const isGoteo=m=>m&&m.toLowerCase().includes("goteo");
     const isUrinal=m=>m&&(m.toLowerCase().includes("urinal")||m.toLowerCase().includes("airfin"));
+    const isBateria=m=>m&&(m==="AE701"||m==="AE801");
     const eqsC=selC?getClientEqs(selC).filter(e=>!e._del):[];
 
     let html="<p class='pt'>Registrar visita</p>";
@@ -778,7 +784,7 @@ function render(){
         html+="<div style='background:#fffbe8;border:1px solid #ffe;border-radius:var(--R);padding:10px 12px;font-size:12px;color:#856404;margin-bottom:12px'>Sin equipos. El admin puede agregarlos en Clientes.</div>"
           +"<div class='fw'><label class='lbl'>Modelo</label><select class='inp' id='mmm'>"+modelos.map(m=>"<option>"+m+"</option>").join("")+"</select></div>"
           +"<div class='fw'><label class='lbl'>Serie</label><input class='inp' placeholder='Nro serie' oninput='setSelEqManual(this.value)'/></div>"
-          +"<div class='fw'><label class='lbl'>Esencia *</label><select class='inp' onchange='selS=this.value'><option value=''>Selecciona...</option>"+allScents.map(s=>"<option value='"+s+"'"+(s===selS?" selected":"")+">"+s+"</option>").join("")+"</select></div>"
+          +"<div class='fw'><label class='lbl'>Esencia usada</label><select class='inp' onchange='selS=this.value'><option value=''>Sin esencia / solo mantenimiento</option>"+allScents.map(s=>"<option value='"+s+"'"+(s===selS?" selected":"")+">"+s+"</option>").join("")+"</select></div>"
           +"<div class='fw'><label class='lbl'>ML usados *</label><input type='number' class='inp' placeholder='0' min='1' oninput='mlV=this.value' value='"+(mlV||"")+"'/></div>"
           +"<button class='btn' onclick='regVisitSimple()'>Guardar visita</button>";
       } else {
@@ -789,6 +795,7 @@ function render(){
           const fmatic=isFmatic(eq.modelo);
           const goteo=isGoteo(eq.modelo);
           const urinal=isUrinal(eq.modelo);
+          const bateria=isBateria(eq.modelo);
           const borderC=done?"var(--F)":"#dde8e2";
           const bgC=done?"#f0f7f4":"#fff";
           const gs=getGradeDisplay(eq.serie);
@@ -814,15 +821,41 @@ function render(){
                 +"<option value=''>Sin cambio</option>"
                 +rejillaKeys.map(k=>"<option value='"+k+"'"+(ev.esencia===k?" selected":"")+">"+k+" ("+( rejillas[k]||0)+" stock)</option>").join("")
                 +"</select></div>";
-            } else {
-              html+="<div class='fr' style='margin-top:8px;gap:8px'>"
-                +"<div class='fw'><label class='lbl' style='font-size:11px'>Esencia *</label>"
-                +"<select class='inp' style='font-size:12px' data-serie='"+eq.serie+"' onchange='_uev(this,this.dataset.serie,\"esencia\");updEqVisit(this.dataset.serie,\"tipo\",\"ml\")'>"
-                +"<option value=''>Selecciona...</option>"
+            } else if(bateria){
+              html+="<div class='fw' style='margin-top:8px'>"
+                +"<label class='lbl' style='font-size:11px'>Cambio de bater\xEDas D <span style='color:var(--M);font-weight:400'>(stock: "+baterias+")</span></label>"
+                +"<div style='display:flex;gap:6px;align-items:center;margin-top:4px'>"
+                +"<button onclick='updEqVisit(\""+eq.serie+"\",\"baterias\",Math.max(0,(window._eqVisit[\""+eq.serie+"\"]?.baterias||0)-1));updEqVisit(\""+eq.serie+"\",\"tipo\",\"bateria\");render()' style='width:32px;height:32px;border:1px solid #dde8e2;border-radius:8px;background:#fef0f0;color:var(--D);font-size:18px;cursor:pointer'>&#8722;</button>"
+                +"<input type='number' min='0' style='width:60px;text-align:center;padding:6px;border:1px solid #dde8e2;border-radius:8px;font-size:14px;font-weight:700' value='"+(ev.baterias||0)+"' onchange='updEqVisit(\""+eq.serie+"\",\"baterias\",parseInt(this.value)||0);updEqVisit(\""+eq.serie+"\",\"tipo\",\"bateria\")'/>"
+                +"<button onclick='updEqVisit(\""+eq.serie+"\",\"baterias\",(window._eqVisit[\""+eq.serie+"\"]?.baterias||0)+1);updEqVisit(\""+eq.serie+"\",\"tipo\",\"bateria\");render()' style='width:32px;height:32px;border:1px solid #dde8e2;border-radius:8px;background:#f0f7f4;color:var(--F);font-size:18px;cursor:pointer'>+</button>"
+                +"<span style='font-size:12px;color:var(--M)'>bater\xEDas instaladas</span>"
+                +"</div>"
+                +(ev.baterias>0&&baterias<ev.baterias?"<div style='font-size:11px;color:var(--D);margin-top:4px'>&#x26A0; Stock insuficiente ("+baterias+" disponibles)</div>":"")
+                +"</div>"
+                +"<div class='fr' style='margin-top:6px;gap:8px'>"
+                +"<div class='fw'><label class='lbl' style='font-size:11px'>Esencia usada</label>"
+                +"<select class='inp' style='font-size:12px' data-serie='"+eq.serie+"' onchange='_uev(this,this.dataset.serie,\"esencia\")'>"
+                +"<option value=''>Sin esencia / solo mantenimiento</option>"
                 +allScents.map(s=>"<option value='"+s+"'"+(ev.esencia===s?" selected":"")+">"+s+"</option>").join("")
                 +"</select></div>"
                 +"<div class='fw'><label class='lbl' style='font-size:11px'>ML usados</label>"
                 +"<input type='number' class='inp' style='font-size:12px' placeholder='0' min='0' value='"+(ev.ml||"")+"' data-serie='"+eq.serie+"' oninput='_uev(this,this.dataset.serie,this.name)' name='ml'/></div>"
+                +"</div>";
+            } else {
+              html+="<div class='fr' style='margin-top:8px;gap:8px'>"
+                +"<div class='fw'><label class='lbl' style='font-size:11px'>Esencia usada</label>"
+                +"<select class='inp' style='font-size:12px' data-serie='"+eq.serie+"' onchange='_uev(this,this.dataset.serie,\"esencia\");updEqVisit(this.dataset.serie,\"tipo\",\"ml\")'>"
+                +"<option value=''>Sin esencia / solo mantenimiento</option>"
+                +allScents.map(s=>"<option value='"+s+"'"+(ev.esencia===s?" selected":"")+">"+s+"</option>").join("")
+                +"</select></div>"
+                +"<div class='fw'><label class='lbl' style='font-size:11px'>ML usados</label>"
+                +"<input type='number' class='inp' style='font-size:12px' placeholder='0' min='0' value='"+(ev.ml||"")+"' data-serie='"+eq.serie+"' oninput='_uev(this,this.dataset.serie,this.name)' name='ml'/></div>"
+                +"</div>"
+                +"<div class='fr' style='margin-top:6px;gap:8px'>"
+                +"<div class='fw'><label class='lbl' style='font-size:11px'>ML al llegar</label>"
+                +"<input type='number' class='inp' style='font-size:12px' placeholder='Ej: 450' min='0' value='"+(ev.mlLlegada||"")+"' data-serie='"+eq.serie+"' oninput='_uev(this,this.dataset.serie,this.name)' name='mlLlegada'/></div>"
+                +"<div class='fw'><label class='lbl' style='font-size:11px'>ML al salir</label>"
+                +"<input type='number' class='inp' style='font-size:12px' placeholder='Ej: 800' min='0' value='"+(ev.mlSalida||"")+"' data-serie='"+eq.serie+"' oninput='_uev(this,this.dataset.serie,this.name)' name='mlSalida'/></div>"
                 +"</div>";
             }
             html+="<div class='fw' style='margin-top:6px'><label class='lbl' style='font-size:11px'>Notas del equipo</label>"
@@ -886,10 +919,12 @@ function render(){
           const serieBadge=v.serie?"<span class='chip chip-b' style='font-size:10px'>"+v.modelo+"&#183;"+v.serie+"</span>":"";
           const probBadge=v.prob?"<span class='chip chip-r' style='font-size:10px'><i class='ti ti-alert-triangle' style='font-size:11px'></i> Problema</span>":"";
           const notaDiv=v.notas?"<div style='font-size:11px;color:var(--M);margin-top:5px'>"+v.notas+"</div>":"";
+          const nivelDiv=(v.mlLlegada!=null||v.mlSalida!=null)?"<div style='font-size:11px;color:var(--M);margin-top:4px;display:flex;gap:10px'>"+(v.mlLlegada!=null?"<span>&#x2193; "+v.mlLlegada+"ml al llegar</span>":"")+(v.mlSalida!=null?"<span>&#x2191; "+v.mlSalida+"ml al salir</span>":"")+(v.mlLlegada!=null&&v.mlSalida!=null?"<span style='color:var(--F);font-weight:600'>Consumo: "+(v.mlSalida-v.mlLlegada)+"ml</span>":"")+"</div>":"";
+          const batDiv=v.baterias?"<div style='font-size:11px;margin-top:4px'><span style='background:#5d4037;color:#fff;border-radius:6px;padding:2px 8px;font-weight:600'>🔋 "+v.baterias+" bater\xEDa"+(v.baterias!==1?"s":"")+" D cambiada"+(v.baterias!==1?"s":"")+"</span></div>":"";
           html+="<div class='card sl' style='padding:10px 12px;margin-bottom:6px;"+border+"'>"
             +"<div class='ch'><div><div class='ct' style='font-size:12px'>"+v.cliente+badge+"</div><div class='cs'>"+fmt(v.fecha)+"</div></div>"
             +"<span class='chip' style='font-size:10px'>"+(v.ml||0)+"ml</span></div>"
-            +"<div class='mr'>"+serieBadge+probBadge+"</div>"+notaDiv+"</div>";
+            +"<div class='mr'>"+serieBadge+probBadge+"</div>"+nivelDiv+batDiv+notaDiv+"</div>";
         });
         html+="</div>";
       });
@@ -902,10 +937,12 @@ function render(){
         const serieBadge=v.serie?"<span class='chip chip-b' style='font-size:10px'>"+v.modelo+"&#183;"+v.serie+"</span>":"";
         const probBadge=v.prob?"<span class='chip chip-r' style='font-size:10px'><i class='ti ti-alert-triangle' style='font-size:11px'></i> Problema</span>":"";
         const notaDiv=v.notas?"<div style='font-size:11px;color:var(--M);margin-top:5px'>"+v.notas+"</div>":"";
+        const nivelDiv=(v.mlLlegada!=null||v.mlSalida!=null)?"<div style='font-size:11px;color:var(--M);margin-top:4px;display:flex;gap:10px'>"+(v.mlLlegada!=null?"<span>&#x2193; "+v.mlLlegada+"ml al llegar</span>":"")+(v.mlSalida!=null?"<span>&#x2191; "+v.mlSalida+"ml al salir</span>":"")+(v.mlLlegada!=null&&v.mlSalida!=null?"<span style='color:var(--F);font-weight:600'>Consumo: "+(v.mlSalida-v.mlLlegada)+"ml</span>":"")+"</div>":"";
+        const batDiv=v.baterias?"<div style='font-size:11px;margin-top:4px'><span style='background:#5d4037;color:#fff;border-radius:6px;padding:2px 8px;font-weight:600'>🔋 "+v.baterias+" bater\xEDa"+(v.baterias!==1?"s":"")+" D cambiada"+(v.baterias!==1?"s":"")+"</span></div>":"";
         html+="<div class='card sl' style='padding:10px 12px;margin-bottom:6px;"+border+"'>"
           +"<div class='ch'><div><div class='ct' style='font-size:12px'>"+v.cliente+badge+"</div><div class='cs'>"+fmt(v.fecha)+(isA?" &#183; "+v.vnd:"")+"</div></div>"
           +"<span class='chip' style='font-size:10px'>"+(v.ml||0)+"ml</span></div>"
-          +"<div class='mr'>"+serieBadge+probBadge+"</div>"+notaDiv+"</div>";
+          +"<div class='mr'>"+serieBadge+probBadge+"</div>"+nivelDiv+batDiv+notaDiv+"</div>";
       });
       if(filtered.length>40)html+="<div style='text-align:center;font-size:12px;color:var(--M);padding:10px'>+"+(filtered.length-40)+" más</div>";
     }
@@ -923,6 +960,7 @@ function render(){
     const zeroCart=Object.values(cartuchos).filter(v=>v===0).length;
     const totRej=Object.values(rejillas).reduce((a,b)=>a+b,0);
     const zeroRej=Object.values(rejillas).filter(v=>v===0).length;
+    const batLow=baterias<=4;
     const cartRows=Object.entries(cartuchos).map(([n,u])=>{const ns=JSON.stringify(n);return"<div style='display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.1)'><span style='font-size:13px'>"+n+"</span><div style='display:flex;align-items:center;gap:8px'>"+(isA?"<button onclick='updCartucho("+ns+","+(u-1)+")' style='width:28px;height:28px;border:1px solid rgba(255,255,255,.3);border-radius:7px;background:none;color:#fff;font-size:16px;cursor:pointer'>&#8722;</button>":"")+"<span style='font-size:18px;font-weight:700;color:"+(u===0?"#e8c97a":"#fff")+"'>"+u+"</span>"+(isA?"<button onclick='updCartucho("+ns+","+(u+1)+")' style='width:28px;height:28px;border:1px solid rgba(255,255,255,.3);border-radius:7px;background:none;color:#fff;font-size:16px;cursor:pointer'>+</button>":"")+"</div></div>";}).join("");
     const rejRows=Object.entries(rejillas).map(([n,u])=>{const ns=JSON.stringify(n);return"<div style='display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.1)'><span style='font-size:13px'>"+n+"</span><div style='display:flex;align-items:center;gap:8px'>"+(isA?"<button onclick='updRejilla("+ns+","+(u-1)+")' style='width:28px;height:28px;border:1px solid rgba(255,255,255,.3);border-radius:7px;background:none;color:#fff;font-size:16px;cursor:pointer'>&#8722;</button>":"")+"<span style='font-size:18px;font-weight:700;color:"+(u===0?"#e8c97a":"#fff")+"'>"+u+"</span>"+(isA?"<button onclick='updRejilla("+ns+","+(u+1)+")' style='width:28px;height:28px;border:1px solid rgba(255,255,255,.3);border-radius:7px;background:none;color:#fff;font-size:16px;cursor:pointer'>+</button>":"")+"</div></div>";}).join("");
     const esRows=ents.map(([s,ml])=>{const min=nivMin[s]||500;const pct=Math.round((ml/maxML)*100);const cls=ml===0?"bd":ml<=min?"bw":"";const col=ml===0?"var(--D)":ml<=min?"var(--WN)":"var(--F)";const ss=JSON.stringify(s);const sid=s.replace(/[^a-z0-9]/gi,"_");return"<div class='ii'><div class='ih'><span style='font-weight:700'>"+s+"</span><span id='inv_ml_"+sid+"' style='font-weight:700;color:"+col+"'>"+ml.toLocaleString()+"ml</span></div><div class='bb'><div class='bar "+cls+"' style='width:"+pct+"%'></div></div>"+(isA?"<div style='margin-top:8px'><div style='display:flex;gap:4px;align-items:center;margin-bottom:6px'><button onclick='updStockDelta("+ss+",-100)' style='padding:2px 7px;background:#fef0f0;color:#c0392b;border:1px solid #f5c6c6;border-radius:6px;font-size:12px;cursor:pointer'>-100</button><button onclick='updStockDelta("+ss+",-10)' style='padding:2px 7px;background:#fef0f0;color:#c0392b;border:1px solid #f5c6c6;border-radius:6px;font-size:12px;cursor:pointer'>-10</button><button onclick='updStockDelta("+ss+",-1)' style='padding:2px 7px;background:#fef0f0;color:#c0392b;border:1px solid #f5c6c6;border-radius:6px;font-size:12px;cursor:pointer'>-1</button><input type='number' min='0' id='inv_inp_"+sid+"' value='"+ml+"' class='si' style='width:70px;text-align:center' onchange='updStock("+ss+",this.value)' title='Escriba cantidad directa'/><button onclick='updStockDelta("+ss+",1)' style='padding:2px 7px;background:#f0f7f4;color:var(--F);border:1px solid #c0ddd0;border-radius:6px;font-size:12px;cursor:pointer'>+1</button><button onclick='updStockDelta("+ss+",10)' style='padding:2px 7px;background:#f0f7f4;color:var(--F);border:1px solid #c0ddd0;border-radius:6px;font-size:12px;cursor:pointer'>+10</button><button onclick='updStockDelta("+ss+",100)' style='padding:2px 7px;background:#f0f7f4;color:var(--F);border:1px solid #c0ddd0;border-radius:6px;font-size:12px;cursor:pointer'>+100</button></div><div style='display:flex;gap:6px;align-items:center'><span style='font-size:11px;color:var(--WN)'>Min:</span><input type='number' min='0' value='"+(min)+"' class='si si-o' style='width:60px' onchange='updMin("+ss+",this.value)' title='Nivel minimo'/><span style='font-size:10px;color:var(--M)'>ml</span></div></div>":"")+"</div>";}).join("");
@@ -930,6 +968,23 @@ function render(){
       +"<div class='stats'><div class='stat'><div class='sn' id='inv_tot'>"+totML.toLocaleString()+"</div><div class='sl2'>Total ml</div></div><div class='stat'><div class='sn' style='color:var(--WN)'>"+lowC+"</div><div class='sl2'>Stock bajo</div></div><div class='stat'><div class='sn' style='color:var(--D)'>"+zeroC+"</div><div class='sl2'>Sin stock</div></div></div>"
       +"<div style='background:var(--F);border-radius:var(--R);padding:12px 14px;margin-bottom:14px;color:#fff'><div style='font-size:11px;font-weight:700;letter-spacing:1px;margin-bottom:10px;opacity:.8'>CARTUCHOS FMATIC</div><div style='display:flex;gap:8px;margin-bottom:10px'><div style='flex:1;background:rgba(255,255,255,.15);border-radius:10px;padding:10px;text-align:center'><div style='font-size:22px;font-weight:700'>"+totCart+"</div><div style='font-size:10px;opacity:.75'>Total</div></div><div style='flex:1;background:rgba(255,255,255,.15);border-radius:10px;padding:10px;text-align:center'><div style='font-size:22px;font-weight:700;color:#e8c97a'>"+zeroCart+"</div><div style='font-size:10px;opacity:.75'>Sin stock</div></div></div>"+cartRows+(isA?"<button onclick='openAddCartucho()' style='display:flex;align-items:center;gap:6px;width:100%;margin-top:10px;padding:9px;background:rgba(255,255,255,.15);border:none;border-radius:10px;color:#fff;font-size:12px;font-weight:600;cursor:pointer;justify-content:center'>+ Agregar cartucho</button>":"")+"</div>"
       +"<div style='background:#2d6a4f;border-radius:var(--R);padding:12px 14px;margin-bottom:14px;color:#fff'><div style='font-size:11px;font-weight:700;letter-spacing:1px;margin-bottom:10px;opacity:.8'>REJILLAS AIRFIN URINAL</div><div style='display:flex;gap:8px;margin-bottom:10px'><div style='flex:1;background:rgba(255,255,255,.15);border-radius:10px;padding:10px;text-align:center'><div style='font-size:22px;font-weight:700'>"+totRej+"</div><div style='font-size:10px;opacity:.75'>Total</div></div><div style='flex:1;background:rgba(255,255,255,.15);border-radius:10px;padding:10px;text-align:center'><div style='font-size:22px;font-weight:700;color:#e8c97a'>"+zeroRej+"</div><div style='font-size:10px;opacity:.75'>Sin stock</div></div></div>"+rejRows+(isA?"<button onclick='openAddRejilla()' style='display:flex;align-items:center;gap:6px;width:100%;margin-top:10px;padding:9px;background:rgba(255,255,255,.15);border:none;border-radius:10px;color:#fff;font-size:12px;font-weight:600;cursor:pointer;justify-content:center'>+ Agregar rejilla</button>":"")+"</div>"
+      +"<div style='background:"+(batLow?"#7b3f00":"#5d4037")+";border-radius:var(--R);padding:12px 14px;margin-bottom:14px;color:#fff'>"
+      +"<div style='font-size:11px;font-weight:700;letter-spacing:1px;margin-bottom:10px;opacity:.8'>BATER\xCDAS D &mdash; AE701 / AE801</div>"
+      +"<div style='display:flex;gap:8px;margin-bottom:10px'>"
+      +"<div style='flex:1;background:rgba(255,255,255,.15);border-radius:10px;padding:10px;text-align:center'>"
+      +"<div style='font-size:28px;font-weight:700;color:"+(baterias===0?"#e8c97a":batLow?"#ffcc80":"#fff")+"'>"+baterias+"</div>"
+      +"<div style='font-size:10px;opacity:.75'>Bater\xEDas en stock</div></div>"
+      +"<div style='flex:1;background:rgba(255,255,255,.15);border-radius:10px;padding:10px;text-align:center'>"
+      +"<div style='font-size:12px;font-weight:600;color:"+(baterias===0?"#e8c97a":batLow?"#ffcc80":"rgba(255,255,255,.9)")+";padding-top:4px'>"+(baterias===0?"Sin stock":batLow?"⚠ Stock bajo":"OK")+"</div>"
+      +"<div style='font-size:10px;opacity:.75;margin-top:4px'>M\xEDnimo recomendado: 4</div></div></div>"
+      +(isA?"<div style='display:flex;gap:8px;align-items:center;justify-content:center'>"
+      +"<button onclick='updBateriasDelta(-4)' style='padding:6px 12px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);border-radius:8px;color:#fff;font-size:13px;cursor:pointer'>-4</button>"
+      +"<button onclick='updBateriasDelta(-1)' style='padding:6px 12px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);border-radius:8px;color:#fff;font-size:13px;cursor:pointer'>-1</button>"
+      +"<input type='number' min='0' value='"+baterias+"' onchange='updBaterias(this.value)' style='width:60px;text-align:center;padding:6px;border:1px solid rgba(255,255,255,.3);border-radius:8px;background:rgba(255,255,255,.1);color:#fff;font-size:15px;font-weight:700'/>"
+      +"<button onclick='updBateriasDelta(1)' style='padding:6px 12px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);border-radius:8px;color:#fff;font-size:13px;cursor:pointer'>+1</button>"
+      +"<button onclick='updBateriasDelta(4)' style='padding:6px 12px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);border-radius:8px;color:#fff;font-size:13px;cursor:pointer'>+4</button>"
+      +"</div>":""
+      )+"</div>"
       +"<div class='sw'><i class='ti ti-search'></i><input class='si2' placeholder='Buscar esencia...' value='"+invSq+"' oninput='invSq=this.value;render()' autocomplete='off'/>"+(invSq?"<button onclick='invSq=\"\";render()' style='background:none;border:none;cursor:pointer;color:var(--M);font-size:16px;padding:0 4px'>&#x2715;</button>":"")+"</div>"
       +(ents.length===0?"<div class='empty'><i class='ti ti-search-off'></i>Sin resultados para \""+invSq+"\"</div>":esRows)
       +(isA?"<button class='btn-add' onclick='openAddEsencia()'><i class='ti ti-plus'></i> Agregar esencia</button>":"");
@@ -1298,7 +1353,7 @@ function regVisitSimple(){
   const s=selEq?.serie||document.getElementById("ec_s_tmp")?.value||"";
   const ml=parseInt(mlV)||0;
   if(!selC){showToast("Selecciona cliente");return;}
-  if(!ml&&!selS){showToast("Ingresa ML o esencia");return;}
+  // ml y esencia son opcionales — se puede registrar visita de mantenimiento sin descarga
   const v={id:uid(),fecha:new Date().toISOString(),vnd:sess.name,cliente:selC,modelo:m||"",serie:s||"",area:"",esencia:selS||"",ml,notas:notV||"",prob:false};
   visits=[v,...visits];sv("vis",visits);
   if(selS&&ml>0&&(inv[selS]||0)>=ml){inv={...inv,[selS]:(inv[selS]||0)-ml};sv("inv",inv);}
