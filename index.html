@@ -174,7 +174,8 @@ let vendors=ld("vnd",[
   {id:"v2",name:"Noe",pin:"2222",role:"vendor",active:true},
   {id:"v3",name:"Angel",pin:"3333",role:"vendor",active:true},
   {id:"v4",name:"Gerardo",pin:"4444",role:"admin",active:true},
-  {id:"v5",name:"Francisco",pin:"5555",role:"admin",active:true}
+  {id:"v5",name:"Francisco",pin:"5555",role:"admin",active:true},
+  {id:"v6",name:"Atención",pin:"6666",role:"atencion",active:true}
 ]);
 
 // ALL_CLIENTS - loaded from EQUIPOS_DB keys + customclients
@@ -245,7 +246,7 @@ function _patchInvDOM(s,n){
 }
 function updMin(s,v){const n=parseInt(v)||0;nivMin={...nivMin,[s]:n};sv("nvm",nivMin);}
 function logout(){sess=null;sv("sess",null);selC="";selEq=null;tab="visit";render();}
-function setRole(r){document.getElementById("lrole").value=r;document.querySelectorAll(".rb").forEach(b=>b.classList.remove("on"));event.target.classList.add("on");const vwrap=document.getElementById("vwrap");if(vwrap)vwrap.style.display=r==="admin"?"none":"block";const lpin=document.getElementById("lpin");if(lpin){lpin.value="";lpin.placeholder=r==="admin"?"PIN de admin":"PIN";}}
+function setRole(r){document.getElementById("lrole").value=r;document.querySelectorAll(".rb").forEach(b=>b.classList.remove("on"));event.target.classList.add("on");const vwrap=document.getElementById("vwrap");if(vwrap)vwrap.style.display=(r==="admin"||r==="atencion")?"none":"block";const lpin=document.getElementById("lpin");if(lpin){lpin.value="";lpin.placeholder=r==="admin"?"PIN de admin":"PIN";}}
 function doSync(){showToast("Sincronizando...");syncDown().then(ok=>{console.log("syncDown result:",ok);if(ok){const cc=ld("customclients",{clients:[],vc:{},pais:{}});if(cc.clients)cc.clients.forEach(c=>{if(!ALL_CLIENTS.includes(c))ALL_CLIENTS.push(c);});if(cc.vc)Object.keys(cc.vc).forEach(v=>{if(!VC[v])VC[v]=[];cc.vc[v].forEach(c=>{if(!VC[v].includes(c))VC[v].push(c);});});if(cc.pais)Object.assign(window._clientPais,cc.pais);render();showToast("\u2713 Sincronizado");}else showToast("Error de conexion");});}
 
 // ── AUTH ──
@@ -258,7 +259,12 @@ function doLogin(){
     if(av){saveSess({role:"admin",name:av.name});return;}
     document.getElementById("lerr").textContent="PIN incorrecto";return;
   }
-  const vnd=vendors.find(x=>x.pin===pin&&x.active!==false&&x.role!=="admin");
+  if(role==="atencion"){
+    const ac=vendors.find(x=>x.pin===pin&&x.active!==false&&x.role==="atencion");
+    if(ac){saveSess({role:"atencion",name:ac.name});return;}
+    document.getElementById("lerr").textContent="PIN incorrecto";return;
+  }
+  const vnd=vendors.find(x=>x.pin===pin&&x.active!==false&&x.role==="vendor");
   if(vnd){saveSess({role:"vendor",name:vnd.name});return;}
   document.getElementById("lerr").textContent="PIN incorrecto";
 }
@@ -707,12 +713,13 @@ function render(){
   const root=document.getElementById("root");
   if(!root)return;
   const isA=sess?.role==="admin";
+  const isAC=sess?.role==="atencion";
   const bajasClientes=new Set(bajas.map(b=>b.c));
   const activeClients=ALL_CLIENTS.filter(c=>!bajasClientes.has(c));
   const myOwnC=(VC[sess?.name]||[]).filter(c=>!bajasClientes.has(c));
-  const myC=isA?activeClients:[...myOwnC,...activeClients.filter(c=>!myOwnC.includes(c))];
+  const myC=(isA||isAC)?activeClients:[...myOwnC,...activeClients.filter(c=>!myOwnC.includes(c))];
   const actVnd=vendors.filter(v=>v.active!==false);
-  const activeVnds=vendors.filter(v=>v.active!==false&&v.role!=="admin");
+  const activeVnds=vendors.filter(v=>v.active!==false&&v.role!=="admin"&&v.role!=="atencion");
   const totEq=Object.values(eqStk).reduce((a,b)=>a+b,0);
 
   if(!sess){
@@ -722,11 +729,12 @@ function render(){
       +"<input type='hidden' id='lrole' value='vendor'/>"
       +"<div class='rr'>"
       +"<button class='rb on' onclick='setRole(\"vendor\")'>Vendedor</button>"
+      +"<button class='rb' onclick='setRole(\"atencion\")'>Atenci\xF3n</button>"
       +"<button class='rb' onclick='setRole(\"admin\")'>Admin</button>"
       +"</div>"
       +"<div id='vwrap' class='fw'><label class='lbl' style='color:rgba(255,255,255,.7)'>Vendedor</label>"
       +"<select class='li' id='lvnd'><option value=''>Selecciona...</option>"
-      +actVnd.filter(v=>v.role!=="admin").map(v=>"<option value='"+v.pin+"'>"+v.name+"</option>").join("")
+      +actVnd.filter(v=>v.role==="vendor").map(v=>"<option value='"+v.pin+"'>"+v.name+"</option>").join("")
       +"</select></div>"
       +"<div class='fw'><label class='lbl' style='color:rgba(255,255,255,.7)'>PIN</label>"
       +"<input type='password' class='li' id='lpin' placeholder='••••' maxlength='20' onkeydown='if(event.key===\"Enter\")doLogin()'/>"
@@ -752,6 +760,8 @@ function render(){
   // ── TABS ──
   const tabs=isA
     ?[{k:"visit",i:"ti-clipboard-plus",l:"Registrar"},{k:"hist",i:"ti-list",l:"Visitas"},{k:"inv",i:"ti-box",l:"Esencias"},{k:"demos",i:"ti-eye",l:"Demos"},{k:"eqs",i:"ti-device-ipad",l:"Equipos"},{k:"clts",i:"ti-building",l:"Clientes"},{k:"sols",i:"ti-bell",l:"Solicitudes",badge:solicitudes.filter(s=>s.vendedor===sess?.name&&s.estado==="pendiente").length},{k:"usrs",i:"ti-users",l:"Usuarios"},{k:"bajas",i:"ti-user-minus",l:"Bajas"},{k:"lost",i:"ti-trending-down",l:"Perdidos"},{k:"grades",i:"ti-gauge",l:"Intensidad"},{k:"reports",i:"ti-file-export",l:"Reportes"},{k:"config",i:"ti-settings",l:"Config"}]
+    :isAC
+    ?[{k:"hist",i:"ti-list",l:"Visitas"},{k:"inv",i:"ti-box",l:"Esencias"},{k:"clts",i:"ti-building",l:"Clientes"},{k:"eqs",i:"ti-device-ipad",l:"Equipos"},{k:"sols",i:"ti-bell",l:"Solicitudes",badge:solicitudes.filter(s=>s.vendedor===sess?.name&&s.estado==="pendiente").length}]
     :[{k:"visit",i:"ti-clipboard-plus",l:"Registrar"},{k:"hist",i:"ti-list",l:"Mis Visitas"},{k:"inv",i:"ti-box",l:"Esencias"},{k:"demos",i:"ti-eye",l:"Demos"},{k:"eqs",i:"ti-device-ipad",l:"Equipos"},{k:"clts",i:"ti-building",l:"Clientes"},{k:"bajas",i:"ti-user-minus",l:"Bajas"},{k:"sols",i:"ti-bell",l:"Solicitudes",badge:solicitudes.filter(s=>s.vendedor===sess?.name&&s.estado==="pendiente").length}];
 
   let con="";
@@ -888,12 +898,12 @@ function render(){
 
   // ── HIST TAB ──
   else if(tab==="hist"){
-    const myV=isA?visits:visits.filter(v=>v.vnd===sess.name);
+    const myV=(isA||isAC)?visits:visits.filter(v=>v.vnd===sess.name);
     const sd=window._selDate||"";
     const fv=myV.filter(v=>!sd||v.fecha.startsWith(sd));
-    const vendorFilter=isA&&sd?[...new Set(fv.map(v=>v.vnd))].sort():[];
-    let html="<p class='pt'>"+(isA?"Todas las visitas":"Mis visitas")+"</p>";
-    if(isA){
+    const vendorFilter=(isA||isAC)&&sd?[...new Set(fv.map(v=>v.vnd))].sort():[];
+    let html="<p class='pt'>"+((isA||isAC)?"Todas las visitas":"Mis visitas")+"</p>";
+    if(isA||isAC){
       html+="<div class='card' style='margin-bottom:12px'><div class='fr' style='gap:8px'>"
         +"<div class='fw'><label class='lbl' style='font-size:10px'>Filtrar por fecha</label>"
         +"<input type='date' class='inp' value='"+(sd||"")+"' onchange='window._selDate=this.value;render()'/></div>"
@@ -901,10 +911,10 @@ function render(){
         +"</div></div>";
     }
     if(sd){html+="<p class='ps'>"+fv.length+" registros</p>";}
-    if(!isA||!sd){html+="<div class='sw'><i class='ti ti-search'></i><input class='si2' placeholder='Buscar...' value='"+(sq||"")+"' oninput='sq=this.value;render()'/></div>";}
+    if(!(isA||isAC)||!sd){html+="<div class='sw'><i class='ti ti-search'></i><input class='si2' placeholder='Buscar...' value='"+(sq||"")+"' oninput='sq=this.value;render()'/></div>";}
     if(fv.length===0){
       html+="<div class='empty'><i class='ti ti-clipboard-off'></i>Sin visitas</div>";
-    } else if(isA&&sd&&vendorFilter.length>0){
+    } else if((isA||isAC)&&sd&&vendorFilter.length>0){
       vendorFilter.forEach(vnd=>{
         const vv=fv.filter(v=>v.vnd===vnd);
         const tot=vv.reduce((a,v)=>a+(v.ml||0),0);
@@ -931,7 +941,7 @@ function render(){
     } else {
       const filtered=sq?fv.filter(v=>v.cliente?.toLowerCase().includes(sq.toLowerCase())||v.esencia?.toLowerCase().includes(sq.toLowerCase())):fv;
       filtered.slice(0,40).forEach(v=>{
-        const notOwn=isA&&!(VC[v.vnd]||[]).includes(v.cliente);
+        const notOwn=(isA||isAC)&&!(VC[v.vnd]||[]).includes(v.cliente);
         const border=notOwn?"border-left-color:#e67e22":"";
         const badge=notOwn?"<span style='font-size:9px;background:#fff3cd;color:#856404;border-radius:4px;padding:1px 5px;margin-left:5px;font-weight:600'>No asignado</span>":"";
         const serieBadge=v.serie?"<span class='chip chip-b' style='font-size:10px'>"+v.modelo+"&#183;"+v.serie+"</span>":"";
@@ -940,7 +950,7 @@ function render(){
         const nivelDiv=(v.mlLlegada!=null||v.mlSalida!=null)?"<div style='font-size:11px;color:var(--M);margin-top:4px;display:flex;gap:10px'>"+(v.mlLlegada!=null?"<span>&#x2193; "+v.mlLlegada+"ml al llegar</span>":"")+(v.mlSalida!=null?"<span>&#x2191; "+v.mlSalida+"ml al salir</span>":"")+(v.mlLlegada!=null&&v.mlSalida!=null?"<span style='color:var(--F);font-weight:600'>Consumo: "+(v.mlSalida-v.mlLlegada)+"ml</span>":"")+"</div>":"";
         const batDiv=v.baterias?"<div style='font-size:11px;margin-top:4px'><span style='background:#5d4037;color:#fff;border-radius:6px;padding:2px 8px;font-weight:600'>🔋 "+v.baterias+" bater\xEDa"+(v.baterias!==1?"s":"")+" D cambiada"+(v.baterias!==1?"s":"")+"</span></div>":"";
         html+="<div class='card sl' style='padding:10px 12px;margin-bottom:6px;"+border+"'>"
-          +"<div class='ch'><div><div class='ct' style='font-size:12px'>"+v.cliente+badge+"</div><div class='cs'>"+fmt(v.fecha)+(isA?" &#183; "+v.vnd:"")+"</div></div>"
+          +"<div class='ch'><div><div class='ct' style='font-size:12px'>"+v.cliente+badge+"</div><div class='cs'>"+fmt(v.fecha)+((isA||isAC)?" &#183; "+v.vnd:"")+"</div></div>"
           +"<span class='chip' style='font-size:10px'>"+(v.ml||0)+"ml</span></div>"
           +"<div class='mr'>"+serieBadge+probBadge+"</div>"+nivelDiv+batDiv+notaDiv+"</div>";
       });
@@ -1040,7 +1050,7 @@ function render(){
       const gtFlag=(window._clientPais||{})[c]==="GT"?" \ud83c\uddec\ud83c\uddf9":"";
       const exp=expC===c;
       const cj=JSON.stringify(c);
-      const expDiv=exp?"<div style='margin-top:10px;border-top:1px solid #f0f0f0;padding-top:10px'>"+renderClientEqs(c)+"<button onclick='openAddCEq("+cj+")' style='margin-top:8px;display:flex;align-items:center;gap:5px;background:#e8f5ee;color:var(--F);border:none;padding:7px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;width:100%;justify-content:center'>+ Agregar equipo</button></div>":"";
+      const expDiv=exp?"<div style='margin-top:10px;border-top:1px solid #f0f0f0;padding-top:10px'>"+renderClientEqs(c)+(isA?"<button onclick='openAddCEq("+cj+")' style='margin-top:8px;display:flex;align-items:center;gap:5px;background:#e8f5ee;color:var(--F);border:none;padding:7px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;width:100%;justify-content:center'>+ Agregar equipo</button>":"")+"</div>":"";
       return"<div class='card'><div class='ch' onclick='togC("+cj+")' style='cursor:pointer'>"
         +"<div><div class='ct' style='font-size:12px'>"+c+gtFlag+"</div><div class='cs'>"+vn+"</div></div>"
         +"<div style='display:flex;align-items:center;gap:5px'><span class='chip'>"+cv.length+"v</span><span class='chip chip-b'>"+allEq.length+"eq</span>"
@@ -1058,7 +1068,7 @@ function render(){
 
   // ── SOLS TAB ──
   else if(tab==="sols"){
-    const mySols=isA?solicitudes:solicitudes.filter(s=>s.vendedor===sess.name);
+    const mySols=(isA||isAC)?solicitudes:solicitudes.filter(s=>s.vendedor===sess.name);
     const pend=mySols.filter(s=>s.estado==="pendiente");
     const comp=mySols.filter(s=>s.estado!=="pendiente");
     const vc30=isA?getClientesVencidos():[];
