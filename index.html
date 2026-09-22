@@ -248,6 +248,13 @@ function updMin(s,v){const n=parseInt(v)||0;nivMin={...nivMin,[s]:n};sv("nvm",ni
 function logout(){sess=null;sv("sess",null);selC="";selEq=null;tab="visit";render();}
 function setRole(r){document.getElementById("lrole").value=r;document.querySelectorAll(".rb").forEach(b=>b.classList.remove("on"));event.target.classList.add("on");const vwrap=document.getElementById("vwrap");if(vwrap)vwrap.style.display=(r==="admin"||r==="atencion")?"none":"block";const lpin=document.getElementById("lpin");if(lpin){lpin.value="";lpin.placeholder=r==="admin"?"PIN de admin":"PIN";}}
 function doSync(){showToast("Sincronizando...");syncDown().then(ok=>{console.log("syncDown result:",ok);if(ok){const cc=ld("customclients",{clients:[],vc:{},pais:{}});if(cc.clients)cc.clients.forEach(c=>{if(!ALL_CLIENTS.includes(c))ALL_CLIENTS.push(c);});if(cc.vc)Object.keys(cc.vc).forEach(v=>{if(!VC[v])VC[v]=[];cc.vc[v].forEach(c=>{if(!VC[v].includes(c))VC[v].push(c);});});if(cc.pais)Object.assign(window._clientPais,cc.pais);render();showToast("\u2713 Sincronizado");}else showToast("Error de conexion");});}
+function forceSyncUp(){
+  if(!confirm("\u00bfSubir todos los datos locales a la nube? Esto sobreescribe lo que est\u00e1 en Supabase con los datos de este dispositivo."))return;
+  showToast("Subiendo datos...");
+  const keys=["vis","inv","demos","eqs","movs","eqgrades","ceq","bajas","nvm","vnd","modelos","stkseries","cartuchos","customclients","sols","rejillas","baterias"];
+  let done=0;
+  keys.forEach(k=>{const v=ld(k,null);if(v!==null){sbSet(k,v).then(()=>{done++;if(done===keys.length){showToast("\u2713 Datos subidos a la nube");render();}});}else{done++;if(done===keys.length){showToast("\u2713 Datos subidos a la nube");render();}}});
+}
 
 // ── AUTH ──
 function doLogin(){
@@ -1348,7 +1355,8 @@ function render(){
     +"<div class='tb'><div class='tb-logo'>E<span style='color:#b8892a'>s</span></div>"
     +"<div class='tb-r'><span class='tb-u'>"+sess.name+"</span>"
     +(isA?"<span class='ba'>Admin</span>":"")
-    +"<button class='btn-o' onclick='doSync()' title='Sincronizar'><i class='ti ti-refresh'></i></button>"
+    +(isA?"<button class='btn-o' onclick='forceSyncUp()' title='Forzar subida a nube' style='font-size:11px;padding:4px 8px'><i class='ti ti-cloud-upload'></i></button>":"")
++"<button class='btn-o' onclick='doSync()' title='Sincronizar'><i class='ti ti-refresh'></i></button>"
     +"<button class='btn-o' onclick='logout()'>Salir</button></div></div>"
     +"<div class='nav'>"+navBtns+"</div>"
     +"<div class='cnt'>"+con+"</div>"
