@@ -190,7 +190,7 @@ if(_cc){
 let modal=null;
 let toast="";
 let tab="visit";
-let sq="";
+let sq="";let invSq="";
 let selC="";
 let selEq=null;
 let selS="";
@@ -914,7 +914,7 @@ function render(){
 
   // ── INV TAB ──
   else if(tab==="inv"){
-    const ents=Object.entries(inv).sort((a,b)=>b[1]-a[1]);
+    const ents=Object.entries(inv).filter(([s])=>!invSq||s.toLowerCase().includes(invSq.toLowerCase())).sort((a,b)=>b[1]-a[1]);
     const maxML=Math.max(...Object.values(inv),1);
     const totML=Object.values(inv).reduce((a,b)=>a+b,0);
     const zeroC=Object.values(inv).filter(v=>v===0).length;
@@ -930,7 +930,8 @@ function render(){
       +"<div class='stats'><div class='stat'><div class='sn' id='inv_tot'>"+totML.toLocaleString()+"</div><div class='sl2'>Total ml</div></div><div class='stat'><div class='sn' style='color:var(--WN)'>"+lowC+"</div><div class='sl2'>Stock bajo</div></div><div class='stat'><div class='sn' style='color:var(--D)'>"+zeroC+"</div><div class='sl2'>Sin stock</div></div></div>"
       +"<div style='background:var(--F);border-radius:var(--R);padding:12px 14px;margin-bottom:14px;color:#fff'><div style='font-size:11px;font-weight:700;letter-spacing:1px;margin-bottom:10px;opacity:.8'>CARTUCHOS FMATIC</div><div style='display:flex;gap:8px;margin-bottom:10px'><div style='flex:1;background:rgba(255,255,255,.15);border-radius:10px;padding:10px;text-align:center'><div style='font-size:22px;font-weight:700'>"+totCart+"</div><div style='font-size:10px;opacity:.75'>Total</div></div><div style='flex:1;background:rgba(255,255,255,.15);border-radius:10px;padding:10px;text-align:center'><div style='font-size:22px;font-weight:700;color:#e8c97a'>"+zeroCart+"</div><div style='font-size:10px;opacity:.75'>Sin stock</div></div></div>"+cartRows+(isA?"<button onclick='openAddCartucho()' style='display:flex;align-items:center;gap:6px;width:100%;margin-top:10px;padding:9px;background:rgba(255,255,255,.15);border:none;border-radius:10px;color:#fff;font-size:12px;font-weight:600;cursor:pointer;justify-content:center'>+ Agregar cartucho</button>":"")+"</div>"
       +"<div style='background:#2d6a4f;border-radius:var(--R);padding:12px 14px;margin-bottom:14px;color:#fff'><div style='font-size:11px;font-weight:700;letter-spacing:1px;margin-bottom:10px;opacity:.8'>REJILLAS AIRFIN URINAL</div><div style='display:flex;gap:8px;margin-bottom:10px'><div style='flex:1;background:rgba(255,255,255,.15);border-radius:10px;padding:10px;text-align:center'><div style='font-size:22px;font-weight:700'>"+totRej+"</div><div style='font-size:10px;opacity:.75'>Total</div></div><div style='flex:1;background:rgba(255,255,255,.15);border-radius:10px;padding:10px;text-align:center'><div style='font-size:22px;font-weight:700;color:#e8c97a'>"+zeroRej+"</div><div style='font-size:10px;opacity:.75'>Sin stock</div></div></div>"+rejRows+(isA?"<button onclick='openAddRejilla()' style='display:flex;align-items:center;gap:6px;width:100%;margin-top:10px;padding:9px;background:rgba(255,255,255,.15);border:none;border-radius:10px;color:#fff;font-size:12px;font-weight:600;cursor:pointer;justify-content:center'>+ Agregar rejilla</button>":"")+"</div>"
-      +esRows
+      +"<div class='sw'><i class='ti ti-search'></i><input class='si2' placeholder='Buscar esencia...' value='"+invSq+"' oninput='invSq=this.value;render()' autocomplete='off'/>"+(invSq?"<button onclick='invSq=\"\";render()' style='background:none;border:none;cursor:pointer;color:var(--M);font-size:16px;padding:0 4px'>&#x2715;</button>":"")+"</div>"
+      +(ents.length===0?"<div class='empty'><i class='ti ti-search-off'></i>Sin resultados para \""+invSq+"\"</div>":esRows)
       +(isA?"<button class='btn-add' onclick='openAddEsencia()'><i class='ti ti-plus'></i> Agregar esencia</button>":"");
   }
 
@@ -1275,7 +1276,7 @@ function render(){
   const navBtns=tabs.map(t2=>{
     const isCurrent=tab===t2.k;
     const badge=t2.badge?"<span style='position:absolute;top:4px;right:4px;background:var(--D);color:#fff;border-radius:50%;width:16px;height:16px;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center'>"+t2.badge+"</span>":"";
-    return"<button class='nt "+(isCurrent?"on":"")+"' onclick='tab="+JSON.stringify(t2.k)+";sq=\"\";render()' style='position:relative'><i class='ti "+t2.i+"' style='display:block'></i>"+t2.l+badge+"</button>";
+    return"<button class='nt "+(isCurrent?"on":"")+"' onclick='tab="+JSON.stringify(t2.k)+";sq=\"\";invSq=\"\";render()' style='position:relative'><i class='ti "+t2.i+"' style='display:block'></i>"+t2.l+badge+"</button>";
   }).join("");
   const pendSolBadge=solicitudes.filter(s=>s.vendedor===sess?.name&&s.estado==="pendiente").length;
   root.innerHTML="<div class='app'>"
