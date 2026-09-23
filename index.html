@@ -462,6 +462,19 @@ function saveRenameCliente(){
   visits=visits.map(v=>v.cliente===oldName?{...v,cliente:newName}:v);sv("vis",visits);
   modal=null;showToast("Cliente renombrado");
 }
+function _asignarDirecto(c,nuevoV){
+  Object.keys(VC).forEach(v=>{VC[v]=VC[v].filter(x=>x!==c);});
+  if(nuevoV){if(!VC[nuevoV])VC[nuevoV]=[];VC[nuevoV].push(c);}
+  const cc=ld("customclients",{clients:[],vc:{},pais:{},vcOverride:{}});
+  if(!cc.vc)cc.vc={};if(!cc.vcOverride)cc.vcOverride={};
+  Object.keys(cc.vc).forEach(v=>{cc.vc[v]=(cc.vc[v]||[]).filter(x=>x!==c);});
+  if(nuevoV){if(!cc.vc[nuevoV])cc.vc[nuevoV]=[];if(!cc.vc[nuevoV].includes(c))cc.vc[nuevoV].push(c);}
+  cc.vcOverride[c]=nuevoV;
+  if(!cc.clients)cc.clients=[];if(!cc.clients.includes(c))cc.clients.push(c);
+  sv("customclients",cc);
+  showToast(c+" → "+(nuevoV||"Sin asignar"));
+  render();
+}
 function openAsignarVendedor(c){modal={t:"asignarVendedor",c};render();}
 function saveAsignarVendedor(){
   const c=modal.c;
@@ -1235,7 +1248,9 @@ function render(){
       const gtFlag=(window._clientPais||{})[c]==="GT"?" \ud83c\uddec\ud83c\uddf9":"";
       const exp=expC===c;
       const cj=JSON.stringify(c);
-      const expDiv=exp?"<div style='margin-top:10px;border-top:1px solid #f0f0f0;padding-top:10px'>"+renderClientEqs(c)+(isA?"<button onclick='openAddCEq("+cj+")' style='margin-top:8px;display:flex;align-items:center;gap:5px;background:#e8f5ee;color:var(--F);border:none;padding:7px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;width:100%;justify-content:center'>+ Agregar equipo</button>":"")+"</div>":"";
+      const activeVnds4=vendors.filter(v=>v.active!==false&&v.role!=="admin");
+      const asignarSelect=isA?"<div style='display:flex;align-items:center;gap:8px;margin-bottom:10px;padding:8px;background:#fffbea;border:1px solid #ffe082;border-radius:8px'><span style='font-size:11px;font-weight:700;color:#e65100;white-space:nowrap'>Vendedor:</span><select onchange='_asignarDirecto("+cj+",this.value)' style='flex:1;padding:5px 8px;border:1px solid #dde;border-radius:6px;font-size:12px;background:#fff'><option value=''"+(vn==="Sin asignar"?" selected":"")+">Sin asignar</option>"+activeVnds4.map(v=>"<option value='"+v.name+"'"+(v.name===vn?" selected":"")+">"+v.name+"</option>").join("")+"</select></div>":"";
+      const expDiv=exp?"<div style='margin-top:10px;border-top:1px solid #f0f0f0;padding-top:10px'>"+asignarSelect+renderClientEqs(c)+(isA?"<button onclick='openAddCEq("+cj+")' style='margin-top:8px;display:flex;align-items:center;gap:5px;background:#e8f5ee;color:var(--F);border:none;padding:7px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;width:100%;justify-content:center'>+ Agregar equipo</button>":"")+"</div>":"";
       return"<div class='card'><div class='ch' onclick='togC("+cj+")' style='cursor:pointer'>"
         +"<div><div class='ct' style='font-size:12px'>"+c+gtFlag+"</div><div class='cs'>"+vn+"</div></div>"
         +"<div style='display:flex;align-items:center;gap:5px'><span class='chip'>"+cv.length+"v</span><span class='chip chip-b'>"+allEq.length+"eq</span>"
