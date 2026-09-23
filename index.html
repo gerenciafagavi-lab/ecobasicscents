@@ -231,7 +231,7 @@ function getGradeDisplay(serie){
 function getNextSerie(modelo){
   const allS=[];
   Object.values(EQUIPOS_DB).forEach(eqs=>eqs.forEach(eq=>{if(eq.modelo===modelo)allS.push(eq.serie);}));
-  Object.values(ceq).forEach(eqs=>eqs.forEach(eq=>{if(eq.modelo===modelo&&!eq._del)allS.push(eq.serie);}));
+  Object.entries(ceq).forEach(([serie,eq])=>{if(eq&&eq.modelo===modelo&&!eq._del)allS.push(serie);});
   demos.forEach(d=>{if(d.modelo===modelo&&d.serie)allS.push(d.serie);});
   const nums=allS.map(s=>{const m=s.match(/(\d+)$/);return m?parseInt(m[1]):0;}).filter(n=>n>0);
   const next=nums.length>0?Math.max(...nums)+1:1;
