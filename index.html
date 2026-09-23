@@ -197,8 +197,8 @@ if(_cc){
   if(_cc.vc)Object.keys(_cc.vc||{}).forEach(v=>{if(!VC[v])VC[v]=[];_cc.vc[v].forEach(c=>{if(!VC[v].includes(c))VC[v].push(c);});});
   if(_cc.pais)Object.assign(window._clientPais,_cc.pais);
 }
-// Fusionar BASE_CEQ con ceq local (BASE_CEQ solo añade series que no existan)
-Object.keys(BASE_CEQ).forEach(s=>{if(!ceq[s])ceq[s]=BASE_CEQ[s];});
+// Fusionar BASE_CEQ con ceq local — convertir formato {serie:{modelo,area,aroma,cliente}} a {cliente:[{serie,...}]}
+{const _bgroup={};Object.entries(BASE_CEQ).forEach(([serie,eq])=>{const c=eq.cliente;if(!c)return;if(!_bgroup[c])_bgroup[c]=[];_bgroup[c].push({serie,modelo:eq.modelo,area:eq.area,aroma:eq.aroma});});Object.entries(_bgroup).forEach(([c,eqs])=>{if(!ceq[c]){ceq[c]=eqs;}else{eqs.forEach(be=>{if(!ceq[c].find(x=>x.serie===be.serie))ceq[c].push(be);});}});}
 
 let modal=null;
 let toast="";
@@ -231,7 +231,7 @@ function getGradeDisplay(serie){
 function getNextSerie(modelo){
   const allS=[];
   Object.values(EQUIPOS_DB).forEach(eqs=>eqs.forEach(eq=>{if(eq.modelo===modelo)allS.push(eq.serie);}));
-  Object.entries(ceq).forEach(([serie,eq])=>{if(eq&&eq.modelo===modelo&&!eq._del)allS.push(serie);});
+  Object.entries(ceq).forEach(([k,v])=>{if(Array.isArray(v)){v.forEach(eq=>{if(eq&&eq.modelo===modelo&&!eq._del)allS.push(eq.serie);});}else if(v&&v.modelo===modelo&&!v._del){allS.push(k);}});
   demos.forEach(d=>{if(d.modelo===modelo&&d.serie)allS.push(d.serie);});
   const nums=allS.map(s=>{const m=s.match(/(\d+)$/);return m?parseInt(m[1]):0;}).filter(n=>n>0);
   const next=nums.length>0?Math.max(...nums)+1:1;
@@ -301,7 +301,11 @@ function saveSess(s){
         if(ccNow.pais)Object.assign(merged.pais,ccNow.pais);
         sv("customclients",merged);
         const ceqNow=ld("ceq",{});
-        const ceqMerged={...BASE_CEQ,...ceqNow};
+        // Convertir BASE_CEQ a formato {cliente:[{serie,...}]} antes de mergear
+        const _bg={};Object.entries(BASE_CEQ).forEach(([serie,eq])=>{const c=eq.cliente;if(!c)return;if(!_bg[c])_bg[c]=[];_bg[c].push({serie,modelo:eq.modelo,area:eq.area,aroma:eq.aroma});});
+        const ceqMerged={..._bg};
+        // Sobreescribir con datos locales (solo arrays = formato correcto)
+        Object.entries(ceqNow).forEach(([k,v])=>{if(Array.isArray(v))ceqMerged[k]=v;});
         sv("ceq",ceqMerged);
         BASE_CC.clients.forEach(c=>{if(!ALL_CLIENTS.includes(c))ALL_CLIENTS.push(c);});
         console.log("Base data synced to Supabase: "+merged.clients.length+" clients");
@@ -829,7 +833,7 @@ function render(){
       if(eqsC.length===0){
         html+="<div style='background:#fffbe8;border:1px solid #ffe;border-radius:var(--R);padding:10px 12px;font-size:12px;color:#856404;margin-bottom:12px'>Sin equipos. El admin puede agregarlos en Clientes.</div>"
           +"<div class='fw'><label class='lbl'>Modelo</label><select class='inp' id='mmm'>"+modelos.map(m=>"<option>"+m+"</option>").join("")+"</select></div>"
-          +"<div class='fw'><label class='lbl'>Serie</label><input class='inp' placeholder='Nro serie' oninput='setSelEqManual(this.value)'/></div>"
+          +"<div class='fw'><label class='lbl'>Serie</label><input id='ec_s_tmp' class='inp' placeholder='Nro serie' oninput='setSelEqManual(this.value)'/></div>"
           +"<div class='fw'><label class='lbl'>Esencia usada</label><select class='inp' onchange='selS=this.value'><option value=''>Sin esencia / solo mantenimiento</option>"+allScents.map(s=>"<option value='"+s+"'"+(s===selS?" selected":"")+">"+s+"</option>").join("")+"</select></div>"
           +"<div class='fw'><label class='lbl'>ML usados *</label><input type='number' class='inp' placeholder='0' min='1' oninput='mlV=this.value' value='"+(mlV||"")+"'/></div>"
           +"<button class='btn' onclick='regVisitSimple()'>Guardar visita</button>";
