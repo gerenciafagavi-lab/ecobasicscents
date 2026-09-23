@@ -640,6 +640,7 @@ function saveConvertir(){
 }
 function getClientesVencidos(){
   const hoy=new Date();
+  const bajasClientes=new Set((bajas||[]).map(b=>b.c));
   const myC=sess?.role==="admin"?ALL_CLIENTS.filter(c=>!bajasClientes.has(c)):(VC[sess?.name]||[]);
   return myC.filter(c=>{
     const lv=visits.filter(v=>v.cliente===c).sort((a,b)=>new Date(b.fecha)-new Date(a.fecha))[0];
