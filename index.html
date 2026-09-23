@@ -97,7 +97,7 @@ window.onerror=function(msg,src,line){
 // ── SUPABASE ──
 const SB_URL="https://bdyuhphgqehnzputlgiy.supabase.co";
 const SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJkeXVocGhncWVobnpwdXRsZ2l5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkxOTk0NjUsImV4cCI6MjA5NDc3NTQ2NX0.gJ8JQb2dHIbupktg1ags10uYXfepAE6ou3Da6EAra9M";
-const SB_KEYS=["vis","inv","demos","eqs","movs","eqgrades","ceq","bajas","nvm","vnd","modelos","stkseries","cartuchos","customclients","sols","rejillas","baterias"];
+const SB_KEYS=["vis","inv","demos","eqs","movs","eqgrades","ceq","bajas","nvm","vnd","modelos","stkseries","cartuchos","customclients","sols","rejillas","baterias","pedidos"];
 async function sbSet(k,v){try{await fetch(SB_URL+"/rest/v1/app_data",{method:"POST",mode:"cors",credentials:"omit",headers:{"apikey":SB_KEY,"Authorization":"Bearer "+SB_KEY,"Content-Type":"application/json","Prefer":"resolution=merge-duplicates","X-Client-Info":"ecobasicscents/1.0"},body:JSON.stringify({key:k,value:JSON.stringify(v),updated_at:new Date().toISOString()})});}catch{}}
 async function syncDown(){
   try{
@@ -140,6 +140,7 @@ async function syncDown(){
         }
         if(row.key==="bajas")bajas=val;
         if(row.key==="nvm")nivMin=val;
+        if(row.key==="pedidos")pedidos=val;
         if(row.key==="vnd")vendors=val;
         if(row.key==="modelos")modelos=val;
         if(row.key==="cartuchos")cartuchos=val;
@@ -192,6 +193,7 @@ let rejillas=ld("rejillas",null);if(!rejillas){rejillas={"AirFin Mountain Breeze
 let baterias=ld("baterias",0);if(isNaN(baterias)||baterias<0)baterias=0;
 let modelos=ld("modelos",["AE301","AE701","AE801","AE3500","Radiant","AE TOWER BLACK","FMATIC Blanco","FMATIC Negro","Equipo de Goteo","AirFin Urinal"]);
 let nivMin=ld("nvm",{});
+let pedidos=ld("pedidos",{}); // {esencia:[{qty,fecha,nota}]}
 let vendors=ld("vnd",[
   {id:"v1",name:"Kelvin",pin:"1111",role:"vendor",active:true},
   {id:"v2",name:"Noe",pin:"2222",role:"vendor",active:true},
@@ -698,6 +700,38 @@ function openAddModelo(){modal={t:"addModelo"};render();}
 function saveModelo(){const n=document.getElementById("mod_n").value.trim().toUpperCase();if(!n)return;if(modelos.includes(n)){showToast("Ya existe");return;}modelos=[...modelos,n];sv("modelos",modelos);modal=null;showToast("Modelo "+n+" agregado");}
 function delModelo(m){if(["AE301","AE701","AE3500","Radiant"].includes(m)){showToast("No se puede eliminar");return;}modelos=modelos.filter(x=>x!==m);sv("modelos",modelos);render();}
 function openAddEsencia(){modal={t:"addEsencia"};render();}
+function openPedido(s){modal={t:"pedido",esencia:s,qty:"",nota:""};render();}
+function savePedido(){
+  if(!modal||modal.t!=="pedido")return;
+  const s=modal.esencia;
+  const qty=parseInt(modal.qty)||0;
+  if(qty<=0){showToast("Ingresa una cantidad válida");return;}
+  const fecha=new Date().toISOString().slice(0,10);
+  if(!pedidos[s])pedidos[s]=[];
+  pedidos[s].push({qty,fecha,nota:modal.nota||""});
+  sv("pedidos",pedidos);
+  modal=null;
+  showToast("Pedido registrado: "+qty+"ml de "+s);
+  render();
+}
+function recibirPedido(s,i){
+  if(!pedidos[s]||!pedidos[s][i])return;
+  const p=pedidos[s][i];
+  inv={...inv,[s]:(inv[s]||0)+p.qty};
+  sv("inv",inv);
+  pedidos[s].splice(i,1);
+  if(pedidos[s].length===0)delete pedidos[s];
+  sv("pedidos",pedidos);
+  showToast("Recibido: +"+p.qty+"ml de "+s);
+  render();
+}
+function cancelPedido(s,i){
+  if(!pedidos[s]||!pedidos[s][i])return;
+  pedidos[s].splice(i,1);
+  if(pedidos[s].length===0)delete pedidos[s];
+  sv("pedidos",pedidos);
+  render();
+}
 function saveEsencia(){const n=document.getElementById("es_n").value.trim().toUpperCase();const stock=parseInt(document.getElementById("es_stock").value)||0;const min=parseInt(document.getElementById("es_min").value)||500;if(!n)return;inv={...inv,[n]:stock};nivMin={...nivMin,[n]:min};sv("inv",inv);sv("nvm",nivMin);modal=null;showToast("Esencia "+n+" agregada");}
 function delEsencia(n){if((inv[n]||0)>0){showToast("Tiene stock. Ponla en 0 primero.");return;}const ni={...inv};delete ni[n];const nm={...nivMin};delete nm[n];inv=ni;nivMin=nm;sv("inv",inv);sv("nvm",nivMin);render();}
 function openEditEsencia(n){modal={t:"editEsencia",nombre:n};render();}
@@ -1033,7 +1067,28 @@ function render(){
     const batLow=baterias<=4;
     const cartRows=Object.entries(cartuchos).map(([n,u])=>{const ns=JSON.stringify(n);return"<div style='display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.1)'><span style='font-size:13px'>"+n+"</span><div style='display:flex;align-items:center;gap:8px'>"+(isA?"<button onclick='updCartucho("+ns+","+(u-1)+")' style='width:28px;height:28px;border:1px solid rgba(255,255,255,.3);border-radius:7px;background:none;color:#fff;font-size:16px;cursor:pointer'>&#8722;</button>":"")+"<span style='font-size:18px;font-weight:700;color:"+(u===0?"#e8c97a":"#fff")+"'>"+u+"</span>"+(isA?"<button onclick='updCartucho("+ns+","+(u+1)+")' style='width:28px;height:28px;border:1px solid rgba(255,255,255,.3);border-radius:7px;background:none;color:#fff;font-size:16px;cursor:pointer'>+</button>":"")+"</div></div>";}).join("");
     const rejRows=Object.entries(rejillas).map(([n,u])=>{const ns=JSON.stringify(n);return"<div style='display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.1)'><span style='font-size:13px'>"+n+"</span><div style='display:flex;align-items:center;gap:8px'>"+(isA?"<button onclick='updRejilla("+ns+","+(u-1)+")' style='width:28px;height:28px;border:1px solid rgba(255,255,255,.3);border-radius:7px;background:none;color:#fff;font-size:16px;cursor:pointer'>&#8722;</button>":"")+"<span style='font-size:18px;font-weight:700;color:"+(u===0?"#e8c97a":"#fff")+"'>"+u+"</span>"+(isA?"<button onclick='updRejilla("+ns+","+(u+1)+")' style='width:28px;height:28px;border:1px solid rgba(255,255,255,.3);border-radius:7px;background:none;color:#fff;font-size:16px;cursor:pointer'>+</button>":"")+"</div></div>";}).join("");
-    const esRows=ents.map(([s,ml])=>{const min=nivMin[s]||500;const pct=Math.round((ml/maxML)*100);const cls=ml===0?"bd":ml<=min?"bw":"";const col=ml===0?"var(--D)":ml<=min?"var(--WN)":"var(--F)";const ss=JSON.stringify(s);const sid=s.replace(/[^a-z0-9]/gi,"_");return"<div class='ii'><div class='ih'><span style='font-weight:700'>"+s+"</span><span id='inv_ml_"+sid+"' style='font-weight:700;color:"+col+"'>"+ml.toLocaleString()+"ml</span></div><div class='bb'><div class='bar "+cls+"' style='width:"+pct+"%'></div></div>"+(isA?"<div style='margin-top:8px'><div style='display:flex;gap:4px;align-items:center;margin-bottom:6px'><button onclick='updStockDelta("+ss+",-100)' style='padding:2px 7px;background:#fef0f0;color:#c0392b;border:1px solid #f5c6c6;border-radius:6px;font-size:12px;cursor:pointer'>-100</button><button onclick='updStockDelta("+ss+",-10)' style='padding:2px 7px;background:#fef0f0;color:#c0392b;border:1px solid #f5c6c6;border-radius:6px;font-size:12px;cursor:pointer'>-10</button><button onclick='updStockDelta("+ss+",-1)' style='padding:2px 7px;background:#fef0f0;color:#c0392b;border:1px solid #f5c6c6;border-radius:6px;font-size:12px;cursor:pointer'>-1</button><input type='number' min='0' id='inv_inp_"+sid+"' value='"+ml+"' class='si' style='width:70px;text-align:center' onchange='updStock("+ss+",this.value)' title='Escriba cantidad directa'/><button onclick='updStockDelta("+ss+",1)' style='padding:2px 7px;background:#f0f7f4;color:var(--F);border:1px solid #c0ddd0;border-radius:6px;font-size:12px;cursor:pointer'>+1</button><button onclick='updStockDelta("+ss+",10)' style='padding:2px 7px;background:#f0f7f4;color:var(--F);border:1px solid #c0ddd0;border-radius:6px;font-size:12px;cursor:pointer'>+10</button><button onclick='updStockDelta("+ss+",100)' style='padding:2px 7px;background:#f0f7f4;color:var(--F);border:1px solid #c0ddd0;border-radius:6px;font-size:12px;cursor:pointer'>+100</button></div><div style='display:flex;gap:6px;align-items:center'><span style='font-size:11px;color:var(--WN)'>Min:</span><input type='number' min='0' value='"+(min)+"' class='si si-o' style='width:60px' onchange='updMin("+ss+",this.value)' title='Nivel minimo'/><span style='font-size:10px;color:var(--M)'>ml</span></div></div>":"")+"</div>";}).join("");
+    const esRows=ents.map(([s,ml])=>{
+      const min=nivMin[s]||500;const pct=Math.round((ml/maxML)*100);
+      const cls=ml===0?"bd":ml<=min?"bw":"";const col=ml===0?"var(--D)":ml<=min?"var(--WN)":"var(--F)";
+      const ss=JSON.stringify(s);const sid=s.replace(/[^a-z0-9]/gi,"_");
+      // Pedidos pendientes para esta esencia
+      const peds=pedidos[s]||[];
+      const pedHTML=peds.length>0?"<div style='margin-top:6px;display:flex;flex-direction:column;gap:4px'>"+peds.map((p,i)=>{
+        const d=new Date(p.fecha);const dm=(d.getDate())+"/"+(d.getMonth()+1);
+        return"<div style='display:flex;align-items:center;justify-content:space-between;background:#fffbea;border:1px solid #ffe082;border-radius:8px;padding:5px 8px'>"
+          +"<span style='font-size:12px'>📦 <strong>"+p.qty.toLocaleString()+"ml</strong> pedido el "+dm+(p.nota?" · "+p.nota:"")+"</span>"
+          +(isA?"<div style='display:flex;gap:4px'><button onclick='recibirPedido("+ss+","+i+")' style='padding:2px 8px;background:#e8f5e9;color:#2e7d32;border:1px solid #a5d6a7;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer'>✓ Recibido</button>"
+          +"<button onclick='cancelPedido("+ss+","+i+")' style='padding:2px 6px;background:#fce4ec;color:#c62828;border:1px solid #ef9a9a;border-radius:6px;font-size:11px;cursor:pointer'>✕</button></div>":"")
+          +"</div>";
+      }).join("")+"</div>":""
+      // Para vendedores: solo mostrar si hay pedidos
+      +(peds.length===0&&!isA?"":"");
+      return"<div class='ii'><div class='ih'><span style='font-weight:700'>"+s+"</span><span id='inv_ml_"+sid+"' style='font-weight:700;color:"+col+"'>"+ml.toLocaleString()+"ml</span></div><div class='bb'><div class='bar "+cls+"' style='width:"+pct+"%'></div></div>"+pedHTML
+        +(isA?"<div style='margin-top:8px'><div style='display:flex;gap:4px;align-items:center;margin-bottom:6px'><button onclick='updStockDelta("+ss+",-100)' style='padding:2px 7px;background:#fef0f0;color:#c0392b;border:1px solid #f5c6c6;border-radius:6px;font-size:12px;cursor:pointer'>-100</button><button onclick='updStockDelta("+ss+",-10)' style='padding:2px 7px;background:#fef0f0;color:#c0392b;border:1px solid #f5c6c6;border-radius:6px;font-size:12px;cursor:pointer'>-10</button><button onclick='updStockDelta("+ss+",-1)' style='padding:2px 7px;background:#fef0f0;color:#c0392b;border:1px solid #f5c6c6;border-radius:6px;font-size:12px;cursor:pointer'>-1</button><input type='number' min='0' id='inv_inp_"+sid+"' value='"+ml+"' class='si' style='width:70px;text-align:center' onchange='updStock("+ss+",this.value)' title='Escriba cantidad directa'/><button onclick='updStockDelta("+ss+",1)' style='padding:2px 7px;background:#f0f7f4;color:var(--F);border:1px solid #c0ddd0;border-radius:6px;font-size:12px;cursor:pointer'>+1</button><button onclick='updStockDelta("+ss+",10)' style='padding:2px 7px;background:#f0f7f4;color:var(--F);border:1px solid #c0ddd0;border-radius:6px;font-size:12px;cursor:pointer'>+10</button><button onclick='updStockDelta("+ss+",100)' style='padding:2px 7px;background:#f0f7f4;color:var(--F);border:1px solid #c0ddd0;border-radius:6px;font-size:12px;cursor:pointer'>+100</button></div>"
+        +"<div style='display:flex;gap:6px;align-items:center;justify-content:space-between'><div style='display:flex;gap:6px;align-items:center'><span style='font-size:11px;color:var(--WN)'>Min:</span><input type='number' min='0' value='"+(min)+"' class='si si-o' style='width:60px' onchange='updMin("+ss+",this.value)' title='Nivel minimo'/><span style='font-size:10px;color:var(--M)'>ml</span></div>"
+        +"<button onclick='openPedido("+ss+")' style='padding:3px 10px;background:#fff8e1;color:#e65100;border:1px solid #ffcc80;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer'>📦 Registrar pedido</button></div></div>":"")
+        +"</div>";
+    }).join("");
     con="<p class='pt'>Inventario</p><p class='ps'>"+Object.keys(inv).length+" esencias</p>"
       +"<div class='stats'><div class='stat'><div class='sn' id='inv_tot'>"+totML.toLocaleString()+"</div><div class='sl2'>Total ml</div></div><div class='stat'><div class='sn' style='color:var(--WN)'>"+lowC+"</div><div class='sl2'>Stock bajo</div></div><div class='stat'><div class='sn' style='color:var(--D)'>"+zeroC+"</div><div class='sl2'>Sin stock</div></div></div>"
       +"<div style='background:var(--F);border-radius:var(--R);padding:12px 14px;margin-bottom:14px;color:#fff'><div style='font-size:11px;font-weight:700;letter-spacing:1px;margin-bottom:10px;opacity:.8'>CARTUCHOS FMATIC</div><div style='display:flex;gap:8px;margin-bottom:10px'><div style='flex:1;background:rgba(255,255,255,.15);border-radius:10px;padding:10px;text-align:center'><div style='font-size:22px;font-weight:700'>"+totCart+"</div><div style='font-size:10px;opacity:.75'>Total</div></div><div style='flex:1;background:rgba(255,255,255,.15);border-radius:10px;padding:10px;text-align:center'><div style='font-size:22px;font-weight:700;color:#e8c97a'>"+zeroCart+"</div><div style='font-size:10px;opacity:.75'>Sin stock</div></div></div>"+cartRows+(isA?"<button onclick='openAddCartucho()' style='display:flex;align-items:center;gap:6px;width:100%;margin-top:10px;padding:9px;background:rgba(255,255,255,.15);border:none;border-radius:10px;color:#fff;font-size:12px;font-weight:600;cursor:pointer;justify-content:center'>+ Agregar cartucho</button>":"")+"</div>"
@@ -1391,6 +1446,13 @@ function render(){
     }
     else if(t==="editEsencia"){
       mHTML="<div class='mb-bg' onclick='if(event.target===this){modal=null;render()}'><div class='mb'><div class='mb-t'>Editar esencia</div><div class='fw'><label class='lbl'>Nombre *</label><input class='inp' id='ees_n' value='"+modal.nombre+"' style='text-transform:uppercase' oninput='this.value=this.value.toUpperCase()'/></div><div class='mb-act'><button class='btn-c' onclick='modal=null;render()'>Cancelar</button><button class='btn' onclick='saveEditEsencia()'>Guardar</button></div></div></div>";
+    }
+    else if(t==="pedido"){
+      mHTML="<div class='mb-bg' onclick='if(event.target===this){modal=null;render()}'><div class='mb'><div class='mb-t'>📦 Registrar pedido</div>"
+        +"<div class='fw'><label class='lbl'>Esencia</label><div class='inp' style='background:#f5f5f5;color:#666;cursor:default'>"+modal.esencia+"</div></div>"
+        +"<div class='fw'><label class='lbl'>Cantidad pedida (ml) *</label><input type='number' class='inp' id='ped_qty' placeholder='Ej: 2000' min='1' value='"+(modal.qty||"")+"' oninput='modal.qty=this.value'/></div>"
+        +"<div class='fw'><label class='lbl'>Nota (opcional)</label><input class='inp' id='ped_nota' placeholder='Ej: Pedido a Air Essentials' value='"+(modal.nota||"")+"' oninput='modal.nota=this.value'/></div>"
+        +"<div class='mb-act'><button class='btn-c' onclick='modal=null;render()'>Cancelar</button><button class='btn' onclick='savePedido()'>Registrar</button></div></div></div>";
     }
     else if(t==="addModelo"){
       mHTML="<div class='mb-bg' onclick='if(event.target===this){modal=null;render()}'><div class='mb'><div class='mb-t'>Agregar modelo</div><div class='fw'><label class='lbl'>Nombre *</label><input class='inp' id='mod_n' placeholder='Ej: AE1000' style='text-transform:uppercase' oninput='this.value=this.value.toUpperCase()'/></div><div class='mb-act'><button class='btn-c' onclick='modal=null;render()'>Cancelar</button><button class='btn' onclick='saveModelo()'>Agregar</button></div></div></div>";
