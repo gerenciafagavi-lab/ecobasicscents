@@ -97,7 +97,7 @@ window.onerror=function(msg,src,line){
 // ── SUPABASE ──
 const SB_URL="https://bdyuhphgqehnzputlgiy.supabase.co";
 const SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJkeXVocGhncWVobnpwdXRsZ2l5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkxOTk0NjUsImV4cCI6MjA5NDc3NTQ2NX0.gJ8JQb2dHIbupktg1ags10uYXfepAE6ou3Da6EAra9M";
-const SB_KEYS=["vis","inv","demos","eqs","movs","eqgrades","ceq","bajas","nvm","vnd","modelos","stkseries","cartuchos","customclients","sols","rejillas","baterias","pedidos"];
+const SB_KEYS=["vis","inv","demos","eqs","movs","eqgrades","ceq","bajas","nvm","vnd","modelos","stkseries","cartuchos","customclients","sols","rejillas","baterias","pedidos","invMovs"];
 async function sbSet(k,v){try{await fetch(SB_URL+"/rest/v1/app_data",{method:"POST",mode:"cors",credentials:"omit",headers:{"apikey":SB_KEY,"Authorization":"Bearer "+SB_KEY,"Content-Type":"application/json","Prefer":"resolution=merge-duplicates","X-Client-Info":"ecobasicscents/1.0"},body:JSON.stringify({key:k,value:JSON.stringify(v),updated_at:new Date().toISOString()})});}catch{}}
 async function syncDown(){
   try{
@@ -141,6 +141,7 @@ async function syncDown(){
         if(row.key==="bajas")bajas=val;
         if(row.key==="nvm")nivMin=val;
         if(row.key==="pedidos")pedidos=val;
+        if(row.key==="invMovs")invMovs=val;
         if(row.key==="vnd")vendors=val;
         if(row.key==="modelos")modelos=val;
         if(row.key==="cartuchos")cartuchos=val;
@@ -151,6 +152,8 @@ async function syncDown(){
           if(val.clients)val.clients.forEach(c=>{if(!ALL_CLIENTS.includes(c))ALL_CLIENTS.push(c);});
           if(val.vc)Object.keys(val.vc).forEach(v=>{if(!VC[v])VC[v]=[];val.vc[v].forEach(c=>{if(!VC[v].includes(c))VC[v].push(c);});});
           if(val.pais){if(!window._clientPais)window._clientPais={};Object.assign(window._clientPais,val.pais);}
+          // Aplicar overrides que sobreescriben BASE_CC.vc
+          if(val.vcOverride){Object.entries(val.vcOverride).forEach(([c,nv])=>{Object.keys(VC).forEach(v=>{VC[v]=VC[v].filter(x=>x!==c);});if(nv&&!VC[nv])VC[nv]=[];if(nv&&!VC[nv].includes(c))VC[nv].push(c);});}
         }
       }catch{}
     });
@@ -194,6 +197,7 @@ let baterias=ld("baterias",0);if(isNaN(baterias)||baterias<0)baterias=0;
 let modelos=ld("modelos",["AE301","AE701","AE801","AE3500","Radiant","AE TOWER BLACK","FMATIC Blanco","FMATIC Negro","Equipo de Goteo","AirFin Urinal"]);
 let nivMin=ld("nvm",{});
 let pedidos=ld("pedidos",{}); // {esencia:[{qty,fecha,nota}]}
+let invMovs=ld("invMovs",[]); // [{id,ts,esencia,delta,tipo,ref,user}]
 let vendors=ld("vnd",[
   {id:"v1",name:"Kelvin",pin:"1111",role:"vendor",active:true},
   {id:"v2",name:"Noe",pin:"2222",role:"vendor",active:true},
@@ -218,6 +222,8 @@ if(_cc){
   if(_cc.clients)_cc.clients.forEach(c=>{if(!ALL_CLIENTS.includes(c))ALL_CLIENTS.push(c);});
   if(_cc.vc)Object.keys(_cc.vc||{}).forEach(v=>{if(!VC[v])VC[v]=[];_cc.vc[v].forEach(c=>{if(!VC[v].includes(c))VC[v].push(c);});});
   if(_cc.pais)Object.assign(window._clientPais,_cc.pais);
+  // Aplicar overrides de asignación: {cliente: "Vendedor"|""} — sobreescribe BASE_CC.vc
+  if(_cc.vcOverride){Object.entries(_cc.vcOverride).forEach(([c,nv])=>{Object.keys(VC).forEach(v=>{VC[v]=VC[v].filter(x=>x!==c);});if(nv&&!VC[nv])VC[nv]=[];if(nv&&!VC[nv].includes(c))VC[nv].push(c);});}
 }
 // Fusionar BASE_CEQ con ceq local — convertir formato {serie:{modelo,area,aroma,cliente}} a {cliente:[{serie,...}]}
 {const _bgroup={};Object.entries(BASE_CEQ).forEach(([serie,eq])=>{const c=eq.cliente;if(!c)return;if(!_bgroup[c])_bgroup[c]=[];_bgroup[c].push({serie,modelo:eq.modelo,area:eq.area,aroma:eq.aroma});});Object.entries(_bgroup).forEach(([c,eqs])=>{if(!ceq[c]){ceq[c]=eqs;}else{eqs.forEach(be=>{if(!ceq[c].find(x=>x.serie===be.serie))ceq[c].push(be);});}});}
@@ -263,8 +269,16 @@ function getNextSerie(modelo){
 function setSelEqManual(v){selEq={modelo:document.getElementById("mmm")?.value||"",serie:v,area:"",aroma:""};}
 function togC(c){expC=expC===c?"":c;render();}
 function onCChange(v){selC=v;selEq=null;window._eqVisit={};render();}
-function updStock(s,v){const n=parseInt(v)||0;if(isNaN(n)||n<0)return;inv={...inv,[s]:n};sv("inv",inv);_patchInvDOM(s,n);}
-function updStockDelta(s,d){const n=Math.max(0,(inv[s]||0)+d);inv={...inv,[s]:n};sv("inv",inv);_patchInvDOM(s,n);}
+function logInvMov(esencia,delta,tipo,ref){
+  // tipo: "entrada"|"ajuste"|"consumo"|"nueva"
+  // ref: texto libre (cliente, nota de pedido, etc.)
+  const saldo=(inv[esencia]||0); // stock DESPUÉS del movimiento ya aplicado
+  const mov={id:uid(),ts:new Date().toISOString(),esencia,delta,saldo,tipo,ref:ref||"",user:sess?.name||"admin"};
+  invMovs=[mov,...invMovs].slice(0,2000); // max 2000 registros
+  sv("invMovs",invMovs);
+}
+function updStock(s,v){const n=parseInt(v)||0;if(isNaN(n)||n<0)return;const prev=inv[s]||0;const delta=n-prev;inv={...inv,[s]:n};sv("inv",inv);if(delta!==0)logInvMov(s,delta,"ajuste","Ajuste manual");_patchInvDOM(s,n);}
+function updStockDelta(s,d){const n=Math.max(0,(inv[s]||0)+d);const delta=n-(inv[s]||0);inv={...inv,[s]:n};sv("inv",inv);if(delta!==0)logInvMov(s,delta,"ajuste","Ajuste manual");_patchInvDOM(s,n);}
 function _patchInvDOM(s,n){
   // Update total
   const tot=Object.values(inv).reduce((a,b)=>a+(b||0),0);
@@ -359,7 +373,7 @@ function regVisitMulti(){
     if(e.esencia&&e.ml>0){
       if(e.tipo==="cartucho"){if((cartuchos[e.esencia]||0)>0){cartuchos={...cartuchos,[e.esencia]:(cartuchos[e.esencia]||0)-1};}}
       else if(e.tipo==="rejilla"){if((rejillas[e.esencia]||0)>0){rejillas={...rejillas,[e.esencia]:(rejillas[e.esencia]||0)-1};sv("rejillas",rejillas);}}
-      else{if((inv[e.esencia]||0)>=e.ml){inv={...inv,[e.esencia]:(inv[e.esencia]||0)-e.ml};}}
+      else{if((inv[e.esencia]||0)>=e.ml){inv={...inv,[e.esencia]:(inv[e.esencia]||0)-e.ml};logInvMov(e.esencia,-e.ml,"consumo","Visita: "+selC+" / "+e.serie);}}
     }
     if(e.baterias>0){baterias=Math.max(0,baterias-e.baterias);}
     saved++;
@@ -447,6 +461,30 @@ function saveRenameCliente(){
   if(ceq[oldName]){ceq={...ceq,[newName]:ceq[oldName]};delete ceq[oldName];sv("ceq",ceq);}
   visits=visits.map(v=>v.cliente===oldName?{...v,cliente:newName}:v);sv("vis",visits);
   modal=null;showToast("Cliente renombrado");
+}
+function openAsignarVendedor(c){modal={t:"asignarVendedor",c};render();}
+function saveAsignarVendedor(){
+  const c=modal.c;
+  const nuevoV=document.getElementById("av_v").value;
+  // Quitar de todos los vendedores en memoria
+  Object.keys(VC).forEach(v=>{VC[v]=VC[v].filter(x=>x!==c);});
+  if(nuevoV)VC[nuevoV]=[...(VC[nuevoV]||[]),c];
+  // Actualizar customclients (persiste en Supabase)
+  const cc=ld("customclients",{clients:[],vc:{},pais:{},vcOverride:{}});
+  if(!cc.vc)cc.vc={};
+  if(!cc.vcOverride)cc.vcOverride={};
+  // Quitar de todos los vendedores en customclients
+  Object.keys(cc.vc).forEach(v=>{cc.vc[v]=(cc.vc[v]||[]).filter(x=>x!==c);});
+  if(nuevoV){if(!cc.vc[nuevoV])cc.vc[nuevoV]=[];if(!cc.vc[nuevoV].includes(c))cc.vc[nuevoV].push(c);}
+  // Guardar override para sobreescribir BASE_CC.vc al recargar
+  cc.vcOverride[c]=nuevoV;
+  // Asegurarnos de que el cliente esté en cc.clients
+  if(!cc.clients)cc.clients=[];
+  if(!cc.clients.includes(c))cc.clients.push(c);
+  sv("customclients",cc);
+  modal=null;
+  showToast("Cliente "+c+" asignado a "+(nuevoV||"ningún vendedor"));
+  render();
 }
 function openDeleteCliente(c){modal={t:"deleteCliente",c};render();}
 function confirmDeleteCliente(){
@@ -719,6 +757,7 @@ function recibirPedido(s,i){
   const p=pedidos[s][i];
   inv={...inv,[s]:(inv[s]||0)+p.qty};
   sv("inv",inv);
+  logInvMov(s,p.qty,"entrada","Pedido recibido"+(p.nota?" · "+p.nota:""));
   pedidos[s].splice(i,1);
   if(pedidos[s].length===0)delete pedidos[s];
   sv("pedidos",pedidos);
@@ -732,7 +771,7 @@ function cancelPedido(s,i){
   sv("pedidos",pedidos);
   render();
 }
-function saveEsencia(){const n=document.getElementById("es_n").value.trim().toUpperCase();const stock=parseInt(document.getElementById("es_stock").value)||0;const min=parseInt(document.getElementById("es_min").value)||500;if(!n)return;inv={...inv,[n]:stock};nivMin={...nivMin,[n]:min};sv("inv",inv);sv("nvm",nivMin);modal=null;showToast("Esencia "+n+" agregada");}
+function saveEsencia(){const n=document.getElementById("es_n").value.trim().toUpperCase();const stock=parseInt(document.getElementById("es_stock").value)||0;const min=parseInt(document.getElementById("es_min").value)||500;if(!n)return;inv={...inv,[n]:stock};nivMin={...nivMin,[n]:min};sv("inv",inv);sv("nvm",nivMin);if(stock>0)logInvMov(n,stock,"entrada","Stock inicial al agregar esencia");modal=null;showToast("Esencia "+n+" agregada");}
 function delEsencia(n){if((inv[n]||0)>0){showToast("Tiene stock. Ponla en 0 primero.");return;}const ni={...inv};delete ni[n];const nm={...nivMin};delete nm[n];inv=ni;nivMin=nm;sv("inv",inv);sv("nvm",nivMin);render();}
 function openEditEsencia(n){modal={t:"editEsencia",nombre:n};render();}
 function saveEditEsencia(){const n=document.getElementById("ees_n").value.trim().toUpperCase();if(!n)return;if(n===modal.nombre){modal=null;render();return;}if(inv[n]!==undefined){showToast("Ya existe");return;}const ni={...inv,[n]:inv[modal.nombre]||0};delete ni[modal.nombre];const nm={...nivMin,[n]:nivMin[modal.nombre]||500};delete nm[modal.nombre];inv=ni;nivMin=nm;sv("inv",inv);sv("nvm",nivMin);modal=null;showToast("Esencia renombrada");}
@@ -1112,7 +1151,38 @@ function render(){
       )+"</div>"
       +"<div class='sw'><i class='ti ti-search'></i><input class='si2' placeholder='Buscar esencia...' value='"+invSq+"' oninput='invSq=this.value;render()' autocomplete='off'/>"+(invSq?"<button onclick='invSq=\"\";render()' style='background:none;border:none;cursor:pointer;color:var(--M);font-size:16px;padding:0 4px'>&#x2715;</button>":"")+"</div>"
       +(ents.length===0?"<div class='empty'><i class='ti ti-search-off'></i>Sin resultados para \""+invSq+"\"</div>":esRows)
-      +(isA?"<button class='btn-add' onclick='openAddEsencia()'><i class='ti ti-plus'></i> Agregar esencia</button>":"");
+      +(isA?"<button class='btn-add' onclick='openAddEsencia()'><i class='ti ti-plus'></i> Agregar esencia</button>":"")
+      +(isA?(()=>{
+        const hFilter=window._hFilter||"todos";
+        const hSrch=window._hSrch||"";
+        const hBtn=(v,l,col)=>"<button onclick='window._hFilter=\""+v+"\";render()' style='padding:4px 10px;border-radius:20px;border:1px solid "+(hFilter===v?(col||"var(--F)"):"#dde8e2")+";background:"+(hFilter===v?(col||"var(--F)"):"none")+";color:"+(hFilter===v?"#fff":"var(--M)")+";font-size:11px;font-weight:600;cursor:pointer'>"+l+"</button>";
+        let movsFilt=invMovs;
+        if(hFilter!=="todos")movsFilt=movsFilt.filter(m=>m.tipo===hFilter);
+        if(hSrch)movsFilt=movsFilt.filter(m=>m.esencia.toLowerCase().includes(hSrch.toLowerCase())||m.ref.toLowerCase().includes(hSrch.toLowerCase()));
+        const movRows=movsFilt.slice(0,100).map(m=>{
+          const pos=m.delta>0;
+          const d=new Date(m.ts);
+          const ds=(d.getDate())+"/"+(d.getMonth()+1)+"/"+(d.getFullYear()%100)+" "+(d.getHours()<10?"0":"")+d.getHours()+":"+(d.getMinutes()<10?"0":"")+d.getMinutes();
+          const tipoBadge=m.tipo==="entrada"?"<span style='background:#e8f5e9;color:#2e7d32;padding:1px 6px;border-radius:10px;font-size:10px;font-weight:700'>ENTRADA</span>":m.tipo==="consumo"?"<span style='background:#fff3e0;color:#e65100;padding:1px 6px;border-radius:10px;font-size:10px;font-weight:700'>CONSUMO</span>":"<span style='background:#e3f2fd;color:#1565c0;padding:1px 6px;border-radius:10px;font-size:10px;font-weight:700'>AJUSTE</span>";
+          return"<div style='display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #f0f4f2'>"
+            +"<div style='flex:1;min-width:0'>"
+            +"<div style='display:flex;align-items:center;gap:6px;flex-wrap:wrap'><span style='font-weight:700;font-size:13px'>"+m.esencia+"</span>"+tipoBadge+"</div>"
+            +"<div style='font-size:11px;color:var(--M);margin-top:2px'>"+ds+" &middot; "+m.user+(m.ref?" &middot; "+m.ref:"")+"</div>"
+            +"</div>"
+            +"<div style='text-align:right'>"
+            +"<div style='font-size:16px;font-weight:700;color:"+(pos?"#2e7d32":"#c62828")+"'>"+(pos?"+":"")+m.delta.toLocaleString()+"ml</div>"
+            +(m.saldo!=null?"<div style='font-size:10px;color:var(--M);margin-top:1px'>Saldo: "+m.saldo.toLocaleString()+"ml</div>":"")
+            +"</div>"
+            +"</div>";
+        }).join("");
+        return"<div style='margin-top:20px'>"
+          +"<p style='font-size:13px;font-weight:700;color:var(--F);margin-bottom:10px'><i class='ti ti-history'></i> Historial de movimientos</p>"
+          +"<div style='display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px'>"+hBtn("todos","Todos")+hBtn("entrada","Entradas","#2e7d32")+hBtn("consumo","Consumo","#e65100")+hBtn("ajuste","Ajustes","#1565c0")+"</div>"
+          +"<div class='sw' style='margin-bottom:8px'><i class='ti ti-search'></i><input class='si2' placeholder='Buscar esencia o referencia...' value='"+hSrch+"' oninput='window._hSrch=this.value;render()' autocomplete='off'/>"+(hSrch?"<button onclick='window._hSrch=\"\";render()' style='background:none;border:none;cursor:pointer;color:var(--M);font-size:16px;padding:0 4px'>&#x2715;</button>":"")+"</div>"
+          +(movsFilt.length===0?"<div class='empty'><i class='ti ti-history-off'></i>Sin movimientos"+(hFilter!=="todos"?" para este filtro":"")+"</div>":movRows)
+          +(invMovs.length>=100?"<p style='font-size:11px;color:var(--M);text-align:center;margin-top:8px'>Mostrando últimos 100 de "+invMovs.length+" movimientos</p>":"")
+          +"</div>";
+      })():"");
   }
 
 
@@ -1169,6 +1239,7 @@ function render(){
       return"<div class='card'><div class='ch' onclick='togC("+cj+")' style='cursor:pointer'>"
         +"<div><div class='ct' style='font-size:12px'>"+c+gtFlag+"</div><div class='cs'>"+vn+"</div></div>"
         +"<div style='display:flex;align-items:center;gap:5px'><span class='chip'>"+cv.length+"v</span><span class='chip chip-b'>"+allEq.length+"eq</span>"
+        +(isA?"<button onclick='event.stopPropagation();openAsignarVendedor("+cj+")' style='padding:2px 7px;background:#fff8e1;color:#e65100;border:none;border-radius:6px;font-size:11px;cursor:pointer' title='Asignar vendedor'>&#128101;</button>":"")
         +(isA?"<button onclick='event.stopPropagation();openRenameCliente("+cj+")' style='padding:2px 7px;background:#e8f0ff;color:#3456a0;border:none;border-radius:6px;font-size:11px;cursor:pointer'>&#9999;&#65039;</button>":"")
         +(isA?"<button onclick='event.stopPropagation();openDeleteCliente("+cj+")' style='padding:2px 7px;background:#fdecea;color:var(--D);border:none;border-radius:6px;font-size:11px;cursor:pointer'>&#x2715;</button>":"")
         +"<i class='ti ti-chevron-"+(exp?"up":"down")+"' style='font-size:15px;color:var(--M)'></i></div></div>"+expDiv+"</div>";
@@ -1321,6 +1392,21 @@ function render(){
     }
     else if(t==="deleteCliente"){
       mHTML="<div class='mb-bg' onclick='if(event.target===this){modal=null;render()}'><div class='mb'><div class='mb-t' style='color:var(--D)'>Eliminar cliente</div><p class='ps'>&#xBF;Eliminar "+modal.c+"? Esta accion no se puede deshacer.</p><div class='mb-act'><button class='btn-c' onclick='modal=null;render()'>Cancelar</button><button class='btn' style='background:var(--D)' onclick='confirmDeleteCliente()'>Eliminar</button></div></div></div>";
+    }
+    else if(t==="asignarVendedor"){
+      const c=modal.c;
+      const actualV=Object.entries(VC).find(([,a])=>a.includes(c))?.[0]||"";
+      const activeVnds3=vendors.filter(v=>v.active!==false&&v.role!=="admin");
+      mHTML="<div class='mb-bg' onclick='if(event.target===this){modal=null;render()}'><div class='mb'>"
+        +"<div class='mb-t'>Asignar vendedor</div>"
+        +"<p class='ps'>"+c+"</p>"
+        +"<div class='fw'><label class='lbl'>Vendedor</label>"
+        +"<select class='inp' id='av_v'>"
+        +"<option value=''"+(actualV?"":"selected")+">Sin asignar</option>"
+        +activeVnds3.map(v=>"<option value='"+v.name+"'"+(v.name===actualV?" selected":"")+">"+v.name+"</option>").join("")
+        +"</select></div>"
+        +"<div class='mb-act'><button class='btn-c' onclick='modal=null;render()'>Cancelar</button><button class='btn' onclick='saveAsignarVendedor()'>Guardar</button></div>"
+        +"</div></div>";
     }
     else if(t==="addCEq"){
       mHTML="<div class='mb-bg' onclick='if(event.target===this){modal=null;render()}'><div class='mb'><div class='mb-t'>Agregar equipo</div><p class='ps'>"+modal.c+"</p>"
@@ -1489,7 +1575,7 @@ function regVisitSimple(){
   // ml y esencia son opcionales — se puede registrar visita de mantenimiento sin descarga
   const v={id:uid(),fecha:new Date().toISOString(),vnd:sess.name,cliente:selC,modelo:m||"",serie:s||"",area:"",esencia:selS||"",ml,notas:notV||"",prob:false};
   visits=[v,...visits];sv("vis",visits);
-  if(selS&&ml>0&&(inv[selS]||0)>=ml){inv={...inv,[selS]:(inv[selS]||0)-ml};sv("inv",inv);}
+  if(selS&&ml>0&&(inv[selS]||0)>=ml){inv={...inv,[selS]:(inv[selS]||0)-ml};sv("inv",inv);logInvMov(selS,-ml,"consumo","Visita: "+selC);}
   selC="";selEq=null;mlV="";notV="";selS="";showToast("Visita registrada");
 }
 
