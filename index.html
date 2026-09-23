@@ -117,7 +117,27 @@ async function syncDown(){
         if(row.key==="eqs")eqStk=val;
         if(row.key==="movs")movs=val;
         if(row.key==="eqgrades")eqGrades=val;
-        if(row.key==="ceq")ceq=val;
+        if(row.key==="ceq"){
+          // Merge ceq: convertir entradas flat {serie:{...}} a formato cliente-array, luego fusionar con local
+          const localCeq=ld("ceq",{});
+          const merged={};
+          // Procesar lo que viene de Supabase
+          Object.entries(val).forEach(([k,v])=>{
+            if(Array.isArray(v)){merged[k]=v;} // formato correcto {cliente:[...]}
+            else if(v&&v.cliente){// formato flat {serie:{modelo,cliente,...}} — convertir
+              const c=v.cliente;if(!merged[c])merged[c]=[];
+              if(!merged[c].find(x=>x.serie===k))merged[c].push({serie:k,modelo:v.modelo,area:v.area,aroma:v.aroma});
+            }
+          });
+          // Fusionar con local: para cada cliente, conservar equipos de ambos lados
+          Object.entries(localCeq).forEach(([k,v])=>{
+            if(!Array.isArray(v))return;
+            if(!merged[k]){merged[k]=v;}
+            else{v.forEach(le=>{if(!merged[k].find(x=>x.serie===le.serie))merged[k].push(le);});}
+          });
+          ceq=merged;
+          localStorage.setItem("eco_ceq",JSON.stringify(merged));
+        }
         if(row.key==="bajas")bajas=val;
         if(row.key==="nvm")nivMin=val;
         if(row.key==="vnd")vendors=val;
