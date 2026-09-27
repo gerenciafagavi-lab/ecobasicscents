@@ -97,7 +97,7 @@ window.onerror=function(msg,src,line){
 // ── SUPABASE ──
 const SB_URL="https://bdyuhphgqehnzputlgiy.supabase.co";
 const SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJkeXVocGhncWVobnpwdXRsZ2l5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkxOTk0NjUsImV4cCI6MjA5NDc3NTQ2NX0.gJ8JQb2dHIbupktg1ags10uYXfepAE6ou3Da6EAra9M";
-const SB_KEYS=["vis","inv","demos","eqs","movs","eqgrades","ceq","bajas","nvm","vnd","modelos","stkseries","cartuchos","customclients","sols","rejillas","baterias","pedidos","invMovs"];
+const SB_KEYS=["vis","inv","demos","eqs","movs","eqgrades","ceq","bajas","nvm","vnd","modelos","stkseries","cartuchos","customclients","sols","rejillas","baterias","pedidos","invMovs","batMovs"];
 async function sbSet(k,v){try{await fetch(SB_URL+"/rest/v1/app_data",{method:"POST",mode:"cors",credentials:"omit",headers:{"apikey":SB_KEY,"Authorization":"Bearer "+SB_KEY,"Content-Type":"application/json","Prefer":"resolution=merge-duplicates","X-Client-Info":"ecobasicscents/1.0"},body:JSON.stringify({key:k,value:JSON.stringify(v),updated_at:new Date().toISOString()})});}catch{}}
 async function syncDown(){
   try{
@@ -198,6 +198,7 @@ let modelos=ld("modelos",["AE301","AE701","AE801","AE3500","Radiant","AE TOWER B
 let nivMin=ld("nvm",{});
 let pedidos=ld("pedidos",{}); // {esencia:[{qty,fecha,nota}]}
 let invMovs=ld("invMovs",[]); // [{id,ts,esencia,delta,tipo,ref,user}]
+let batMovs=ld("batMovs",[]); // [{id,ts,serie,modelo,cliente,qty,user}]
 let vendors=ld("vnd",[
   {id:"v1",name:"Kelvin",pin:"1111",role:"vendor",active:true},
   {id:"v2",name:"Noe",pin:"2222",role:"vendor",active:true},
@@ -269,6 +270,11 @@ function getNextSerie(modelo){
 function setSelEqManual(v){selEq={modelo:document.getElementById("mmm")?.value||"",serie:v,area:"",aroma:""};}
 function togC(c){expC=expC===c?"":c;render();}
 function onCChange(v){selC=v;selEq=null;window._eqVisit={};render();}
+function logBatMov(serie,modelo,cliente,qty){
+  const mov={id:uid(),ts:new Date().toISOString(),serie,modelo,cliente:cliente||"",qty,user:sess?.name||"admin"};
+  batMovs=[mov,...batMovs].slice(0,2000);
+  sv("batMovs",batMovs);
+}
 function logInvMov(esencia,delta,tipo,ref){
   // tipo: "entrada"|"ajuste"|"consumo"|"nueva"
   // ref: texto libre (cliente, nota de pedido, etc.)
@@ -375,7 +381,7 @@ function regVisitMulti(){
       else if(e.tipo==="rejilla"){if((rejillas[e.esencia]||0)>0){rejillas={...rejillas,[e.esencia]:(rejillas[e.esencia]||0)-1};sv("rejillas",rejillas);}}
       else{if((inv[e.esencia]||0)>=e.ml){inv={...inv,[e.esencia]:(inv[e.esencia]||0)-e.ml};logInvMov(e.esencia,-e.ml,"consumo","Visita: "+selC+" / "+e.serie);}}
     }
-    if(e.baterias>0){baterias=Math.max(0,baterias-e.baterias);}
+    if(e.baterias>0){baterias=Math.max(0,baterias-e.baterias);logBatMov(e.serie,e.modelo,selC,e.baterias);}
     saved++;
   });
   sv("vis",visits);sv("inv",inv);sv("cartuchos",cartuchos);sv("baterias",baterias);
@@ -854,6 +860,18 @@ function doExportConsumoCSV(){
 }
 
 
+function doExportBateriasCSV(){
+  const rows=batMovs.map(m=>({Fecha:fmt(m.ts),Serie:m.serie,Modelo:m.modelo,Cliente:m.cliente,Baterias:m.qty,Registrado_por:m.user}));
+  rows.sort((a,b)=>b.Fecha.localeCompare(a.Fecha));
+  if(!rows.length){alert("Sin registros de cambio de baterías");return;}
+  const hdrs='"'+Object.keys(rows[0]).join('","')+'"';
+  const rws=rows.map(r=>Object.values(r).map(v=>'"'+String(v||"").replace(/"/g,"''")+'"').join(","));
+  const csv=[hdrs,...rws].join("\n");
+  const blob=new Blob([csv],{type:"text/csv;charset=utf-8;"});
+  const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="cambios_baterias.csv";document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
+  showToast("CSV baterías descargado");
+}
+
 // ── RENDER ──
 function render(){
   const root=document.getElementById("root");
@@ -921,7 +939,7 @@ function render(){
     const isFmatic=m=>m&&m.toLowerCase().includes("fmatic");
     const isGoteo=m=>m&&m.toLowerCase().includes("goteo");
     const isUrinal=m=>m&&(m.toLowerCase().includes("urinal")||m.toLowerCase().includes("airfin"));
-    const isBateria=m=>m&&(m==="AE701"||m==="AE801");
+    const isBateria=m=>m&&(m==="AE701"||m==="AE801"||m==="AE301");
     const eqsC=selC?getClientEqs(selC).filter(e=>!e._del):[];
 
     let html="<p class='pt'>Registrar visita</p>";
@@ -1359,7 +1377,8 @@ function render(){
       +"<button class='btn' onclick='doExportCSV()' style='margin-bottom:10px'><i class='ti ti-file-export'></i> Exportar Visitas CSV</button>"
       +"<button class='btn' onclick='doExportEquiposCSV()' style='margin-bottom:10px;background:#3456a0'><i class='ti ti-file-export'></i> Exportar Equipos CSV</button>"
       +"<button class='btn' onclick='doExportVendedoresCSV()' style='margin-bottom:10px;background:var(--G)'><i class='ti ti-file-export'></i> Exportar Vendedores CSV</button>"
-      +"<button class='btn' onclick='doExportConsumoCSV()' style='background:var(--WN)'><i class='ti ti-file-export'></i> Exportar Consumo CSV</button>";
+      +"<button class='btn' onclick='doExportConsumoCSV()' style='margin-bottom:10px;background:var(--WN)'><i class='ti ti-file-export'></i> Exportar Consumo CSV</button>"
+      +"<button class='btn' onclick='doExportBateriasCSV()' style='background:#7b1fa2'><i class='ti ti-battery'></i> Exportar Cambios Baterías CSV</button>";
   }
 
   // ── CONFIG TAB ──
