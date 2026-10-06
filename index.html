@@ -97,7 +97,7 @@ window.onerror=function(msg,src,line){
 // ── SUPABASE ──
 const SB_URL="https://bdyuhphgqehnzputlgiy.supabase.co";
 const SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJkeXVocGhncWVobnpwdXRsZ2l5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkxOTk0NjUsImV4cCI6MjA5NDc3NTQ2NX0.gJ8JQb2dHIbupktg1ags10uYXfepAE6ou3Da6EAra9M";
-const SB_KEYS=["vis","inv","demos","eqs","movs","eqgrades","ceq","bajas","nvm","vnd","modelos","stkseries","cartuchos","customclients","sols","rejillas","baterias","pedidos","invMovs","batMovs","eqImportVer","vndFixVer","eqEdits"];
+const SB_KEYS=["vis","inv","demos","eqs","movs","eqgrades","ceq","bajas","nvm","vnd","modelos","stkseries","cartuchos","customclients","sols","rejillas","baterias","pedidos","invMovs","batMovs","eqImportVer","vndFixVer","eqEdits","perms"];
 async function sbSet(k,v){try{await fetch(SB_URL+"/rest/v1/app_data",{method:"POST",mode:"cors",credentials:"omit",headers:{"apikey":SB_KEY,"Authorization":"Bearer "+SB_KEY,"Content-Type":"application/json","Prefer":"resolution=merge-duplicates","X-Client-Info":"ecobasicscents/1.0"},body:JSON.stringify({key:k,value:JSON.stringify(v),updated_at:new Date().toISOString()})});}catch{}}
 async function syncDown(){
   try{
@@ -154,6 +154,7 @@ async function syncDown(){
         if(row.key==="cartuchos")cartuchos=val;
         if(row.key==="rejillas")rejillas=val;
         if(row.key==="eqEdits")eqEdits=val;
+        if(row.key==="perms")perms=val||{};
         if(row.key==="batMovs")batMovs=val;
         if(row.key==="baterias")baterias=val;
         if(row.key==="sols")solicitudes=val;
@@ -214,7 +215,8 @@ let nivMin=ld("nvm",{});
 let pedidos=ld("pedidos",{}); // {esencia:[{qty,fecha,nota}]}
 let invMovs=ld("invMovs",[]); // [{id,ts,esencia,delta,tipo,ref,user}]
 let batMovs=ld("batMovs",[]);
-let eqEdits=ld("eqEdits",[]); // [{id,ts,user,cliente,antes,despues}] // [{id,ts,serie,modelo,cliente,qty,user}]
+let eqEdits=ld("eqEdits",[]);
+let perms=ld("perms",{vndQuitarEq:false}); // permisos temporales // [{id,ts,user,cliente,antes,despues}] // [{id,ts,serie,modelo,cliente,qty,user}]
 let vendors=ld("vnd",[
   {id:"v1",name:"Kelvin",pin:"1111",role:"vendor",active:true},
   {id:"v2",name:"Noe",pin:"2222",role:"vendor",active:true},
@@ -692,13 +694,34 @@ function saveEditCEq(){
   if(antes!==despues){eqEdits=[{id:uid(),ts:new Date().toISOString(),user:sess.name,cliente:c,antes,despues},...eqEdits].slice(0,2000);sv("eqEdits",eqEdits);}
   sv("ceq",ceq);modal=null;showToast("Equipo actualizado");
 }
-function delCEq(c,id,serie){
+function puedeQuitarEq(){return sess?.role==="admin"||!!perms.vndQuitarEq;}
+function _marcarEq(c,id,serie,extra,logTxt){
   const existing=ceq[c]||[];
-  const inCustom=existing.find(e=>e.id===id||e.serie===serie);
-  if(inCustom){ceq={...ceq,[c]:existing.filter(e=>e.id!==id&&e.serie!==serie)};}
-  else{const base=getClientEqs(c);const baseEq=base.find(e=>e.id===id||e.serie===serie);if(baseEq)ceq={...ceq,[c]:[...existing,{...baseEq,_del:true}]};}
-  sv("ceq",ceq);render();showToast("Equipo eliminado");
+  const eq=getClientEqs(c).find(e=>!e._del&&((id&&e.id===id)||e.serie===serie));if(!eq)return null;
+  const inCustom=existing.find(e=>!e._del&&((id&&e.id===id)||e.serie===serie));
+  const upd={...eq,...extra,_del:true};
+  ceq=inCustom?{...ceq,[c]:existing.map(e=>e===inCustom?upd:e)}:{...ceq,[c]:[...existing,upd]};
+  if(window._eqVisit&&window._eqVisit[serie])delete window._eqVisit[serie];
+  eqEdits=[{id:uid(),ts:new Date().toISOString(),user:sess.name,cliente:c,antes:[eq.modelo,eq.serie,eq.area||"",eq.aroma||""].join(" | "),despues:logTxt},...eqEdits].slice(0,2000);
+  sv("eqEdits",eqEdits);sv("ceq",ceq);return eq;
 }
+function delCEq(c,id,serie){
+  if(!puedeQuitarEq()){showToast("Sin permiso para quitar equipos");return;}
+  modal={t:"quitarEq",c,id,serie};render();
+}
+function confirmQuitarEq(){
+  const m=modal;const mot=document.getElementById("qe_m")?.value.trim()||"";
+  _marcarEq(m.c,m.id,m.serie,{_depurado:true,depuradoPor:sess.name,depuradoEn:new Date().toISOString(),depuradoNota:mot},"(QUITADO - no estaba instalado"+(mot?": "+mot:"")+")");
+  modal=null;showToast("Equipo quitado");
+}
+function openBajaEq(c,id,serie){modal={t:"bajaEq",c,id,serie};render();}
+function confirmBajaEq(){
+  const m=modal;const mot=document.getElementById("be_m").value;const nota=document.getElementById("be_n").value.trim();
+  if(!mot){showToast("Selecciona el motivo");return;}
+  _marcarEq(m.c,m.id,m.serie,{_baja:true,bajaMotivo:mot,bajaNota:nota,bajaPor:sess.name,bajaFecha:today()},"(BAJA: "+mot+(nota?" - "+nota:"")+")");
+  modal=null;showToast("Equipo dado de baja");
+}
+function togPermQuitar(){perms={...perms,vndQuitarEq:!perms.vndQuitarEq};sv("perms",perms);render();showToast(perms.vndQuitarEq?"Vendedores pueden quitar equipos":"Permiso de quitar equipos desactivado");}
 function renderClientEqs(c){
   const allEq=getClientEqs(c).filter(e=>!e._del);
   if(!allEq.length)return "<div style='font-size:12px;color:var(--M);margin-bottom:8px'>Sin equipos</div>";
@@ -716,7 +739,8 @@ function renderClientEqs(c){
       +"<button title='Historial' style='padding:3px 8px;font-size:11px;background:#e0f2f1;color:#00695c;border:none;border-radius:7px;cursor:pointer;font-weight:700' onclick='var r=window._ceqRefs["+JSON.stringify(rk)+"];if(r)openHistEq(r.c,r.eq.serie)'>&#128200;</button>"
       +"<button style='padding:3px 8px;font-size:11px;background:#e8f0ff;color:#3456a0;border:none;border-radius:7px;cursor:pointer;font-weight:700' onclick='var r=window._ceqRefs["+JSON.stringify(rk)+"];if(r)openGradeChange(r.c,r.eq)'>&#9889;</button>"
       +"<button class='be' style='padding:3px 8px;font-size:11px' onclick='var r=window._ceqRefs["+JSON.stringify(rk)+"];if(r)openEditCEq(r.c,r.eq.id,r.eq.serie)'>&#9999;&#65039;</button>"
-      +"<button class='del' onclick='var r=window._ceqRefs["+JSON.stringify(rk)+"];if(r)delCEq(r.c,r.eq.id,r.eq.serie)'>&#x2715;</button>"
+      +"<button title='Dar de baja' style='padding:3px 8px;font-size:11px;background:#fff3e0;color:#e65100;border:none;border-radius:7px;cursor:pointer;font-weight:700' onclick='var r=window._ceqRefs["+JSON.stringify(rk)+"];if(r)openBajaEq(r.c,r.eq.id,r.eq.serie)'>Baja</button>"
+      +(puedeQuitarEq()?"<button class='del' title='Quitar (no estaba instalado)' onclick='var r=window._ceqRefs["+JSON.stringify(rk)+"];if(r)delCEq(r.c,r.eq.id,r.eq.serie)'>&#x2715;</button>":"")
       +"</div></div>";
   }).join("");
 }
@@ -1265,7 +1289,9 @@ function render(){
             +(eq.area?"<div style='font-size:11px;color:var(--M)'>"+eq.area+"</div>":"")
             +(eq.aroma?"<div style='font-size:11px;color:var(--G)'>"+eq.aroma+"</div>":"")
             +gs+"</div>"
-            +"<button title='Corregir equipo' onclick='event.stopPropagation();openEditCEq("+JSON.stringify(selC)+","+JSON.stringify(eq.id||"")+","+JSON.stringify(eq.serie)+")' style='padding:4px 9px;font-size:13px;background:#e8f0ff;color:#3456a0;border:none;border-radius:7px;cursor:pointer'>&#9999;&#65039;</button>"
+            +"<div style='display:flex;gap:4px'><button title='Corregir equipo' onclick='event.stopPropagation();openEditCEq("+JSON.stringify(selC)+","+JSON.stringify(eq.id||"")+","+JSON.stringify(eq.serie)+")' style='padding:4px 9px;font-size:13px;background:#e8f0ff;color:#3456a0;border:none;border-radius:7px;cursor:pointer'>&#9999;&#65039;</button>"
+            +"<button title='Dar de baja' onclick='event.stopPropagation();openBajaEq("+JSON.stringify(selC)+","+JSON.stringify(eq.id||"")+","+JSON.stringify(eq.serie)+")' style='padding:4px 8px;font-size:11px;font-weight:700;background:#fff3e0;color:#e65100;border:none;border-radius:7px;cursor:pointer'>Baja</button>"
+            +(puedeQuitarEq()?"<button title='Quitar (no estaba instalado)' onclick='event.stopPropagation();delCEq("+JSON.stringify(selC)+","+JSON.stringify(eq.id||"")+","+JSON.stringify(eq.serie)+")' style='padding:4px 9px;font-size:12px;background:#fdecea;color:var(--D);border:none;border-radius:7px;cursor:pointer'>&#x2715;</button>":"")+"</div>"
             +"</div>";
           if(done){
             const sn=JSON.stringify(eq.serie);
@@ -1657,6 +1683,9 @@ function render(){
     const modCards=modelos.map(m=>"<div class='sr'><div class='sm'>"+m+"</div><button class='del' onclick='delModelo("+JSON.stringify(m)+")'>Eliminar</button></div>").join("");
     const esCards=Object.keys(inv).sort().map(n=>"<div class='sr'><div><div class='sm'>"+n+"</div><div style='font-size:11px;color:var(--M)'>Stock: "+inv[n]+"ml</div></div><div style='display:flex;gap:5px'><button class='be' onclick='openEditEsencia("+JSON.stringify(n)+")'>&#9999;&#65039;</button><button class='del' onclick='delEsencia("+JSON.stringify(n)+")'>&#x2715;</button></div></div>").join("");
     con="<p class='pt'>Configuracion</p>"
+      +"<div class='card' style='margin-bottom:14px;border:2px solid "+(perms.vndQuitarEq?"var(--D)":"#dde8e2")+"'><p style='font-weight:700;margin-bottom:6px;color:var(--F)'>Permisos de vendedores</p>"
+      +"<div style='display:flex;align-items:center;gap:10px;cursor:pointer' onclick='togPermQuitar()'><div style='width:44px;height:24px;border-radius:12px;background:"+(perms.vndQuitarEq?"var(--D)":"#ccc")+";position:relative;flex-shrink:0'><div style='width:20px;height:20px;border-radius:50%;background:#fff;position:absolute;top:2px;left:"+(perms.vndQuitarEq?"22px":"2px")+"'></div></div>"
+      +"<div style='font-size:12px'><b>Permitir quitar equipos</b> (depuración temporal)<br><span style='color:var(--M)'>"+(perms.vndQuitarEq?"ACTIVO: los vendedores pueden quitar equipos.":"Apagado: los vendedores solo pueden dar de baja.")+"</span></div></div></div>"
       +"<div class='card' style='margin-bottom:14px'><p style='font-weight:700;margin-bottom:10px;color:var(--F)'>Modelos</p>"+modCards+"<button class='btn-add' style='margin-top:10px' onclick='openAddModelo()'><i class='ti ti-plus'></i> Agregar modelo</button></div>"
       +"<div class='card'><p style='font-weight:700;margin-bottom:10px;color:var(--F)'>Esencias</p>"+esCards+"<button class='btn-add' style='margin-top:10px' onclick='openAddEsencia()'><i class='ti ti-plus'></i> Agregar esencia</button></div>";
   }
@@ -1730,6 +1759,18 @@ function render(){
         +"<div class='fw'><label class='lbl'>Area</label><input class='inp' id='ec_a' value='"+(eq.area||"")+"'/></div>"
         +"<div class='fw'><label class='lbl'>Aroma</label><select class='inp' id='ec_aroma'><option value=''>Sin aroma</option>"+getAllScents().map(s=>"<option value='"+s+"'"+(s===eq.aroma?" selected":"")+">"+s+"</option>").join("")+"</select></div>"
         +"<div class='mb-act'><button class='btn-c' onclick='modal=null;render()'>Cancelar</button><button class='btn' onclick='saveEditCEq()'>Guardar</button></div></div></div>";
+    }
+    else if(t==="quitarEq"){
+      mHTML="<div class='mb-bg' onclick='if(event.target===this){modal=null;render()}'><div class='mb'><div class='mb-t' style='color:var(--D)'>Quitar equipo</div><p class='ps'>"+modal.c+" &#183; "+modal.serie+"</p>"
+        +"<div style='font-size:12px;color:var(--M);margin-bottom:10px'>Úsalo solo si este equipo <b>nunca estuvo instalado</b> en el cliente (error de la base). Si se retiró, usa <b>Baja</b>.</div>"
+        +"<div class='fw'><label class='lbl'>Comentario (opcional)</label><input class='inp' id='qe_m' placeholder='Ej: en sitio solo hay 4 equipos'/></div>"
+        +"<div class='mb-act'><button class='btn-c' onclick='modal=null;render()'>Cancelar</button><button class='btn' style='background:var(--D)' onclick='confirmQuitarEq()'>Quitar</button></div></div></div>";
+    }
+    else if(t==="bajaEq"){
+      mHTML="<div class='mb-bg' onclick='if(event.target===this){modal=null;render()}'><div class='mb'><div class='mb-t' style='color:#e65100'>Dar de baja equipo</div><p class='ps'>"+modal.c+" &#183; "+modal.serie+"</p>"
+        +"<div class='fw'><label class='lbl'>Motivo *</label><select class='inp' id='be_m'><option value=''>Selecciona...</option><option>Retirado por el cliente</option><option>Dañado</option><option>Reemplazado por otro equipo</option><option>Devuelto a oficina</option><option>Robado / extraviado</option><option>Otro</option></select></div>"
+        +"<div class='fw'><label class='lbl'>Notas</label><input class='inp' id='be_n' placeholder='Detalle...'/></div>"
+        +"<div class='mb-act'><button class='btn-c' onclick='modal=null;render()'>Cancelar</button><button class='btn' style='background:#e65100' onclick='confirmBajaEq()'>Dar de baja</button></div></div></div>";
     }
     else if(t==="cambioAroma"){
       const allEqs2=getClientEqs(modal.c).filter(e=>!e._del);
