@@ -97,7 +97,7 @@ window.onerror=function(msg,src,line){
 // ── SUPABASE ──
 const SB_URL="https://bdyuhphgqehnzputlgiy.supabase.co";
 const SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJkeXVocGhncWVobnpwdXRsZ2l5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkxOTk0NjUsImV4cCI6MjA5NDc3NTQ2NX0.gJ8JQb2dHIbupktg1ags10uYXfepAE6ou3Da6EAra9M";
-const SB_KEYS=["vis","inv","demos","eqs","movs","eqgrades","ceq","bajas","nvm","vnd","modelos","stkseries","cartuchos","customclients","sols","rejillas","baterias","pedidos","invMovs","batMovs","eqImportVer","vndFixVer"];
+const SB_KEYS=["vis","inv","demos","eqs","movs","eqgrades","ceq","bajas","nvm","vnd","modelos","stkseries","cartuchos","customclients","sols","rejillas","baterias","pedidos","invMovs","batMovs","eqImportVer","vndFixVer","eqEdits"];
 async function sbSet(k,v){try{await fetch(SB_URL+"/rest/v1/app_data",{method:"POST",mode:"cors",credentials:"omit",headers:{"apikey":SB_KEY,"Authorization":"Bearer "+SB_KEY,"Content-Type":"application/json","Prefer":"resolution=merge-duplicates","X-Client-Info":"ecobasicscents/1.0"},body:JSON.stringify({key:k,value:JSON.stringify(v),updated_at:new Date().toISOString()})});}catch{}}
 async function syncDown(){
   try{
@@ -153,6 +153,8 @@ async function syncDown(){
         if(row.key==="modelos")modelos=val;
         if(row.key==="cartuchos")cartuchos=val;
         if(row.key==="rejillas")rejillas=val;
+        if(row.key==="eqEdits")eqEdits=val;
+        if(row.key==="batMovs")batMovs=val;
         if(row.key==="baterias")baterias=val;
         if(row.key==="sols")solicitudes=val;
         if(row.key==="customclients"){
@@ -211,7 +213,8 @@ let modelos=ld("modelos",["AE301","AE701","AE801","AE3500","Radiant","AE TOWER B
 let nivMin=ld("nvm",{});
 let pedidos=ld("pedidos",{}); // {esencia:[{qty,fecha,nota}]}
 let invMovs=ld("invMovs",[]); // [{id,ts,esencia,delta,tipo,ref,user}]
-let batMovs=ld("batMovs",[]); // [{id,ts,serie,modelo,cliente,qty,user}]
+let batMovs=ld("batMovs",[]);
+let eqEdits=ld("eqEdits",[]); // [{id,ts,user,cliente,antes,despues}] // [{id,ts,serie,modelo,cliente,qty,user}]
 let vendors=ld("vnd",[
   {id:"v1",name:"Kelvin",pin:"1111",role:"vendor",active:true},
   {id:"v2",name:"Noe",pin:"2222",role:"vendor",active:true},
@@ -459,11 +462,36 @@ function nivelHTML(v){
    +(l!==null?"<span>Tenía "+l+"ml</span>":"")+"<span>Agregó "+(v.ml||0)+"ml</span>"+(s!==null?"<span>Quedó "+s+"ml</span>":"")
    +(c!=null?"<span style='color:var(--F);font-weight:700'>Gastó "+c+"ml desde la visita anterior</span>":"")+"</div>";
 }
+// ── REJILLAS EN VISITA (no dependen de un equipo registrado) ──
+function _rejQ(n,d){if(!window._rejVisit)window._rejVisit={};const q=Math.max(0,(window._rejVisit[n]||0)+d);window._rejVisit[n]=q;render();}
+function _rejSet(n,v){if(!window._rejVisit)window._rejVisit={};window._rejVisit[n]=Math.max(0,parseInt(v)||0);}
+function _rejBlock(){
+  const keys=Object.keys(rejillas);if(!keys.length)return"";
+  const rv=window._rejVisit||{};
+  return "<div style='border:2px solid #dde8e2;border-radius:var(--R);padding:12px;margin-bottom:10px;background:#fff'>"
+   +"<div style='font-weight:700;font-size:13px;margin-bottom:6px'>&#128701; Rejillas AirFin / Urinal instaladas</div>"
+   +keys.map(k=>{const q=rv[k]||0;const kj=JSON.stringify(k).replace(/'/g,"&#39;");return"<div style='display:flex;align-items:center;gap:6px;margin:6px 0'>"
+     +"<div style='flex:1;font-size:12px'>"+k+" <span style='color:var(--M)'>(stock: "+(rejillas[k]||0)+")</span></div>"
+     +"<button onclick='_rejQ("+kj+",-1)' style='width:32px;height:32px;border:1px solid #dde8e2;border-radius:8px;background:#fef0f0;color:var(--D);font-size:18px;cursor:pointer'>&#8722;</button>"
+     +"<input type='number' min='0' value='"+q+"' onchange='_rejSet("+kj+",this.value)' style='width:56px;text-align:center;padding:6px;border:1px solid #dde8e2;border-radius:8px;font-size:14px;font-weight:700'/>"
+     +"<button onclick='_rejQ("+kj+",1)' style='width:32px;height:32px;border:1px solid #dde8e2;border-radius:8px;background:#f0f7f4;color:var(--F);font-size:18px;cursor:pointer'>+</button></div>"
+     +(q>(rejillas[k]||0)?"<div style='font-size:11px;color:var(--D)'>&#x26A0; Solo hay "+(rejillas[k]||0)+" en stock</div>":"");}).join("")
+   +"</div>";
+}
+function _saveRejillas(fecha){
+  const rv=window._rejVisit||{};let n=0;
+  Object.entries(rv).forEach(([k,q])=>{if(!q)return;
+    const v={id:uid(),fecha,vnd:sess.name,cliente:selC,modelo:"AirFin Urinal",serie:"REJILLAS",area:"",esencia:k,ml:0,rejillas:q,tipo:"rejilla",notas:"Rejillas instaladas: "+q,prob:false};
+    visits=[v,...visits];rejillas={...rejillas,[k]:Math.max(0,(rejillas[k]||0)-q)};n+=q;});
+  if(n){sv("rejillas",rejillas);}
+  window._rejVisit={};return n;
+}
 function regVisitMulti(){
   const ev=window._eqVisit||{};
   const entries=Object.values(ev).filter(e=>e.done);
   if(!selC){showToast("Selecciona un cliente");return;}
-  if(!entries.length){showToast("Marca al menos un equipo");return;}
+  const _hayRej=Object.values(window._rejVisit||{}).some(q=>q>0);
+  if(!entries.length&&!_hayRej){showToast("Marca al menos un equipo o agrega rejillas");return;}
   const fecha=new Date().toISOString();
   const prob=!!(window._probM);
   const notasG=document.getElementById("notv_multi")?.value||"";
@@ -481,9 +509,10 @@ function regVisitMulti(){
     if(e.baterias>0){baterias=Math.max(0,baterias-e.baterias);logBatMov(e.serie,e.modelo,selC,e.baterias);}
     saved++;
   });
+  const _nr=_saveRejillas(fecha);
   sv("vis",visits);sv("inv",inv);sv("cartuchos",cartuchos);sv("baterias",baterias);
   window._eqVisit={};window._probM=false;selC="";selEq=null;
-  showToast(saved+" equipo"+(saved>1?"s":"")+" registrado"+(saved>1?"s":""));
+  showToast((saved?saved+" equipo"+(saved>1?"s":"")+" registrado"+(saved>1?"s":""):"Visita registrada")+(_nr?" · "+_nr+" rejilla"+(_nr>1?"s":""):""));
 }
 
 // ── GRADE FUNCTIONS ──
@@ -627,7 +656,9 @@ function saveCEq(){
   const aroma=document.getElementById("ceq_aroma")?.value||"";
   if(!m||!s){showToast("Modelo y serie requeridos");return;}
   const existing=ceq[c]||[];
-  ceq={...ceq,[c]:[...existing,{id:uid(),modelo:m,serie:s,area,aroma}]};
+  if(getClientEqs(c).some(e=>!e._del&&e.serie===s)){showToast("Esa serie ya existe en este cliente");return;}
+  ceq={...ceq,[c]:[...existing,{id:uid(),modelo:m,serie:s,area,aroma,agregadoPor:sess.name}]};
+  eqEdits=[{id:uid(),ts:new Date().toISOString(),user:sess.name,cliente:c,antes:"(nuevo)",despues:[m,s,area,aroma].join(" | ")},...eqEdits].slice(0,2000);sv("eqEdits",eqEdits);
   sv("ceq",ceq);modal=null;showToast("Equipo agregado");
 }
 function openEditCEq(c,eqId,serie){
@@ -641,12 +672,24 @@ function saveEditCEq(){
   const newSerie=document.getElementById("ec_s").value.trim();
   const newArea=document.getElementById("ec_a").value.trim();
   const newAroma=document.getElementById("ec_aroma").value;
+  const newModelo=document.getElementById("ec_m")?.value||eq.modelo;
   if(!newSerie){showToast("Serie requerida");return;}
+  const oldSerie=eq.serie;
+  if(newSerie!==oldSerie&&getClientEqs(c).some(e=>!e._del&&e.serie===newSerie)){showToast("Esa serie ya existe en este cliente");return;}
   const existing=ceq[c]||[];
-  const inCustom=existing.find(e=>e.id===eq.id||e.serie===eq.serie);
-  const updated={...eq,serie:newSerie,area:newArea,aroma:newAroma};
-  if(inCustom){ceq={...ceq,[c]:existing.map(e=>(e.id===eq.id||e.serie===eq.serie)?updated:e)};}
+  const inCustom=existing.find(e=>(eq.id&&e.id===eq.id)||e.serie===oldSerie);
+  const updated={...eq,id:eq.id||uid(),serie:newSerie,modelo:newModelo,area:newArea,aroma:newAroma,editadoPor:sess.name,editadoEn:new Date().toISOString()};
+  if(inCustom){ceq={...ceq,[c]:existing.map(e=>((eq.id&&e.id===eq.id)||e.serie===oldSerie)?updated:e)};}
   else{ceq={...ceq,[c]:[...existing,updated]};}
+  // Si se corrigió la serie: llevar historial, intensidad y baterías a la serie correcta
+  if(newSerie!==oldSerie){
+    let ch=false;visits=visits.map(v=>{if(v.cliente===c&&v.serie===oldSerie){ch=true;return{...v,serie:newSerie,modelo:newModelo};}return v;});if(ch)sv("vis",visits);
+    if(eqGrades[oldSerie]&&!eqGrades[newSerie]){eqGrades={...eqGrades,[newSerie]:eqGrades[oldSerie]};delete eqGrades[oldSerie];sv("eqgrades",eqGrades);}
+    let cb=false;batMovs=batMovs.map(m=>{if(m.cliente===c&&m.serie===oldSerie){cb=true;return{...m,serie:newSerie};}return m;});if(cb)sv("batMovs",batMovs);
+    if(window._eqVisit&&window._eqVisit[oldSerie]){window._eqVisit[newSerie]={...window._eqVisit[oldSerie],serie:newSerie,modelo:newModelo};delete window._eqVisit[oldSerie];}
+  } else if(window._eqVisit&&window._eqVisit[oldSerie]){window._eqVisit[oldSerie].modelo=newModelo;}
+  const antes=[eq.modelo,oldSerie,eq.area||"",eq.aroma||""].join(" | "),despues=[newModelo,newSerie,newArea,newAroma].join(" | ");
+  if(antes!==despues){eqEdits=[{id:uid(),ts:new Date().toISOString(),user:sess.name,cliente:c,antes,despues},...eqEdits].slice(0,2000);sv("eqEdits",eqEdits);}
   sv("ceq",ceq);modal=null;showToast("Equipo actualizado");
 }
 function delCEq(c,id,serie){
@@ -801,8 +844,8 @@ function saveSolicitud(){
   solicitudes=[{id:uid(),nombre,vendedor,notas,fecha:today(),estado:"pendiente",tipo,clienteExist,creadoPor:sess.name},...solicitudes];
   sv("sols",solicitudes);modal=null;showToast("Solicitud enviada");
 }
-function completarSolicitud(id){solicitudes=solicitudes.map(s=>s.id===id?{...s,estado:"completada",fechaComp:today()}:s);sv("sols",solicitudes);render();}
-function cerrarSolicitud(id){solicitudes=solicitudes.map(s=>s.id===id?{...s,estado:"cerrada",fechaComp:today()}:s);sv("sols",solicitudes);render();}
+function completarSolicitud(id){solicitudes=solicitudes.map(s=>s.id===id?{...s,estado:"completada",fechaComp:today(),completadaPor:sess.name}:s);sv("sols",solicitudes);render();}
+function cerrarSolicitud(id){solicitudes=solicitudes.map(s=>s.id===id?{...s,estado:"cerrada",fechaComp:today(),completadaPor:sess.name}:s);sv("sols",solicitudes);render();}
 function delSolicitud(id){solicitudes=solicitudes.filter(s=>s.id!==id);sv("sols",solicitudes);render();}
 function convertirCliente(id){const sol=solicitudes.find(s=>s.id===id);if(!sol)return;modal={t:"convertirCliente",sol};render();}
 function saveConvertir(){
@@ -1026,6 +1069,9 @@ function buildStats(){
   S["Baterias por cliente"]=Object.values(batCli).map(r=>({Cliente:r.Cliente,Cambios:r.Cambios,Baterias_D:r.Baterias,Equipos_distintos:r.Equipos.size})).sort((a,b)=>b.Baterias_D-a.Baterias_D);
   // Entradas de esencia (inventario)
   const ent={};invMovs.filter(m=>m.tipo==="entrada"&&_inRange(m.ts)).forEach(m=>{const k=m.ts.slice(0,7)+"|"+m.esencia;ent[k]=(ent[k]||0)+m.delta;});
+  S["Cambios de equipos"]=eqEdits.filter(m=>_inRange(m.ts)&&okP(m.cliente)).map(m=>({Fecha:m.ts.slice(0,10),Usuario:m.user,Cliente:m.cliente,Antes:m.antes,Despues:m.despues}));
+  const rjm={};vis.filter(v=>v.rejillas>0).forEach(v=>{const k=v.fecha.slice(0,7)+"|"+v.cliente+"|"+v.esencia;rjm[k]=(rjm[k]||0)+v.rejillas;});
+  S["Rejillas por mes"]=Object.entries(rjm).map(([k,n])=>{const[m,c,r]=k.split("|");return{Mes:m,Cliente:c,Rejilla:r,Cantidad:n};}).sort((a,b)=>a.Mes.localeCompare(b.Mes)||a.Cliente.localeCompare(b.Cliente));
   S["Entradas de esencia"]=Object.entries(ent).map(([k,n])=>{const[m,e]=k.split("|");return{Mes:m,Esencia:e,ML_ingresados:n};}).sort((a,b)=>a.Mes.localeCompare(b.Mes));
   // Clientes y equipos sin visita
   const hoy=Date.now();
@@ -1051,7 +1097,7 @@ async function doExportEstadisticasXLSX(){
   showToast("Generando Excel...");
   try{await _loadXLSX();}catch{alert("No se pudo cargar el generador de Excel (revisa internet).");return;}
   const S=buildStats();const wb=XLSX.utils.book_new();
-  const orden=["Resumen","Equipos por modelo","Equipos por cliente","Cartera por vendedor","Consumo por esencia","Esencia por mes","Consumo por cliente","Visitas por vendedor","Baterias por mes","Baterias por cliente","Entradas de esencia","Clientes sin visita 30+ dias","Equipos sin visita 30+ dias","Problemas reportados"];
+  const orden=["Resumen","Equipos por modelo","Equipos por cliente","Cartera por vendedor","Consumo por esencia","Esencia por mes","Consumo por cliente","Visitas por vendedor","Baterias por mes","Baterias por cliente","Rejillas por mes","Cambios de equipos","Entradas de esencia","Clientes sin visita 30+ dias","Equipos sin visita 30+ dias","Problemas reportados"];
   orden.forEach(n=>{const rows=S[n]&&S[n].length?S[n]:[{Info:"Sin datos en el período"}];const ws=XLSX.utils.json_to_sheet(rows);ws["!cols"]=Object.keys(rows[0]).map(k=>({wch:Math.min(45,Math.max(k.length+2,...rows.slice(0,200).map(r=>String(r[k]??"").length+1)))}));XLSX.utils.book_append_sheet(wb,ws,n.slice(0,31));});
   XLSX.writeFile(wb,"Estadisticas_EcobasicScents_"+today()+".xlsx");
 }
@@ -1196,6 +1242,8 @@ function render(){
           +"<div class='fw'><label class='lbl'>Serie</label><input id='ec_s_tmp' class='inp' placeholder='Nro serie' oninput='setSelEqManual(this.value)'/></div>"
           +"<div class='fw'><label class='lbl'>Esencia usada</label><select class='inp' onchange='selS=this.value'><option value=''>Sin esencia / solo mantenimiento</option>"+allScents.map(s=>"<option value='"+s+"'"+(s===selS?" selected":"")+">"+s+"</option>").join("")+"</select></div>"
           +"<div class='fw'><label class='lbl'>ML usados *</label><input type='number' class='inp' placeholder='0' min='1' oninput='mlV=this.value' value='"+(mlV||"")+"'/></div>"
+          +_rejBlock()
+          +(isA?"":"<button onclick='openAddCEq("+JSON.stringify(selC)+")' style='margin-bottom:10px;width:100%;padding:9px;border:1px dashed var(--F);border-radius:var(--R);background:#f0f7f4;color:var(--F);font-weight:700;font-size:12px;cursor:pointer'>+ Registrar equipo del cliente</button>")
           +"<button class='btn' onclick='regVisitSimple()'>Guardar visita</button>";
       } else {
         html+="<div style='font-size:12px;font-weight:700;color:var(--M);margin-bottom:10px'>EQUIPOS ("+eqsC.length+") \u2014 Marca los que atendiste:</div>";
@@ -1216,7 +1264,9 @@ function render(){
             +"<div style='flex:1'><div style='font-weight:700;font-size:13px'>"+eq.modelo+" <span style='font-size:11px;color:var(--M)'>&#183; "+eq.serie+"</span></div>"
             +(eq.area?"<div style='font-size:11px;color:var(--M)'>"+eq.area+"</div>":"")
             +(eq.aroma?"<div style='font-size:11px;color:var(--G)'>"+eq.aroma+"</div>":"")
-            +gs+"</div></div>";
+            +gs+"</div>"
+            +"<button title='Corregir equipo' onclick='event.stopPropagation();openEditCEq("+JSON.stringify(selC)+","+JSON.stringify(eq.id||"")+","+JSON.stringify(eq.serie)+")' style='padding:4px 9px;font-size:13px;background:#e8f0ff;color:#3456a0;border:none;border-radius:7px;cursor:pointer'>&#9999;&#65039;</button>"
+            +"</div>";
           if(done){
             const sn=JSON.stringify(eq.serie);
             if(fmatic){
@@ -1262,6 +1312,8 @@ function render(){
           +"<i class='ti ti-alert-triangle' style='font-size:18px'></i>"
           +"<span style='font-size:13px;font-weight:600;flex:1'>Problema en equipo</span>"
           +(window._probM?"<i class='ti ti-check' style='font-size:16px'></i>":"<div style='width:18px;height:18px;border:2px solid currentColor;border-radius:50%'></div>")+"</div>";
+        html+="<button onclick='openAddCEq("+JSON.stringify(selC)+")' style='margin-bottom:10px;width:100%;padding:9px;border:1px dashed var(--F);border-radius:var(--R);background:#f0f7f4;color:var(--F);font-weight:700;font-size:12px;cursor:pointer'>+ Agregar equipo que no aparece</button>";
+        html+=_rejBlock();
         // Cambio aroma / intensidad buttons
         html+="<div style='display:flex;gap:8px;margin-bottom:12px'>"
           +"<button type='button' onclick='openCambioAroma("+JSON.stringify(selC)+")' style='flex:1;padding:10px;border:1px solid #dde8e2;border-radius:var(--R);background:none;font-size:12px;font-weight:600;color:var(--G);cursor:pointer'><i class='ti ti-refresh'></i> Cambio aroma</button>"
@@ -1509,8 +1561,8 @@ function render(){
     if(vc30.length>0&&isA){html+="<div class='card sl-r' style='margin-bottom:12px'><div class='ct' style='color:var(--D)'><i class='ti ti-clock-exclamation'></i> "+vc30.length+" cliente"+(vc30.length!==1?"s":"")+" sin visita en 30+ dias</div><div style='font-size:11px;color:var(--M);margin-top:4px'>"+vc30.slice(0,5).join(", ")+(vc30.length>5?" ...+"+( vc30.length-5)+" mas":"")+"</div></div>";}
     html+="<button class='btn-add' onclick='openAddSolicitud()'><i class='ti ti-plus'></i> Nueva solicitud</button>";
     if(pend.length===0)html+="<div class='empty'><i class='ti ti-checks'></i>Sin solicitudes pendientes</div>";
-    pend.forEach(s=>{const sj=JSON.stringify(s.id);html+="<div class='card sl'><div class='ch'><div><div class='ct'>"+s.nombre+"</div><div class='cs'>"+s.vendedor+" &#183; "+fmtD(s.fecha)+" &#183; "+(s.tipo==="prospecto"?"Prospecto":"Cliente")+"</div></div><span class='chip chip-w'>Pendiente</span></div>"+(s.notas?"<div style='font-size:11px;color:var(--M);margin-top:5px'>"+s.notas+"</div>":"")+(isA?"<div style='display:flex;gap:6px;margin-top:8px'><button class='be' onclick='completarSolicitud("+sj+")'>Completar</button><button onclick='convertirCliente("+sj+")' style='padding:4px 10px;background:#fef9e7;color:var(--G);border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer'>Convertir</button><button class='del' onclick='cerrarSolicitud("+sj+")'>Cerrar</button></div>":"")+"</div>";});
-    if(comp.length>0){html+="<p style='font-size:12px;color:var(--M);font-weight:700;margin:16px 0 10px'>COMPLETADAS ("+comp.length+")</p>";comp.slice(0,10).forEach(s=>{const chip=s.estado==="convertido"?"<span class='chip chip-g' style='font-size:10px'>Convertido</span>":s.estado==="completada"?"<span class='chip' style='font-size:10px'>Completada</span>":"<span style='font-size:10px;background:#f0f0f0;padding:2px 8px;border-radius:20px'>Cerrada</span>";html+="<div class='card' style='opacity:.75'><div class='ch'><div><div class='ct' style='font-size:12px'>"+s.nombre+"</div><div class='cs'>"+s.vendedor+"</div></div>"+chip+"</div></div>";});}
+    pend.forEach(s=>{const sj=JSON.stringify(s.id);html+="<div class='card sl'><div class='ch'><div><div class='ct'>"+s.nombre+"</div><div class='cs'>"+s.vendedor+" &#183; "+fmtD(s.fecha)+" &#183; "+(s.tipo==="prospecto"?"Prospecto":"Cliente")+"</div></div><span class='chip chip-w'>Pendiente</span></div>"+(s.notas?"<div style='font-size:11px;color:var(--M);margin-top:5px'>"+s.notas+"</div>":"")+"<div style='display:flex;gap:6px;margin-top:8px'><button class='be' style='background:#e8f5ee;color:var(--F);font-weight:700' onclick='completarSolicitud("+sj+")'>&#10003; Completada</button>"+(isA?"<button onclick='convertirCliente("+sj+")' style='padding:4px 10px;background:#fef9e7;color:var(--G);border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer'>Convertir</button>":"")+"<button class='del' onclick='cerrarSolicitud("+sj+")'>Cerrar</button></div>"+"</div>";});
+    if(comp.length>0){html+="<p style='font-size:12px;color:var(--M);font-weight:700;margin:16px 0 10px'>COMPLETADAS ("+comp.length+")</p>";comp.slice(0,10).forEach(s=>{const chip=s.estado==="convertido"?"<span class='chip chip-g' style='font-size:10px'>Convertido</span>":s.estado==="completada"?"<span class='chip' style='font-size:10px'>Completada</span>":"<span style='font-size:10px;background:#f0f0f0;padding:2px 8px;border-radius:20px'>Cerrada</span>";html+="<div class='card' style='opacity:.75'><div class='ch'><div><div class='ct' style='font-size:12px'>"+s.nombre+"</div><div class='cs'>"+s.vendedor+(s.completadaPor?" &#183; por "+s.completadaPor:"")+(s.fechaComp?" &#183; "+fmtD(s.fechaComp):"")+"</div></div>"+chip+"</div></div>";});}
     con=html;
   }
 
@@ -1673,7 +1725,7 @@ function render(){
     else if(t==="editCEq"){
       const eq=modal.eq||{};
       mHTML="<div class='mb-bg' onclick='if(event.target===this){modal=null;render()}'><div class='mb'><div class='mb-t'>Editar equipo</div><p class='ps'>"+modal.c+"</p>"
-        +"<div class='fw'><label class='lbl'>Modelo</label><input class='inp' value='"+( eq.modelo||"")+"' disabled/></div>"
+        +"<div class='fw'><label class='lbl'>Modelo</label><select class='inp' id='ec_m'>"+[...new Set([eq.modelo,...modelos].filter(Boolean))].map(m=>"<option"+(m===eq.modelo?" selected":"")+">"+m+"</option>").join("")+"</select></div>"
         +"<div class='fw'><label class='lbl'>Serie *</label><input class='inp' id='ec_s' value='"+(eq.serie||"")+"'/></div>"
         +"<div class='fw'><label class='lbl'>Area</label><input class='inp' id='ec_a' value='"+(eq.area||"")+"'/></div>"
         +"<div class='fw'><label class='lbl'>Aroma</label><select class='inp' id='ec_aroma'><option value=''>Sin aroma</option>"+getAllScents().map(s=>"<option value='"+s+"'"+(s===eq.aroma?" selected":"")+">"+s+"</option>").join("")+"</select></div>"
@@ -1839,8 +1891,10 @@ function regVisitSimple(){
   const ml=parseInt(mlV)||0;
   if(!selC){showToast("Selecciona cliente");return;}
   // ml y esencia son opcionales — se puede registrar visita de mantenimiento sin descarga
-  const v={id:uid(),fecha:new Date().toISOString(),vnd:sess.name,cliente:selC,modelo:m||"",serie:s||"",area:"",esencia:selS||"",ml,notas:notV||"",prob:false};
-  visits=[v,...visits];sv("vis",visits);
+  const _f=new Date().toISOString();
+  const _nr=_saveRejillas(_f);
+  if(s||ml>0||!_nr){const v={id:uid(),fecha:_f,vnd:sess.name,cliente:selC,modelo:m||"",serie:s||"",area:"",esencia:selS||"",ml,notas:notV||"",prob:false};visits=[v,...visits];}
+  sv("vis",visits);
   if(selS&&ml>0&&(inv[selS]||0)>=ml){inv={...inv,[selS]:(inv[selS]||0)-ml};sv("inv",inv);logInvMov(selS,-ml,"consumo","Visita: "+selC);}
   selC="";selEq=null;mlV="";notV="";selS="";showToast("Visita registrada");
 }
