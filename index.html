@@ -98,86 +98,185 @@ window.onerror=function(msg,src,line){
 const SB_URL="https://bdyuhphgqehnzputlgiy.supabase.co";
 const SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJkeXVocGhncWVobnpwdXRsZ2l5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkxOTk0NjUsImV4cCI6MjA5NDc3NTQ2NX0.gJ8JQb2dHIbupktg1ags10uYXfepAE6ou3Da6EAra9M";
 const SB_KEYS=["vis","inv","demos","eqs","movs","eqgrades","ceq","bajas","nvm","vnd","modelos","stkseries","cartuchos","customclients","sols","rejillas","baterias","pedidos","invMovs","batMovs","eqImportVer","vndFixVer","eqEdits","perms","jasonFixVer"];
-async function sbSet(k,v){try{await fetch(SB_URL+"/rest/v1/app_data",{method:"POST",mode:"cors",credentials:"omit",headers:{"apikey":SB_KEY,"Authorization":"Bearer "+SB_KEY,"Content-Type":"application/json","Prefer":"resolution=merge-duplicates","X-Client-Info":"ecobasicscents/1.0"},body:JSON.stringify({key:k,value:JSON.stringify(v),updated_at:new Date().toISOString()})});}catch{}}
-async function syncDown(){
+// ── SINCRONIZACIÓN (combina cambios; no pisa lo de otros teléfonos) ──
+const SB_H={"apikey":SB_KEY,"Authorization":"Bearer "+SB_KEY,"X-Client-Info":"ecobasicscents/2.0"};
+const MERGE_T={vis:"arr",demos:"arr",movs:"arr",bajas:"arr",sols:"arr",invMovs:"arr",batMovs:"arr",eqEdits:"arr",vnd:"arr",
+  inv:"num",cartuchos:"num",rejillas:"num",eqs:"num",baterias:"scalar",
+  ceq:"obj",eqgrades:"obj",nvm:"obj",pedidos:"obj",customclients:"cc",modelos:"set"};
+let _syncReady=false;
+const _gB=k=>{try{const v=localStorage.getItem("eco__b_"+k);return v?JSON.parse(v):null;}catch{return null;}};
+const _sB=(k,v)=>{try{localStorage.setItem("eco__b_"+k,JSON.stringify(v));}catch{}};
+const _gU=k=>{try{return localStorage.getItem("eco__u_"+k)||"";}catch{return"";}};
+const _sU=(k,v)=>{try{localStorage.setItem("eco__u_"+k,v||"");}catch{}};
+function _dirty(){try{return JSON.parse(localStorage.getItem("eco__dirty")||"[]");}catch{return[];}}
+function _setDirty(a){try{localStorage.setItem("eco__dirty",JSON.stringify([...new Set(a)]));}catch{}_syncBadge();}
+function _markDirty(k){const d=_dirty();if(!d.includes(k)){d.push(k);_setDirty(d);}}
+function _clearDirty(k){_setDirty(_dirty().filter(x=>x!==k));}
+const _J=x=>JSON.stringify(x);
+const _idk=x=>x&&x.id!=null?"i:"+x.id:"j:"+_J(x);
+function _mArr(b,l,r){
+  l=Array.isArray(l)?l:[];r=Array.isArray(r)?r:[];
+  const bm=b&&Array.isArray(b)?new Map(b.map(x=>[_idk(x),_J(x)])):null;
+  const lk=new Set(l.map(_idk));const res=new Map(r.map(x=>[_idk(x),x]));const nuevos=[];
+  l.forEach(x=>{const k=_idk(x);const bj=bm?bm.get(k):undefined;if(bj===undefined||bj!==_J(x)){if(!res.has(k))nuevos.push(x);res.set(k,x);}});
+  if(bm)bm.forEach((v,k)=>{if(!lk.has(k))res.delete(k);});
+  const nk=new Set(nuevos.map(_idk));
+  return[...nuevos,...[...res.entries()].filter(([k])=>!nk.has(k)).map(([,v])=>v)];
+}
+function _mNum(b,l,r){
+  l=l||{};r=r||{};const res={...r};
+  Object.keys(l).forEach(k=>{
+    if(b&&k in b){const d=(+l[k]||0)-(+b[k]||0);if(d!==0)res[k]=Math.max(0,(+(k in r?r[k]:b[k])||0)+d);}
+    else if(!(k in r))res[k]=l[k];
+  });
+  if(b)Object.keys(b).forEach(k=>{if(!(k in l))delete res[k];});
+  return res;
+}
+function _mObj(b,l,r){
+  l=l||{};r=r||{};const res={...r};
+  Object.keys(l).forEach(k=>{if(!b||_J(l[k])!==_J(b[k]))res[k]=l[k];});
+  if(b)Object.keys(b).forEach(k=>{if(!(k in l))delete res[k];});
+  return res;
+}
+function _mSet(b,l,r){
+  l=l||[];r=r||[];const res=[...r];
+  l.forEach(x=>{if((!b||!b.includes(x))&&!res.includes(x))res.push(x);});
+  if(b)b.forEach(x=>{if(!l.includes(x)){const i=res.indexOf(x);if(i>=0)res.splice(i,1);}});
+  return res;
+}
+function mergeKey(k,b,l,r){
+  if(r==null)return l;if(l==null)return r;
+  const t=MERGE_T[k];
+  if(t==="arr")return _mArr(b,l,r);
+  if(t==="num")return _mNum(b,l,r);
+  if(t==="obj")return _mObj(b,l,r);
+  if(t==="set")return _mSet(b,l,r);
+  if(t==="scalar"){if(b==null)return r;return Math.max(0,(+r||0)+((+l||0)-(+b||0)));}
+  if(t==="cc"){b=b||null;return{...r,...l,clients:_mSet(b&&b.clients,l.clients,r.clients),vc:_mObj(b&&b.vc,l.vc,r.vc),pais:_mObj(b&&b.pais,l.pais,r.pais),vcOverride:_mObj(b&&b.vcOverride,l.vcOverride,r.vcOverride)};}
+  return l; // valores simples: gana el último
+}
+function applyRemote(key,val){
+  localStorage.setItem("eco_"+key,JSON.stringify(val));
+  if(key==="vis")visits=val;
+  if(key==="inv")inv=val||{};
+  if(key==="demos")demos=val;
+  if(key==="eqs")eqStk=val;
+  if(key==="movs")movs=val;
+  if(key==="eqgrades")eqGrades=val;
+  if(key==="ceq"){const clean={};Object.entries(val||{}).forEach(([k,v])=>{if(Array.isArray(v))clean[k]=v;});ceq=clean;localStorage.setItem("eco_ceq",JSON.stringify(clean));}
+  if(key==="bajas")bajas=val;
+  if(key==="nvm")nivMin=val;
+  if(key==="pedidos")pedidos=val;
+  if(key==="invMovs")invMovs=val;
+  if(key==="vnd")vendors=val;
+  if(key==="modelos")modelos=val;
+  if(key==="cartuchos")cartuchos=(val&&Object.keys(val).length)?val:{...CART_DEF};
+  if(key==="rejillas")rejillas=(val&&Object.keys(val).length)?val:{...REJ_DEF};
+  if(key==="eqEdits")eqEdits=val;
+  if(key==="perms")perms=val||{};
+  if(key==="batMovs")batMovs=val;
+  if(key==="baterias")baterias=val;
+  if(key==="sols")solicitudes=val;
+  if(key==="customclients"&&val){
+    if(val.clients)val.clients.forEach(c=>{if(!ALL_CLIENTS.includes(c))ALL_CLIENTS.push(c);});
+    if(val.vc)Object.keys(val.vc).forEach(v=>{if(!VC[v])VC[v]=[];val.vc[v].forEach(c=>{if(!VC[v].includes(c))VC[v].push(c);});});
+    if(val.pais){if(!window._clientPais)window._clientPais={};Object.assign(window._clientPais,val.pais);}
+    if(val.vcOverride){Object.entries(val.vcOverride).forEach(([c,nv])=>{Object.keys(VC).forEach(v=>{VC[v]=VC[v].filter(x=>x!==c);});if(nv&&!VC[nv])VC[nv]=[];if(nv&&!VC[nv].includes(c))VC[nv].push(c);});}
+  }
+}
+async function sbSet(k,v){
+  const ts=new Date().toISOString();
+  const r=await fetch(SB_URL+"/rest/v1/app_data",{method:"POST",mode:"cors",credentials:"omit",headers:{...SB_H,"Content-Type":"application/json","Prefer":"resolution=merge-duplicates"},body:JSON.stringify({key:k,value:JSON.stringify(v),updated_at:ts})});
+  if(!r.ok)throw new Error("HTTP "+r.status);
+  return ts;
+}
+const _pq={},_pt={};
+function schedulePush(k){clearTimeout(_pt[k]);_pt[k]=setTimeout(()=>{_pq[k]=(_pq[k]||Promise.resolve()).then(()=>pushKey(k)).catch(e=>{console.warn("push",k,e);_syncBadge();});},400);}
+async function pushKey(k){
+  if(!_syncReady||!_dirty().includes(k))return;
+  for(let intento=0;intento<6;intento++){
+    const lRaw=localStorage.getItem("eco_"+k);const local=lRaw?JSON.parse(lRaw):null;
+    const g=await fetch(SB_URL+"/rest/v1/app_data?key=eq."+encodeURIComponent(k)+"&select=value,updated_at",{mode:"cors",credentials:"omit",cache:"no-store",headers:{...SB_H,"Accept":"application/json"}});
+    if(!g.ok)throw new Error("HTTP "+g.status);
+    const rows=await g.json();const remote=rows[0]?JSON.parse(rows[0].value):null;const rts=rows[0]?rows[0].updated_at:null;
+    const merged=mergeKey(k,_gB(k),local,remote);
+    const ts=new Date().toISOString();let ok=false;
+    if(rows[0]){
+      // solo escribe si nadie más guardó desde que leímos (si no, vuelve a combinar)
+      const w=await fetch(SB_URL+"/rest/v1/app_data?key=eq."+encodeURIComponent(k)+"&updated_at=eq."+encodeURIComponent(rts),{method:"PATCH",mode:"cors",credentials:"omit",headers:{...SB_H,"Content-Type":"application/json","Prefer":"return=representation","Accept":"application/json"},body:JSON.stringify({value:JSON.stringify(merged),updated_at:ts})});
+      if(!w.ok)throw new Error("HTTP "+w.status);
+      const wr=await w.json();ok=Array.isArray(wr)&&wr.length>0;
+    }else{
+      const w=await fetch(SB_URL+"/rest/v1/app_data",{method:"POST",mode:"cors",credentials:"omit",headers:{...SB_H,"Content-Type":"application/json"},body:JSON.stringify({key:k,value:JSON.stringify(merged),updated_at:ts})});
+      if(w.ok)ok=true;else if(w.status!==409)throw new Error("HTTP "+w.status);
+    }
+    if(!ok){await new Promise(r=>setTimeout(r,150+Math.random()*400));continue;}
+    _sB(k,merged);_sU(k,ts);
+    const nowRaw=localStorage.getItem("eco_"+k);
+    if(nowRaw===lRaw){
+      _clearDirty(k);
+      if(_J(merged)!==lRaw){applyRemote(k,merged);_softRender();}
+    }else{
+      const now=nowRaw?JSON.parse(nowRaw):null;
+      const rebased=mergeKey(k,local,now,merged);
+      applyRemote(k,rebased);_softRender();schedulePush(k);
+    }
+    return;
+  }
+  throw new Error("conflicto persistente en "+k);
+}
+function flushDirty(){_dirty().forEach(k=>schedulePush(k));}
+function _softRender(){
+  const ae=document.activeElement;
+  if(modal||(tab==="visit"&&selC)||(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName))){window._needRender=true;return;}
+  window._needRender=false;render();
+}
+document.addEventListener("focusout",()=>{setTimeout(()=>{if(window._needRender)_softRender();},300);});
+function _syncBadge(){
+  let el=document.getElementById("sync_badge");
+  if(!el){el=document.createElement("div");el.id="sync_badge";el.style.cssText="position:fixed;bottom:74px;left:10px;z-index:9999;font:600 11px system-ui;padding:4px 9px;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.2);display:none";document.body&&document.body.appendChild(el);}
+  const n=_dirty().length;
+  if(n){el.style.display="block";el.style.background="#fff3e0";el.style.color="#e65100";el.textContent="⟳ "+n+" cambio"+(n>1?"s":"")+" por subir"+(navigator.onLine?"":" (sin internet)");}
+  else el.style.display="none";
+}
+let _syncing=null;
+function syncDown(){if(_syncing)return _syncing;_syncing=_syncDownImpl().finally(()=>{_syncing=null;});return _syncing;}
+async function _syncDownImpl(){
   try{
-    const url=SB_URL+"/rest/v1/app_data?key=in.("+SB_KEYS.map(k=>'"'+k+'"').join(",")+")&select=key,value";
-    const r=await fetch(url,{mode:"cors",credentials:"omit",cache:"no-store",headers:{"apikey":SB_KEY,"Authorization":"Bearer "+SB_KEY,"Accept":"application/json","X-Client-Info":"ecobasicscents/1.0"}});
-    if(!r.ok){console.error("Supabase HTTP error:",r.status,r.statusText);return false;}
-    const rows=await r.json();
-    if(!Array.isArray(rows)){console.error("Supabase bad response:",rows);return false;}
-    if(!rows.length)return true;
-    const _rv=rows.find(x=>x.key==="eqImportVer");let remoteVer=null;try{remoteVer=_rv?JSON.parse(_rv.value):null;}catch{}
-    const _rf=rows.find(x=>x.key==="vndFixVer");let remoteFix=null;try{remoteFix=_rf?JSON.parse(_rf.value):null;}catch{}
-    const _rj=rows.find(x=>x.key==="jasonFixVer");let remoteJ=null;try{remoteJ=_rj?JSON.parse(_rj.value):null;}catch{}
-    rows.forEach(row=>{
-      try{
+    const mu=SB_URL+"/rest/v1/app_data?key=in.("+SB_KEYS.map(k=>'"'+k+'"').join(",")+")&select=key,updated_at";
+    const m=await fetch(mu,{mode:"cors",credentials:"omit",cache:"no-store",headers:{...SB_H,"Accept":"application/json"}});
+    if(!m.ok){console.error("Supabase HTTP error:",m.status);return false;}
+    const meta=await m.json();if(!Array.isArray(meta))return false;
+    const dirty=_dirty();
+    const need=meta.filter(x=>!dirty.includes(x.key)&&(x.updated_at||"")!==_gU(x.key)).map(x=>x.key);
+    let changed=false;
+    if(need.length){
+      const r=await fetch(SB_URL+"/rest/v1/app_data?key=in.("+need.map(k=>'"'+k+'"').join(",")+")&select=key,value,updated_at",{mode:"cors",credentials:"omit",cache:"no-store",headers:{...SB_H,"Accept":"application/json"}});
+      if(!r.ok)return false;
+      const rows=await r.json();
+      rows.forEach(row=>{try{
+        if(_dirty().includes(row.key))return;
         const val=JSON.parse(row.value);
-        localStorage.setItem("eco_"+row.key,JSON.stringify(val));
-        if(row.key==="vis")visits=val;
-        if(row.key==="inv"){/* la nube manda: solo se agregan esencias que existan en el teléfono y no en la nube */const localInv=ld("inv",{});const merged={...val};Object.keys(localInv).forEach(k=>{if(!(k in merged))merged[k]=localInv[k];});inv=merged;localStorage.setItem("eco_inv",JSON.stringify(merged));}
-        if(row.key==="demos")demos=val;
-        if(row.key==="eqs")eqStk=val;
-        if(row.key==="movs")movs=val;
-        if(row.key==="eqgrades")eqGrades=val;
-        if(row.key==="ceq"){
-          // Merge ceq: convertir entradas flat {serie:{...}} a formato cliente-array, luego fusionar con local
-          if(remoteVer===EQ_IMPORT_VER){
-            // La nube ya tiene la importación: la nube manda (NO se mezcla con lo local, evita equipos dobles)
-            const clean={};Object.entries(val).forEach(([k,v])=>{if(Array.isArray(v))clean[k]=v;});
-            ceq=clean;localStorage.setItem("eco_ceq",JSON.stringify(clean));return;
-          }
-          const localCeq=ld("ceq",{});
-          const merged={};
-          // Procesar lo que viene de Supabase
-          Object.entries(val).forEach(([k,v])=>{
-            if(Array.isArray(v)){merged[k]=v;} // formato correcto {cliente:[...]}
-            else if(v&&v.cliente){// formato flat {serie:{modelo,cliente,...}} — convertir
-              const c=v.cliente;if(!merged[c])merged[c]=[];
-              if(!merged[c].find(x=>x.serie===k))merged[c].push({serie:k,modelo:v.modelo,area:v.area,aroma:v.aroma});
-            }
-          });
-          // Fusionar con local: para cada cliente, conservar equipos de ambos lados
-          Object.entries(localCeq).forEach(([k,v])=>{
-            if(!Array.isArray(v))return;
-            if(!merged[k]){merged[k]=v;}
-            else{v.forEach(le=>{if(!merged[k].find(x=>x.serie===le.serie))merged[k].push(le);});}
-          });
-          ceq=merged;
-          localStorage.setItem("eco_ceq",JSON.stringify(merged));
-        }
-        if(row.key==="bajas")bajas=val;
-        if(row.key==="nvm")nivMin=val;
-        if(row.key==="pedidos")pedidos=val;
-        if(row.key==="invMovs")invMovs=val;
-        if(row.key==="vnd")vendors=val;
-        if(row.key==="modelos")modelos=val;
-        if(row.key==="cartuchos")cartuchos=val;
-        if(row.key==="rejillas")rejillas=val;
-        if(row.key==="eqEdits")eqEdits=val;
-        if(row.key==="perms")perms=val||{};
-        if(row.key==="batMovs")batMovs=val;
-        if(row.key==="baterias")baterias=val;
-        if(row.key==="sols")solicitudes=val;
-        if(row.key==="customclients"){
-          if(val.clients)val.clients.forEach(c=>{if(!ALL_CLIENTS.includes(c))ALL_CLIENTS.push(c);});
-          if(val.vc)Object.keys(val.vc).forEach(v=>{if(!VC[v])VC[v]=[];val.vc[v].forEach(c=>{if(!VC[v].includes(c))VC[v].push(c);});});
-          if(val.pais){if(!window._clientPais)window._clientPais={};Object.assign(window._clientPais,val.pais);}
-          // Aplicar overrides que sobreescriben BASE_CC.vc
-          if(val.vcOverride){Object.entries(val.vcOverride).forEach(([c,nv])=>{Object.keys(VC).forEach(v=>{VC[v]=VC[v].filter(x=>x!==c);});if(nv&&!VC[nv])VC[nv]=[];if(nv&&!VC[nv].includes(c))VC[nv].push(c);});}
-        }
-      }catch{}
-    });
-    if(remoteVer!==EQ_IMPORT_VER)applyEqImport();
-    if(remoteFix!==VND_FIX_VER)applyVendFix();
-    if(remoteFix!==VND_FIX_VER||remoteJ!==JASON_FIX_VER)applyJasonFix();
+        if(_J(val)!==localStorage.getItem("eco_"+row.key)){applyRemote(row.key,val);changed=true;}
+        _sB(row.key,val);_sU(row.key,row.updated_at);
+      }catch(e){console.warn(e);}});
+    }
+    const first=!_syncReady;_syncReady=true;
+    // migraciones de una sola vez (usan la versión ya guardada en el teléfono)
+    if(ld("eqImportVer",null)!==EQ_IMPORT_VER){applyEqImport();changed=true;}
+    if(ld("vndFixVer",null)!==VND_FIX_VER){applyVendFix();changed=true;}
+    if(ld("jasonFixVer",null)!==JASON_FIX_VER){applyJasonFix();changed=true;}
+    flushDirty();_syncBadge();
+    if(changed&&!first)_softRender();
     return true;
-  }catch(e){console.error("syncDown exception:",e.name,e.message);return false;}
+  }catch(e){console.error("syncDown exception:",e.name,e.message);_syncBadge();return false;}
 }
 
 // ── STORAGE ──
 const ld=(k,fb)=>{try{const v=localStorage.getItem("eco_"+k);return v?JSON.parse(v):fb;}catch{return fb;}};
-const sv=(k,v)=>{try{localStorage.setItem("eco_"+k,JSON.stringify(v));}catch{} if(SB_KEYS.includes(k))sbSet(k,v);};
+const sv=(k,v)=>{try{localStorage.setItem("eco_"+k,JSON.stringify(v));}catch{} if(SB_KEYS.includes(k)){_markDirty(k);schedulePush(k);}};
+// Base inicial para teléfonos que vienen de la versión anterior: lo último que tenían se toma como punto de partida
+SB_KEYS.forEach(k=>{try{if(localStorage.getItem("eco__b_"+k)===null){const v=localStorage.getItem("eco_"+k);if(v!==null)localStorage.setItem("eco__b_"+k,v);}}catch{}});
 const uid=()=>Math.random().toString(36).slice(2,9);
 const today=()=>new Date().toISOString().slice(0,10);
 const fmt=d=>{try{return new Date(d).toLocaleDateString("es-SV",{day:"2-digit",month:"2-digit",year:"2-digit",hour:"2-digit",minute:"2-digit"});}catch{return d||"";}};
@@ -209,8 +308,9 @@ let eqGrades=ld("eqgrades",{});
 let ceq=ld("ceq",{});
 let bajas=ld("bajas",[]);
 let solicitudes=ld("sols",[]);
-let cartuchos=ld("cartuchos",null);if(!cartuchos){cartuchos={"Cartucho Sweet Lemon":0,"Cartucho Tropical Paradise":0,"Cartucho Mountain Breeze":0};}
-let rejillas=ld("rejillas",null);if(!rejillas){rejillas={"AirFin Mountain Breeze":0};}
+const CART_DEF={"Cartucho Sweet Lemon":0,"Cartucho Tropical Paradise":0,"Cartucho Mountain Breeze":0};const REJ_DEF={"AirFin Mountain Breeze":0};
+let cartuchos=ld("cartuchos",null);if(!cartuchos||!Object.keys(cartuchos).length){cartuchos={"Cartucho Sweet Lemon":0,"Cartucho Tropical Paradise":0,"Cartucho Mountain Breeze":0};}
+let rejillas=ld("rejillas",null);if(!rejillas||!Object.keys(rejillas).length){rejillas={"AirFin Mountain Breeze":0};}
 let baterias=ld("baterias",0);if(isNaN(baterias)||baterias<0)baterias=0;
 let modelos=ld("modelos",["AE301","AE701","AE801","AE3500","Radiant","AE TOWER BLACK","FMATIC Blanco","FMATIC Negro","Equipo de Goteo","AirFin Urinal"]);
 let nivMin=ld("nvm",{});
@@ -373,7 +473,7 @@ function forceSyncUp(){
   showToast("Subiendo datos...");
   const keys=["vis","inv","demos","eqs","movs","eqgrades","ceq","bajas","nvm","vnd","modelos","stkseries","cartuchos","customclients","sols","rejillas","baterias"];
   let done=0;
-  keys.forEach(k=>{const v=ld(k,null);if(v!==null){sbSet(k,v).then(()=>{done++;if(done===keys.length){showToast("\u2713 Datos subidos a la nube");render();}});}else{done++;if(done===keys.length){showToast("\u2713 Datos subidos a la nube");render();}}});
+  keys.forEach(k=>{const v=ld(k,null);if(v!==null){sbSet(k,v).then(ts=>{_sB(k,v);_sU(k,ts);_clearDirty(k);done++;if(done===keys.length){showToast("\u2713 Datos subidos a la nube");render();}});}else{done++;if(done===keys.length){showToast("\u2713 Datos subidos a la nube");render();}}});
 }
 
 // ── AUTH ──
@@ -471,6 +571,7 @@ function _mlBlock(eq,ev){
    +"</div>";
 }
 function nivelHTML(v){
+  if(v.cartuchos||v.rejillas)return "<div style='font-size:11px;margin-top:4px'><span style='background:#e8f0ff;color:#3456a0;border-radius:6px;padding:2px 8px;font-weight:600'>"+(v.cartuchos?"&#129524; "+v.cartuchos+" cartucho":"&#128701; "+v.rejillas+" rejilla"+(v.rejillas>1?"s":""))+": "+(v.esencia||"")+"</span></div>";
   const l=_num(v.mlLlegada),s=_num(v.mlSalida);if(l===null&&s===null)return"";
   const c=v.consumo!=null?v.consumo:consumoReal(v);
   return "<div style='font-size:11px;color:var(--M);margin-top:4px;display:flex;gap:10px;flex-wrap:wrap'>"
@@ -481,7 +582,7 @@ function nivelHTML(v){
 function _rejQ(n,d){if(!window._rejVisit)window._rejVisit={};const q=Math.max(0,(window._rejVisit[n]||0)+d);window._rejVisit[n]=q;render();}
 function _rejSet(n,v){if(!window._rejVisit)window._rejVisit={};window._rejVisit[n]=Math.max(0,parseInt(v)||0);}
 function _rejBlock(){
-  const keys=Object.keys(rejillas);if(!keys.length)return"";
+  const keys=[...new Set([...Object.keys(rejillas),...Object.keys(REJ_DEF)])];
   const rv=window._rejVisit||{};
   return "<div style='border:2px solid #dde8e2;border-radius:var(--R);padding:12px;margin-bottom:10px;background:#fff'>"
    +"<div style='font-weight:700;font-size:13px;margin-bottom:6px'>&#128701; Rejillas AirFin / Urinal instaladas</div>"
@@ -496,7 +597,8 @@ function _rejBlock(){
 function _saveRejillas(fecha){
   const rv=window._rejVisit||{};let n=0;
   Object.entries(rv).forEach(([k,q])=>{if(!q)return;
-    const v={id:uid(),fecha,vnd:sess.name,cliente:selC,modelo:"AirFin Urinal",serie:"REJILLAS",area:"",esencia:k,ml:0,rejillas:q,tipo:"rejilla",notas:"Rejillas instaladas: "+q,prob:false};
+    const sinS=q>(rejillas[k]||0);
+    const v={id:uid(),fecha,vnd:sess.name,cliente:selC,modelo:"AirFin Urinal",serie:"REJILLAS",area:"",esencia:k,ml:0,rejillas:q,tipo:"rejilla",notas:"Rejillas instaladas: "+q+(sinS?" (stock insuficiente: había "+(rejillas[k]||0)+")":""),prob:false};
     visits=[v,...visits];rejillas={...rejillas,[k]:Math.max(0,(rejillas[k]||0)-q)};n+=q;});
   if(n){sv("rejillas",rejillas);}
   window._rejVisit={};return n;
@@ -517,8 +619,8 @@ function regVisitMulti(){
     if(v.mlLlegada!==null){const prev=lastNivel(selC,e.serie);if(prev)v.consumo=Math.max(0,_num(prev.mlSalida)-v.mlLlegada);}
     visits=[v,...visits];
     if(e.esencia&&e.ml>0){
-      if(e.tipo==="cartucho"){if((cartuchos[e.esencia]||0)>0){cartuchos={...cartuchos,[e.esencia]:(cartuchos[e.esencia]||0)-1};}}
-      else if(e.tipo==="rejilla"){if((rejillas[e.esencia]||0)>0){rejillas={...rejillas,[e.esencia]:(rejillas[e.esencia]||0)-1};sv("rejillas",rejillas);}}
+      if(e.tipo==="cartucho"){v.ml=0;v.cartuchos=1;if((cartuchos[e.esencia]||0)>0){cartuchos={...cartuchos,[e.esencia]:(cartuchos[e.esencia]||0)-1};}else{cartuchos={...cartuchos,[e.esencia]:0};v.notas=(v.notas?v.notas+" · ":"")+"Cartucho sin stock en inventario";}}
+      else if(e.tipo==="rejilla"){v.ml=0;v.rejillas=1;if((rejillas[e.esencia]||0)>0){rejillas={...rejillas,[e.esencia]:(rejillas[e.esencia]||0)-1};}else{rejillas={...rejillas,[e.esencia]:0};v.notas=(v.notas?v.notas+" · ":"")+"Rejilla sin stock en inventario";}sv("rejillas",rejillas);}
       else{if((inv[e.esencia]||0)>=e.ml){inv={...inv,[e.esencia]:(inv[e.esencia]||0)-e.ml};logInvMov(e.esencia,-e.ml,"consumo","Visita: "+selC+" / "+e.serie);}}
     }
     if(e.baterias>0){baterias=Math.max(0,baterias-e.baterias);logBatMov(e.serie,e.modelo,selC,e.baterias);}
@@ -818,7 +920,7 @@ function saveMov(){
       const m=chk.dataset.m,s=chk.dataset.s,id2=chk.dataset.id;
       movs=[{id:uid(),fecha:new Date().toISOString(),vnd:sess.name,tipo:"salida",modelo:m,serie:s,cant:1,motivo:"Retiro de cliente",cliente:retC,notas},...movs];
       const curStk=eqStk[m]||0;eqStk={...eqStk,[m]:curStk+1};
-      delCEq(retC,id2,s);
+      _marcarEq(retC,id2,s,{_baja:true,bajaMotivo:"Retiro a oficina",bajaPor:sess.name,bajaFecha:today()},"(RETIRADO a oficina"+(notas?": "+notas:"")+")");
     });
     sv("movs",movs);sv("eqs",eqStk);modal=null;showToast("Equipos retirados");
   } else {
@@ -1134,6 +1236,8 @@ function buildStats(){
   const ent={};invMovs.filter(m=>m.tipo==="entrada"&&_inRange(m.ts)).forEach(m=>{const k=m.ts.slice(0,7)+"|"+m.esencia;ent[k]=(ent[k]||0)+m.delta;});
   S["Cambios de equipos"]=eqEdits.filter(m=>_inRange(m.ts)&&okP(m.cliente)).map(m=>({Fecha:m.ts.slice(0,10),Usuario:m.user,Cliente:m.cliente,Antes:m.antes,Despues:m.despues}));
   const rjm={};vis.filter(v=>v.rejillas>0).forEach(v=>{const k=v.fecha.slice(0,7)+"|"+v.cliente+"|"+v.esencia;rjm[k]=(rjm[k]||0)+v.rejillas;});
+  const ctm={};vis.filter(v=>v.cartuchos>0).forEach(v=>{const k=v.fecha.slice(0,7)+"|"+v.cliente+"|"+v.esencia;ctm[k]=(ctm[k]||0)+v.cartuchos;});
+  S["Cartuchos por mes"]=Object.entries(ctm).map(([k,n])=>{const[m,c,r]=k.split("|");return{Mes:m,Cliente:c,Cartucho:r,Cantidad:n};}).sort((a,b)=>a.Mes.localeCompare(b.Mes)||a.Cliente.localeCompare(b.Cliente));
   S["Rejillas por mes"]=Object.entries(rjm).map(([k,n])=>{const[m,c,r]=k.split("|");return{Mes:m,Cliente:c,Rejilla:r,Cantidad:n};}).sort((a,b)=>a.Mes.localeCompare(b.Mes)||a.Cliente.localeCompare(b.Cliente));
   S["Entradas de esencia"]=Object.entries(ent).map(([k,n])=>{const[m,e]=k.split("|");return{Mes:m,Esencia:e,ML_ingresados:n};}).sort((a,b)=>a.Mes.localeCompare(b.Mes));
   // Clientes y equipos sin visita
@@ -1160,7 +1264,7 @@ async function doExportEstadisticasXLSX(){
   showToast("Generando Excel...");
   try{await _loadXLSX();}catch{alert("No se pudo cargar el generador de Excel (revisa internet).");return;}
   const S=buildStats();const wb=XLSX.utils.book_new();
-  const orden=["Resumen","Equipos por modelo","Equipos por cliente","Cartera por vendedor","Consumo por esencia","Esencia por mes","Consumo por cliente","Visitas por vendedor","Baterias por mes","Baterias por cliente","Rejillas por mes","Cambios de equipos","Entradas de esencia","Clientes sin visita 30+ dias","Equipos sin visita 30+ dias","Problemas reportados"];
+  const orden=["Resumen","Equipos por modelo","Equipos por cliente","Cartera por vendedor","Consumo por esencia","Esencia por mes","Consumo por cliente","Visitas por vendedor","Baterias por mes","Baterias por cliente","Cartuchos por mes","Rejillas por mes","Cambios de equipos","Entradas de esencia","Clientes sin visita 30+ dias","Equipos sin visita 30+ dias","Problemas reportados"];
   orden.forEach(n=>{const rows=S[n]&&S[n].length?S[n]:[{Info:"Sin datos en el período"}];const ws=XLSX.utils.json_to_sheet(rows);ws["!cols"]=Object.keys(rows[0]).map(k=>({wch:Math.min(45,Math.max(k.length+2,...rows.slice(0,200).map(r=>String(r[k]??"").length+1)))}));XLSX.utils.book_append_sheet(wb,ws,n.slice(0,31));});
   XLSX.writeFile(wb,"Estadisticas_EcobasicScents_"+today()+".xlsx");
 }
@@ -1335,17 +1439,25 @@ function render(){
           if(done){
             const sn=JSON.stringify(eq.serie);
             if(fmatic){
+              const ck=[...new Set([...Object.keys(cartuchos),...Object.keys(CART_DEF)])];
+              const cs=ev.esencia?(cartuchos[ev.esencia]||0):null;
               html+="<div class='fw' style='margin-top:8px'><label class='lbl' style='font-size:11px'>Cartucho instalado</label>"
-                +"<select class='inp' style='font-size:12px' data-serie='"+eq.serie+"' onchange='_uev(this,this.dataset.serie,\"esencia\");updEqVisit(this.dataset.serie,\"ml\",1);updEqVisit(this.dataset.serie,\"tipo\",\"cartucho\")'>"
-                +"<option value=''>Sin cambio</option>"
-                +cartuchoKeys.map(k=>"<option value='"+k+"'"+(ev.esencia===k?" selected":"")+">"+k+" ("+( cartuchos[k]||0)+" stock)</option>").join("")
-                +"</select></div>";
+                +"<select class='inp' style='font-size:12px' data-serie='"+eq.serie+"' onchange='_uev(this,this.dataset.serie,\"esencia\");updEqVisit(this.dataset.serie,\"ml\",this.value?1:0);updEqVisit(this.dataset.serie,\"tipo\",\"cartucho\");render()'>"
+                +"<option value=''>Sin cambio de cartucho</option>"
+                +ck.map(k=>"<option value='"+k+"'"+(ev.esencia===k?" selected":"")+">"+k+" ("+(cartuchos[k]||0)+" en stock)</option>").join("")
+                +"</select>"
+                +(cs===0?"<div style='font-size:11px;color:var(--D);margin-top:4px'>&#x26A0; Sin stock en inventario: el cambio se registra igual, avisa al admin para cargar cartuchos.</div>":"")
+                +"</div>";
             } else if(urinal){
+              const rk=[...new Set([...Object.keys(rejillas),...Object.keys(REJ_DEF)])];
+              const rs=ev.esencia?(rejillas[ev.esencia]||0):null;
               html+="<div class='fw' style='margin-top:8px'><label class='lbl' style='font-size:11px'>Rejilla instalada</label>"
-                +"<select class='inp' style='font-size:12px' data-serie='"+eq.serie+"' onchange='_uev(this,this.dataset.serie,\"esencia\");updEqVisit(this.dataset.serie,\"ml\",1);updEqVisit(this.dataset.serie,\"tipo\",\"rejilla\")'>"
-                +"<option value=''>Sin cambio</option>"
-                +rejillaKeys.map(k=>"<option value='"+k+"'"+(ev.esencia===k?" selected":"")+">"+k+" ("+( rejillas[k]||0)+" stock)</option>").join("")
-                +"</select></div>";
+                +"<select class='inp' style='font-size:12px' data-serie='"+eq.serie+"' onchange='_uev(this,this.dataset.serie,\"esencia\");updEqVisit(this.dataset.serie,\"ml\",this.value?1:0);updEqVisit(this.dataset.serie,\"tipo\",\"rejilla\");render()'>"
+                +"<option value=''>Sin cambio de rejilla</option>"
+                +rk.map(k=>"<option value='"+k+"'"+(ev.esencia===k?" selected":"")+">"+k+" ("+(rejillas[k]||0)+" en stock)</option>").join("")
+                +"</select>"
+                +(rs===0?"<div style='font-size:11px;color:var(--D);margin-top:4px'>&#x26A0; Sin stock en inventario: el cambio se registra igual, avisa al admin.</div>":"")
+                +"</div>";
             } else if(bateria){
               html+="<div class='fw' style='margin-top:8px'>"
                 +"<label class='lbl' style='font-size:11px'>Cambio de bater\xEDas D <span style='color:var(--M);font-weight:400'>(stock: "+baterias+")</span></label>"
@@ -1992,8 +2104,13 @@ function regVisitSimple(){
 
 // ── INIT ──
 render();
-// Auto-sync every 2 min
-setInterval(()=>{if(sess)syncDown().then(ok=>{if(ok)render();});},120000);
+// Sincronizar al abrir, cada 30 s, al volver a la app y al recuperar internet
+syncDown().then(ok=>{if(ok)_softRender();});
+setInterval(()=>{syncDown();},30000);
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")syncDown();});
+window.addEventListener("online",()=>{syncDown();});
+window.addEventListener("offline",_syncBadge);
+setTimeout(_syncBadge,500);
 </script>
 </body>
 </html>
