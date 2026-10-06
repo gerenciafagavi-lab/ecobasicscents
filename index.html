@@ -97,7 +97,7 @@ window.onerror=function(msg,src,line){
 // ── SUPABASE ──
 const SB_URL="https://bdyuhphgqehnzputlgiy.supabase.co";
 const SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJkeXVocGhncWVobnpwdXRsZ2l5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkxOTk0NjUsImV4cCI6MjA5NDc3NTQ2NX0.gJ8JQb2dHIbupktg1ags10uYXfepAE6ou3Da6EAra9M";
-const SB_KEYS=["vis","inv","demos","eqs","movs","eqgrades","ceq","bajas","nvm","vnd","modelos","stkseries","cartuchos","customclients","sols","rejillas","baterias","pedidos","invMovs","batMovs","eqImportVer","vndFixVer","eqEdits","perms"];
+const SB_KEYS=["vis","inv","demos","eqs","movs","eqgrades","ceq","bajas","nvm","vnd","modelos","stkseries","cartuchos","customclients","sols","rejillas","baterias","pedidos","invMovs","batMovs","eqImportVer","vndFixVer","eqEdits","perms","jasonFixVer"];
 async function sbSet(k,v){try{await fetch(SB_URL+"/rest/v1/app_data",{method:"POST",mode:"cors",credentials:"omit",headers:{"apikey":SB_KEY,"Authorization":"Bearer "+SB_KEY,"Content-Type":"application/json","Prefer":"resolution=merge-duplicates","X-Client-Info":"ecobasicscents/1.0"},body:JSON.stringify({key:k,value:JSON.stringify(v),updated_at:new Date().toISOString()})});}catch{}}
 async function syncDown(){
   try{
@@ -109,6 +109,7 @@ async function syncDown(){
     if(!rows.length)return true;
     const _rv=rows.find(x=>x.key==="eqImportVer");let remoteVer=null;try{remoteVer=_rv?JSON.parse(_rv.value):null;}catch{}
     const _rf=rows.find(x=>x.key==="vndFixVer");let remoteFix=null;try{remoteFix=_rf?JSON.parse(_rf.value):null;}catch{}
+    const _rj=rows.find(x=>x.key==="jasonFixVer");let remoteJ=null;try{remoteJ=_rj?JSON.parse(_rj.value):null;}catch{}
     rows.forEach(row=>{
       try{
         const val=JSON.parse(row.value);
@@ -169,6 +170,7 @@ async function syncDown(){
     });
     if(remoteVer!==EQ_IMPORT_VER)applyEqImport();
     if(remoteFix!==VND_FIX_VER)applyVendFix();
+    if(remoteFix!==VND_FIX_VER||remoteJ!==JASON_FIX_VER)applyJasonFix();
     return true;
   }catch(e){console.error("syncDown exception:",e.name,e.message);return false;}
 }
@@ -283,6 +285,17 @@ function applyVendFix(){
   sv("vnd",vendors);sv("customclients",cc);sv("vndFixVer",VND_FIX_VER);
 }
 if(ld("vndFixVer",null)!==VND_FIX_VER)applyVendFix();
+// Jason recibe la cartera de Kevin; Kevin queda como soporte
+const JASON_FIX_VER="2026-10-06-jason-b";
+function applyJasonFix(){
+  if(!vendors.find(v=>v.name==="Jason")){let pin="9090";if(vendors.find(v=>v.pin===pin)){do{pin=String(1000+Math.floor(Math.random()*9000));}while(vendors.find(v=>v.pin===pin));}vendors=[...vendors,{id:uid(),name:"Jason",pin,role:"vendor",active:true}];}
+  // Kevin sigue activo como soporte de mantenimiento (sin cartera)
+  vendors=vendors.map(v=>v.name==="Kevin"?{...v,active:true,soporte:true}:v);
+  const lista=[...(VC["Kevin"]||[])];if(lista.length)_moverClientes(lista,"Jason");
+  let ns=0;solicitudes=solicitudes.map(s=>{if(s.vendedor==="Kevin"&&s.estado==="pendiente"){ns++;return{...s,vendedor:"Jason"};}return s;});if(ns)sv("sols",solicitudes);
+  sv("vnd",vendors);sv("jasonFixVer",JASON_FIX_VER);
+}
+if(ld("jasonFixVer",null)!==JASON_FIX_VER)applyJasonFix();
 
 let modal=null;
 let toast="";
@@ -905,16 +918,42 @@ function delVnd(id){if(vendors.length<=1){showToast("Debe haber al menos un usua
 function saveVnd(){
   const n=document.getElementById("vn_n").value.trim();
   const p=document.getElementById("vn_p").value.trim();
-  const role=document.getElementById("vn_role")?.value||"vendor";
+  let role=document.getElementById("vn_role")?.value||"vendor";if(modal.v?.role==="atencion"&&role==="vendor")role="atencion";
   if(!n||!p||p.length<4){showToast("Nombre y PIN (min 4) requeridos");return;}
   if(modal.t==="addVnd"&&!modal.v){
     if(vendors.find(v=>v.pin===p)){showToast("PIN ya en uso");return;}
     vendors=[...vendors,{id:uid(),name:n,pin:p,role,active:true}];
   } else {
     if(vendors.find(v=>v.pin===p&&v.id!==modal.v?.id)){showToast("PIN ya en uso");return;}
+    const old=modal.v?.name;
     vendors=vendors.map(v=>v.id===modal.v?.id?{...v,name:n,pin:p,role}:v);
+    if(old&&old!==n&&(VC[old]||[]).length){_moverClientes([...VC[old]],n);delete VC[old];}
   }
   sv("vnd",vendors);modal=null;render();showToast("Usuario guardado");
+}
+
+function _moverClientes(lista,nuevoV){
+  const cc=ld("customclients",{clients:[],vc:{},pais:{},vcOverride:{}});
+  if(!cc.vc)cc.vc={};if(!cc.vcOverride)cc.vcOverride={};if(!cc.clients)cc.clients=[];
+  lista.forEach(c=>{
+    Object.keys(VC).forEach(k=>{VC[k]=VC[k].filter(x=>x!==c);});
+    Object.keys(cc.vc).forEach(k=>{cc.vc[k]=(cc.vc[k]||[]).filter(x=>x!==c);});
+    if(nuevoV){if(!VC[nuevoV])VC[nuevoV]=[];VC[nuevoV].push(c);if(!cc.vc[nuevoV])cc.vc[nuevoV]=[];cc.vc[nuevoV].push(c);}
+    cc.vcOverride[c]=nuevoV||"";if(!cc.clients.includes(c))cc.clients.push(c);
+  });
+  sv("customclients",cc);
+}
+function openTraspaso(id){const v=vendors.find(x=>x.id===id);if(v){modal={t:"traspaso",v};render();}}
+function saveTraspaso(){
+  const de=modal.v.name;const a=document.getElementById("tr_a").value;
+  const lista=[...(VC[de]||[])];
+  if(!lista.length){showToast("No tiene clientes");return;}
+  if(!a){showToast("Selecciona a quién pasar los clientes");return;}
+  _moverClientes(lista,a);
+  const sol=document.getElementById("tr_s")?.checked;let ns=0;
+  if(sol){solicitudes=solicitudes.map(s=>{if(s.vendedor===de&&s.estado==="pendiente"){ns++;return{...s,vendedor:a};}return s;});if(ns)sv("sols",solicitudes);}
+  if(document.getElementById("tr_d")?.checked){vendors=vendors.map(x=>x.id===modal.v.id?{...x,active:false}:x);sv("vnd",vendors);}
+  modal=null;render();showToast(lista.length+" clientes pasados a "+a+(ns?" · "+ns+" solicitudes":""));
 }
 
 // ── CONFIG ──
@@ -1598,7 +1637,7 @@ function render(){
     const vCards=vendors.map(v=>{
       window._vRefs[v.id]=v;
       const borderC=v.role==="admin"?"#3456a0":"var(--F)";
-      const roleL=v.role==="admin"?"Admin":"Vendedor";
+      const roleL=v.role==="admin"?"Admin":v.role==="atencion"?"Atención":v.soporte?"Soporte mantenimiento":"Vendedor";
       const activeL=v.active===false?"Inactivo":"Activo";
       const activeColor=v.active===false?"var(--D)":"var(--WN)";
       const activeLabel=v.active===false?"Activar":"Inactivar";
@@ -1607,6 +1646,7 @@ function render(){
         +"<div class='ch'><div><div class='ct'>"+v.name+"</div><div class='cs'>PIN: "+v.pin+" &#183; "+roleL+" &#183; "+activeL+"</div></div>"
         +"<div style='display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end'>"
         +"<button class='be' onclick='editVnd("+vid+")'>&#9999;&#65039;</button>"
+        +((VC[v.name]||[]).length?"<button class='be' style='font-size:11px;color:#3456a0' onclick='openTraspaso("+vid+")'>Pasar "+(VC[v.name]||[]).length+" clientes</button>":"")
         +"<button class='be' style='font-size:11px;color:"+activeColor+"' onclick='toggleVnd("+vid+")'>"+activeLabel+"</button>"
         +"<button class='del' onclick='delVnd("+vid+")'>Eliminar</button>"
         +"</div></div></div>";
@@ -1700,6 +1740,16 @@ function render(){
     }
     else if(t==="addRejilla"){
       mHTML="<div class='mb-bg' onclick='if(event.target===this){modal=null;render()}'><div class='mb'><div class='mb-t'>Agregar rejilla AirFin</div><div class='fw'><label class='lbl'>Fragancia *</label><input class='inp' id='rej_n' placeholder='Ej: Mountain Breeze' style='text-transform:uppercase' oninput='this.value=this.value.toUpperCase()'/></div><div class='mb-act'><button class='btn-c' onclick='modal=null;render()'>Cancelar</button><button class='btn' onclick='addRejilla()'>Agregar</button></div></div></div>";
+    }
+    else if(t==="traspaso"){
+      const de=modal.v.name;const n=(VC[de]||[]).length;const ps=solicitudes.filter(s=>s.vendedor===de&&s.estado==="pendiente").length;
+      const dest=vendors.filter(x=>x.active!==false&&x.name!==de&&x.role!=="atencion");
+      mHTML="<div class='mb-bg' onclick='if(event.target===this){modal=null;render()}'><div class='mb'><div class='mb-t'>Pasar clientes de "+de+"</div>"
+        +"<p class='ps'>"+n+" cliente"+(n!==1?"s":"")+" asignado"+(n!==1?"s":"")+"</p>"
+        +"<div class='fw'><label class='lbl'>Pasar a *</label><select class='inp' id='tr_a'><option value=''>Selecciona...</option>"+dest.map(x=>"<option value='"+x.name+"'>"+x.name+(x.role==="admin"?" (admin)":"")+"</option>").join("")+"</select></div>"
+        +(ps?"<label style='display:flex;gap:8px;align-items:center;font-size:12px;margin-bottom:8px'><input type='checkbox' id='tr_s' checked/> Pasar también sus "+ps+" solicitudes pendientes</label>":"")
+        +"<label style='display:flex;gap:8px;align-items:center;font-size:12px;margin-bottom:8px'><input type='checkbox' id='tr_d' checked/> Desactivar a "+de+" (ya no podrá entrar; su historial se conserva)</label>"
+        +"<div class='mb-act'><button class='btn-c' onclick='modal=null;render()'>Cancelar</button><button class='btn' onclick='saveTraspaso()'>Pasar clientes</button></div></div></div>";
     }
     else if(t==="addVnd"){
       const v=modal.v||{};
