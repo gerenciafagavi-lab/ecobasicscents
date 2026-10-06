@@ -114,7 +114,7 @@ async function syncDown(){
         const val=JSON.parse(row.value);
         localStorage.setItem("eco_"+row.key,JSON.stringify(val));
         if(row.key==="vis")visits=val;
-        if(row.key==="inv"){const localInv=ld("inv",{});const merged={...val};Object.keys(localInv).forEach(k=>{if((localInv[k]||0)>(merged[k]||0))merged[k]=localInv[k];});inv=merged;localStorage.setItem("eco_inv",JSON.stringify(merged));}
+        if(row.key==="inv"){/* la nube manda: solo se agregan esencias que existan en el teléfono y no en la nube */const localInv=ld("inv",{});const merged={...val};Object.keys(localInv).forEach(k=>{if(!(k in merged))merged[k]=localInv[k];});inv=merged;localStorage.setItem("eco_inv",JSON.stringify(merged));}
         if(row.key==="demos")demos=val;
         if(row.key==="eqs")eqStk=val;
         if(row.key==="movs")movs=val;
@@ -413,7 +413,52 @@ function _og(n){const r=window._G&&window._G[n];if(r)openGradeChange(r.c,r.eq);e
 function _openGV(){const eq=selEq||(window._eqVisit&&Object.values(window._eqVisit).find(e=>e.done)?{serie:Object.values(window._eqVisit).find(e=>e.done).serie,modelo:Object.values(window._eqVisit).find(e=>e.done).modelo}:null);if(!selC){showToast("Selecciona un cliente");return;}if(!eq){showToast("Selecciona un equipo");return;}openGradeChange(selC,eq);}
 function _uev(el,serie,field){const f=field||el.name||"val";const val=el.value;if(!window._eqVisit)window._eqVisit={};if(!window._eqVisit[serie])window._eqVisit[serie]={serie,done:false};window._eqVisit[serie]={...window._eqVisit[serie],[f]:f==="ml"?parseInt(val)||0:val};}
 function _uevN(el,serie){if(!window._eqVisit)window._eqVisit={};if(!window._eqVisit[serie])window._eqVisit[serie]={serie,done:false};window._eqVisit[serie]={...window._eqVisit[serie],notas:el.value};}
-function toggleEqVisit(serie,modelo,area){if(!window._eqVisit)window._eqVisit={};if(window._eqVisit[serie]?.done){window._eqVisit[serie]={...window._eqVisit[serie],done:false};}else{window._eqVisit[serie]={serie,modelo,area,done:true,esencia:window._eqVisit[serie]?.esencia||"",ml:window._eqVisit[serie]?.ml||0,notas:window._eqVisit[serie]?.notas||""};}render();}
+function toggleEqVisit(serie,modelo,area){if(!window._eqVisit)window._eqVisit={};if(window._eqVisit[serie]?.done){window._eqVisit[serie]={...window._eqVisit[serie],done:false};}else{const _eq=getClientEqs(selC).find(x=>x.serie===serie)||{};const _ar=(_eq.aroma||"").trim().toUpperCase().replace(/\s+/g,"");const _es=_ar?getAllScents().find(s=>s.toUpperCase().replace(/\s+/g,"")===_ar)||"":"";window._eqVisit[serie]={serie,modelo,area,done:true,esencia:window._eqVisit[serie]?.esencia||_es,ml:window._eqVisit[serie]?.ml||0,notas:window._eqVisit[serie]?.notas||""};}render();}
+// ── NIVELES DE ESENCIA ──
+function _num(x){if(x===null||x===undefined||x==="")return null;const n=parseFloat(x);return isNaN(n)?null:n;}
+function lastNivel(cliente,serie,antesDe){
+  // última visita del equipo con nivel de salida registrado
+  return visits.filter(v=>v.cliente===cliente&&v.serie===serie&&_num(v.mlSalida)!==null&&(!antesDe||v.fecha<antesDe)).sort((a,b)=>b.fecha.localeCompare(a.fecha))[0]||null;
+}
+function consumoReal(v){
+  // ml que gastó el equipo desde la visita anterior = quedó la vez pasada − tenía al llegar hoy
+  const lleg=_num(v.mlLlegada);if(lleg===null)return null;
+  const prev=lastNivel(v.cliente,v.serie,v.fecha);if(!prev)return null;
+  return Math.max(0,_num(prev.mlSalida)-lleg);
+}
+function _calcSal(serie){
+  const e=(window._eqVisit||{})[serie]||{};
+  const l=_num(e.mlLlegada),a=_num(e.ml)||0;
+  const el=document.getElementById("sal_"+serie.replace(/\W/g,"_"));
+  if(el)el.textContent=l===null?"—":(l+a)+" ml";
+}
+function _mlBlock(eq,ev){
+  const sid=eq.serie.replace(/\W/g,"_");
+  const prev=lastNivel(selC,eq.serie);
+  const l=_num(ev.mlLlegada),a=_num(ev.ml)||0;
+  return "<div class='fr' style='margin-top:8px;gap:8px'>"
+   +"<div class='fw'><label class='lbl' style='font-size:11px'>Esencia</label>"
+   +"<select class='inp' style='font-size:12px' data-serie='"+eq.serie+"' onchange='_uev(this,this.dataset.serie,\"esencia\");updEqVisit(this.dataset.serie,\"tipo\",\"ml\")'>"
+   +"<option value=''>Sin esencia / solo mantenimiento</option>"
+   +getAllScents().map(s=>"<option value='"+s+"'"+(ev.esencia===s?" selected":"")+">"+s+"</option>").join("")
+   +"</select></div></div>"
+   +(prev?"<div style='font-size:11px;color:#3456a0;margin-top:4px'>&#128339; Última visita ("+fmtD(prev.fecha.slice(0,10))+") quedó en <b>"+_num(prev.mlSalida)+" ml</b></div>":"")
+   +"<div class='fr' style='margin-top:6px;gap:6px'>"
+   +"<div class='fw'><label class='lbl' style='font-size:11px'>Tenía (ml)</label>"
+   +"<input type='number' class='inp' style='font-size:12px' placeholder='Ej: 150' min='0' value='"+(ev.mlLlegada??"")+"' data-serie='"+eq.serie+"' oninput='_uev(this,this.dataset.serie,this.name);_calcSal(this.dataset.serie)' name='mlLlegada'/></div>"
+   +"<div class='fw'><label class='lbl' style='font-size:11px'>Agregó (ml)</label>"
+   +"<input type='number' class='inp' style='font-size:12px' placeholder='0' min='0' value='"+(ev.ml||"")+"' data-serie='"+eq.serie+"' oninput='_uev(this,this.dataset.serie,this.name);_calcSal(this.dataset.serie)' name='ml'/></div>"
+   +"<div class='fw'><label class='lbl' style='font-size:11px'>Quedó</label>"
+   +"<div id='sal_"+sid+"' class='inp' style='font-size:12px;background:#f0f7f4;color:var(--F);font-weight:700'>"+(l===null?"—":(l+a)+" ml")+"</div></div>"
+   +"</div>";
+}
+function nivelHTML(v){
+  const l=_num(v.mlLlegada),s=_num(v.mlSalida);if(l===null&&s===null)return"";
+  const c=v.consumo!=null?v.consumo:consumoReal(v);
+  return "<div style='font-size:11px;color:var(--M);margin-top:4px;display:flex;gap:10px;flex-wrap:wrap'>"
+   +(l!==null?"<span>Tenía "+l+"ml</span>":"")+"<span>Agregó "+(v.ml||0)+"ml</span>"+(s!==null?"<span>Quedó "+s+"ml</span>":"")
+   +(c!=null?"<span style='color:var(--F);font-weight:700'>Gastó "+c+"ml desde la visita anterior</span>":"")+"</div>";
+}
 function regVisitMulti(){
   const ev=window._eqVisit||{};
   const entries=Object.values(ev).filter(e=>e.done);
@@ -422,9 +467,11 @@ function regVisitMulti(){
   const fecha=new Date().toISOString();
   const prob=!!(window._probM);
   const notasG=document.getElementById("notv_multi")?.value||"";
+  const sinEs=entries.find(e=>(e.ml||0)>0&&!e.esencia);if(sinEs){showToast("Falta elegir esencia en "+sinEs.serie);return;}
   let saved=0;
   entries.forEach(e=>{
-    const v={id:uid(),fecha,vnd:sess.name,cliente:selC,modelo:e.modelo,serie:e.serie,area:e.area||"",esencia:e.esencia||"",ml:e.ml||0,mlLlegada:e.mlLlegada||null,mlSalida:e.mlSalida||null,baterias:e.baterias||null,notas:e.notas||(notasG||""),prob};
+    const v={id:uid(),fecha,vnd:sess.name,cliente:selC,modelo:e.modelo,serie:e.serie,area:e.area||"",esencia:e.esencia||"",ml:e.ml||0,mlLlegada:(e.tipo==='cartucho'||e.tipo==='rejilla')?null:_num(e.mlLlegada),mlSalida:(e.tipo==='cartucho'||e.tipo==='rejilla'||_num(e.mlLlegada)===null)?null:_num(e.mlLlegada)+(e.ml||0),baterias:e.baterias||null,notas:e.notas||(notasG||""),prob};
+    if(v.mlLlegada!==null){const prev=lastNivel(selC,e.serie);if(prev)v.consumo=Math.max(0,_num(prev.mlSalida)-v.mlLlegada);}
     visits=[v,...visits];
     if(e.esencia&&e.ml>0){
       if(e.tipo==="cartucho"){if((cartuchos[e.esencia]||0)>0){cartuchos={...cartuchos,[e.esencia]:(cartuchos[e.esencia]||0)-1};}}
@@ -623,6 +670,7 @@ function renderClientEqs(c){
       +(eq.aroma?" &middot; <span style='color:var(--G)'>"+eq.aroma+"</span>":"")
       +gs+"</div>"
       +"<div style='display:flex;gap:4px'>"
+      +"<button title='Historial' style='padding:3px 8px;font-size:11px;background:#e0f2f1;color:#00695c;border:none;border-radius:7px;cursor:pointer;font-weight:700' onclick='var r=window._ceqRefs["+JSON.stringify(rk)+"];if(r)openHistEq(r.c,r.eq.serie)'>&#128200;</button>"
       +"<button style='padding:3px 8px;font-size:11px;background:#e8f0ff;color:#3456a0;border:none;border-radius:7px;cursor:pointer;font-weight:700' onclick='var r=window._ceqRefs["+JSON.stringify(rk)+"];if(r)openGradeChange(r.c,r.eq)'>&#9889;</button>"
       +"<button class='be' style='padding:3px 8px;font-size:11px' onclick='var r=window._ceqRefs["+JSON.stringify(rk)+"];if(r)openEditCEq(r.c,r.eq.id,r.eq.serie)'>&#9999;&#65039;</button>"
       +"<button class='del' onclick='var r=window._ceqRefs["+JSON.stringify(rk)+"];if(r)delCEq(r.c,r.eq.id,r.eq.serie)'>&#x2715;</button>"
@@ -892,6 +940,144 @@ function doExportVendedoresCSV(){
   const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="vendedores.csv";document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
   showToast("CSV descargado");
 }
+function _dlCSV(rows,name){
+  if(!rows.length){alert("Sin datos en el rango seleccionado");return;}
+  const hdrs='"'+Object.keys(rows[0]).join('","')+'"';
+  const rws=rows.map(r=>Object.values(r).map(v=>'"'+String(v??"").replace(/"/g,"''")+'"').join(","));
+  const blob=new Blob(["﻿"+[hdrs,...rws].join("\n")],{type:"text/csv;charset=utf-8;"});
+  const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=name;document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
+  showToast("CSV descargado");
+}
+function _visFiltradas(){
+  const rFrom=window._rFrom||"";const rTo=window._rTo||"";const rPais=window._rPais||"todos";
+  let data=visits.filter(v=>v.serie&&!v.cambioAroma);
+  if(rFrom)data=data.filter(v=>v.fecha>=rFrom);
+  if(rTo)data=data.filter(v=>v.fecha<=rTo+"T23:59:59");
+  if(rPais!=="todos")data=data.filter(v=>rPais==="GT"?(window._clientPais||{})[v.cliente]==="GT":(window._clientPais||{})[v.cliente]!=="GT");
+  return data;
+}
+function doExportConsumoMensual(nivel){
+  // nivel: "equipo" | "cliente"
+  const g={};
+  _visFiltradas().forEach(v=>{
+    const mes=v.fecha.slice(0,7);
+    const k=nivel==="equipo"?mes+"|"+v.cliente+"|"+v.serie:mes+"|"+v.cliente;
+    if(!g[k])g[k]={mes,cliente:v.cliente,serie:v.serie,modelo:v.modelo||"",esencias:new Set(),agregado:0,gastado:0,conNivel:0,visitas:0,ult:null};
+    const r=g[k];r.visitas++;r.agregado+=(v.ml||0);if(v.esencia)r.esencias.add(v.esencia);
+    const c=v.consumo!=null?v.consumo:consumoReal(v);if(c!=null){r.gastado+=c;r.conNivel++;}
+    if(_num(v.mlSalida)!==null&&(!r.ult||v.fecha>r.ult.fecha))r.ult=v;
+  });
+  const rows=Object.values(g).sort((a,b)=>a.mes.localeCompare(b.mes)||a.cliente.localeCompare(b.cliente)||String(a.serie).localeCompare(String(b.serie))).map(r=>{
+    const o={Mes:r.mes,Cliente:r.cliente,Vendedor:Object.entries(VC).find(([,a])=>a.includes(r.cliente))?.[0]||""};
+    if(nivel==="equipo"){o.Serie=r.serie;o.Modelo=r.modelo;}
+    o.Esencia=[...r.esencias].join(" / ");o.Visitas=r.visitas;o.ML_agregados=r.agregado;o.ML_gastados=r.conNivel?r.gastado:"";
+    if(nivel==="equipo")o.Quedo_ultima_visita=r.ult?_num(r.ult.mlSalida):"";
+    return o;});
+  _dlCSV(rows,nivel==="equipo"?"consumo_mensual_por_equipo.csv":"consumo_mensual_por_cliente.csv");
+}
+function doExportHistorialEquipos(){
+  const rows=_visFiltradas().sort((a,b)=>a.cliente.localeCompare(b.cliente)||String(a.serie).localeCompare(String(b.serie))||a.fecha.localeCompare(b.fecha)).map(v=>{
+    const c=v.consumo!=null?v.consumo:consumoReal(v);
+    return{Fecha:v.fecha.slice(0,10),Cliente:v.cliente,Serie:v.serie,Modelo:v.modelo||"",Area:v.area||"",Vendedor:v.vnd||"",Esencia:v.esencia||"",Tenia_ml:_num(v.mlLlegada)??"",Agrego_ml:v.ml||0,Quedo_ml:_num(v.mlSalida)??"",Gasto_desde_visita_anterior_ml:c??"",Baterias:v.baterias||"",Notas:v.notas||""};});
+  _dlCSV(rows,"historial_equipos.csv");
+}
+// ── ESTADÍSTICAS ──
+function _vendorOf(c){return Object.entries(VC).find(([,a])=>a.includes(c))?.[0]||"Sin asignar";}
+function _inRange(iso){const f=window._rFrom||"",t=window._rTo||"";if(f&&iso<f)return false;if(t&&iso>t+"T23:59:59")return false;return true;}
+function buildStats(){
+  const bajasC=new Set((bajas||[]).map(b=>b.c));
+  const act=ALL_CLIENTS.filter(c=>!bajasC.has(c));
+  const pais=window._rPais||"todos";
+  const okP=c=>pais==="todos"||(pais==="GT"?(window._clientPais||{})[c]==="GT":(window._clientPais||{})[c]!=="GT");
+  const cl=act.filter(okP);
+  const S={};
+  // Equipos instalados
+  const porModelo={},porCliMod={},porVnd={};let totEq=0,cliConEq=0;
+  cl.forEach(c=>{const eqs=getClientEqs(c).filter(e=>!e._del);if(eqs.length)cliConEq++;
+    const v=_vendorOf(c);if(!porVnd[v])porVnd[v]={Vendedor:v,Clientes:0,Equipos:0};porVnd[v].Clientes++;porVnd[v].Equipos+=eqs.length;
+    eqs.forEach(e=>{const m=e.modelo||"(sin modelo)";totEq++;porModelo[m]=(porModelo[m]||0)+1;const k=c+"|"+m;porCliMod[k]=(porCliMod[k]||0)+1;});});
+  S["Equipos por modelo"]=Object.entries(porModelo).sort((a,b)=>b[1]-a[1]).map(([m,n])=>({Modelo:m,Cantidad:n,Porcentaje:(n*100/Math.max(1,totEq)).toFixed(1)+"%"}));
+  S["Equipos por cliente"]=Object.entries(porCliMod).map(([k,n])=>{const[c,m]=k.split("|");return{Cliente:c,Vendedor:_vendorOf(c),Modelo:m,Cantidad:n};}).sort((a,b)=>a.Cliente.localeCompare(b.Cliente)||a.Modelo.localeCompare(b.Modelo));
+  S["Cartera por vendedor"]=Object.values(porVnd).sort((a,b)=>b.Equipos-a.Equipos);
+  // Visitas en período
+  const vis=visits.filter(v=>_inRange(v.fecha)&&okP(v.cliente));
+  const esMes={},esTot={},cliTot={},vndMes={},probs=[];
+  let mlAg=0,mlGa=0;
+  vis.forEach(v=>{const mes=v.fecha.slice(0,7);
+    if(v.esencia&&v.ml>0&&!v.cambioAroma){mlAg+=v.ml;const k=mes+"|"+v.esencia;esMes[k]=(esMes[k]||0)+v.ml;esTot[v.esencia]=(esTot[v.esencia]||0)+v.ml;}
+    const c=v.consumo!=null?v.consumo:(v.mlLlegada!=null?consumoReal(v):null);
+    if(!cliTot[v.cliente])cliTot[v.cliente]={Cliente:v.cliente,Vendedor:_vendorOf(v.cliente),Visitas:0,ML_agregados:0,ML_gastados:0};
+    cliTot[v.cliente].Visitas++;cliTot[v.cliente].ML_agregados+=(v.ml||0);if(c!=null){cliTot[v.cliente].ML_gastados+=c;mlGa+=c;}
+    const kv=mes+"|"+(v.vnd||"");if(!vndMes[kv])vndMes[kv]={Mes:mes,Vendedor:v.vnd||"",Visitas:0,Equipos_atendidos:0,ML_agregados:0,Problemas:0,_c:new Set()};
+    vndMes[kv].Equipos_atendidos++;vndMes[kv]._c.add(v.cliente+v.fecha.slice(0,10));vndMes[kv].ML_agregados+=(v.ml||0);if(v.prob)vndMes[kv].Problemas++;
+    if(v.prob)probs.push({Fecha:v.fecha.slice(0,10),Cliente:v.cliente,Serie:v.serie||"",Modelo:v.modelo||"",Vendedor:v.vnd||"",Notas:v.notas||""});
+  });
+  S["Consumo por esencia"]=Object.entries(esTot).sort((a,b)=>b[1]-a[1]).map(([e,n])=>({Esencia:e,ML_agregados:n,Porcentaje:(n*100/Math.max(1,mlAg)).toFixed(1)+"%",Stock_actual:inv[e]||0}));
+  S["Esencia por mes"]=Object.entries(esMes).map(([k,n])=>{const[m,e]=k.split("|");return{Mes:m,Esencia:e,ML_agregados:n};}).sort((a,b)=>a.Mes.localeCompare(b.Mes)||b.ML_agregados-a.ML_agregados);
+  S["Consumo por cliente"]=Object.values(cliTot).sort((a,b)=>b.ML_agregados-a.ML_agregados);
+  S["Visitas por vendedor"]=Object.values(vndMes).map(r=>{r.Visitas=r._c.size;delete r._c;return r;}).sort((a,b)=>a.Mes.localeCompare(b.Mes)||a.Vendedor.localeCompare(b.Vendedor));
+  S["Problemas reportados"]=probs;
+  // Baterías
+  const bm=batMovs.filter(m=>_inRange(m.ts)&&okP(m.cliente));
+  const batMes={},batCli={};let batTot=0;
+  bm.forEach(m=>{batTot+=m.qty;const mes=m.ts.slice(0,7);batMes[mes]=(batMes[mes]||0)+m.qty;
+    if(!batCli[m.cliente])batCli[m.cliente]={Cliente:m.cliente,Cambios:0,Baterias:0,Equipos:new Set()};batCli[m.cliente].Cambios++;batCli[m.cliente].Baterias+=m.qty;batCli[m.cliente].Equipos.add(m.serie);});
+  S["Baterias por mes"]=Object.entries(batMes).sort().map(([m,n])=>({Mes:m,Baterias_D:n}));
+  S["Baterias por cliente"]=Object.values(batCli).map(r=>({Cliente:r.Cliente,Cambios:r.Cambios,Baterias_D:r.Baterias,Equipos_distintos:r.Equipos.size})).sort((a,b)=>b.Baterias_D-a.Baterias_D);
+  // Entradas de esencia (inventario)
+  const ent={};invMovs.filter(m=>m.tipo==="entrada"&&_inRange(m.ts)).forEach(m=>{const k=m.ts.slice(0,7)+"|"+m.esencia;ent[k]=(ent[k]||0)+m.delta;});
+  S["Entradas de esencia"]=Object.entries(ent).map(([k,n])=>{const[m,e]=k.split("|");return{Mes:m,Esencia:e,ML_ingresados:n};}).sort((a,b)=>a.Mes.localeCompare(b.Mes));
+  // Clientes y equipos sin visita
+  const hoy=Date.now();
+  const lastC={},lastE={};visits.forEach(v=>{if(!lastC[v.cliente]||v.fecha>lastC[v.cliente])lastC[v.cliente]=v.fecha;const k=v.cliente+"|"+v.serie;if(!lastE[k]||v.fecha>lastE[k])lastE[k]=v.fecha;});
+  const dias=f=>f?Math.floor((hoy-new Date(f).getTime())/86400000):null;
+  S["Clientes sin visita 30+ dias"]=cl.filter(c=>getClientEqs(c).some(e=>!e._del)).map(c=>({Cliente:c,Vendedor:_vendorOf(c),Ultima_visita:lastC[c]?lastC[c].slice(0,10):"Nunca",Dias:dias(lastC[c])??"—"})).filter(r=>r.Dias==="—"||r.Dias>=30).sort((a,b)=>(b.Dias==="—"?99999:b.Dias)-(a.Dias==="—"?99999:a.Dias));
+  const eqSin=[];cl.forEach(c=>getClientEqs(c).filter(e=>!e._del).forEach(e=>{const f=lastE[c+"|"+e.serie];const d=dias(f);if(d===null||d>=30)eqSin.push({Cliente:c,Serie:e.serie,Modelo:e.modelo||"",Area:e.area||"",Ultima_visita:f?f.slice(0,10):"Nunca",Dias:d??"—"});}));
+  S["Equipos sin visita 30+ dias"]=eqSin;
+  const vr=S["Visitas por vendedor"].reduce((a,r)=>a+r.Visitas,0);
+  S["Resumen"]=[
+    {Indicador:"Período",Valor:(window._rFrom||"inicio")+" a "+(window._rTo||"hoy")},
+    {Indicador:"Clientes activos",Valor:cl.length},{Indicador:"Clientes con equipos",Valor:cliConEq},
+    {Indicador:"Equipos instalados",Valor:totEq},
+    {Indicador:"Visitas a clientes en el período",Valor:vr},{Indicador:"Equipos atendidos en el período",Valor:vis.length},
+    {Indicador:"ML de esencia agregados",Valor:mlAg},{Indicador:"ML gastados (medidos por nivel)",Valor:mlGa},
+    {Indicador:"Baterías D cambiadas",Valor:batTot},{Indicador:"Problemas reportados",Valor:probs.length},
+    {Indicador:"Clientes sin visita 30+ días",Valor:S["Clientes sin visita 30+ dias"].length},
+    {Indicador:"Equipos sin visita 30+ días",Valor:eqSin.length}];
+  return S;
+}
+function _loadXLSX(){return new Promise((ok,ko)=>{if(window.XLSX)return ok();const s=document.createElement("script");s.src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js";s.onload=()=>ok();s.onerror=()=>ko();document.head.appendChild(s);});}
+async function doExportEstadisticasXLSX(){
+  showToast("Generando Excel...");
+  try{await _loadXLSX();}catch{alert("No se pudo cargar el generador de Excel (revisa internet).");return;}
+  const S=buildStats();const wb=XLSX.utils.book_new();
+  const orden=["Resumen","Equipos por modelo","Equipos por cliente","Cartera por vendedor","Consumo por esencia","Esencia por mes","Consumo por cliente","Visitas por vendedor","Baterias por mes","Baterias por cliente","Entradas de esencia","Clientes sin visita 30+ dias","Equipos sin visita 30+ dias","Problemas reportados"];
+  orden.forEach(n=>{const rows=S[n]&&S[n].length?S[n]:[{Info:"Sin datos en el período"}];const ws=XLSX.utils.json_to_sheet(rows);ws["!cols"]=Object.keys(rows[0]).map(k=>({wch:Math.min(45,Math.max(k.length+2,...rows.slice(0,200).map(r=>String(r[k]??"").length+1)))}));XLSX.utils.book_append_sheet(wb,ws,n.slice(0,31));});
+  XLSX.writeFile(wb,"Estadisticas_EcobasicScents_"+today()+".xlsx");
+}
+function _barTable(rows,labelK,valK,max){
+  const top=rows.slice(0,max||8);const mx=Math.max(1,...top.map(r=>+r[valK]||0));
+  return top.map(r=>"<div style='display:flex;align-items:center;gap:8px;margin:4px 0;font-size:12px'><div style='width:38%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap'>"+r[labelK]+"</div><div style='flex:1;background:#eef3f0;border-radius:4px;height:14px'><div style='width:"+((+r[valK]||0)*100/mx)+"%;background:var(--F);height:14px;border-radius:4px'></div></div><div style='width:62px;text-align:right;font-weight:700'>"+(+r[valK]||0).toLocaleString()+"</div></div>").join("")||"<div style='font-size:12px;color:var(--M)'>Sin datos</div>";
+}
+function renderStatsDash(){
+  const S=buildStats();const R={};S["Resumen"].forEach(r=>R[r.Indicador]=r.Valor);
+  const tile=(l,v)=>"<div style='background:#f0f7f4;border-radius:10px;padding:10px'><div style='font-size:18px;font-weight:800;color:var(--F)'>"+(typeof v==="number"?v.toLocaleString():v)+"</div><div style='font-size:10px;color:var(--M);font-weight:600'>"+l+"</div></div>";
+  const card=(t,body)=>"<div class='card' style='margin-bottom:12px'><p style='font-weight:700;margin-bottom:8px;color:var(--F);font-size:13px'>"+t+"</p>"+body+"</div>";
+  const bm=S["Baterias por mes"];
+  return "<p style='font-size:12px;font-weight:700;color:var(--M);margin:16px 0 8px'>ESTADÍSTICAS DEL PERÍODO</p>"
+   +"<div style='display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px'>"
+   +tile("Equipos instalados",R["Equipos instalados"])+tile("Clientes con equipos",R["Clientes con equipos"])+tile("Visitas",R["Visitas a clientes en el período"])
+   +tile("ML agregados",R["ML de esencia agregados"])+tile("ML gastados",R["ML gastados (medidos por nivel)"])+tile("Baterías D",R["Baterías D cambiadas"])
+   +tile("Problemas",R["Problemas reportados"])+tile("Clientes 30+ días sin visita",R["Clientes sin visita 30+ días"])+tile("Equipos 30+ días sin visita",R["Equipos sin visita 30+ días"])
+   +"</div>"
+   +card("Equipos instalados por modelo",_barTable(S["Equipos por modelo"],"Modelo","Cantidad",10))
+   +card("Consumo por esencia (ml agregados)",_barTable(S["Consumo por esencia"],"Esencia","ML_agregados",10))
+   +card("Top clientes por consumo (ml)",_barTable(S["Consumo por cliente"],"Cliente","ML_agregados",10))
+   +card("Baterías D por mes",_barTable(bm.slice(-12).reverse(),"Mes","Baterias_D",12))
+   +card("Cartera por vendedor (equipos)",_barTable(S["Cartera por vendedor"],"Vendedor","Equipos",6))
+   +"<button class='btn' onclick='doExportEstadisticasXLSX()' style='margin-bottom:10px;background:#1b5e20'><i class='ti ti-file-spreadsheet'></i> Descargar reporte estadístico completo (Excel)</button>";
+}
+function openHistEq(c,serie){modal={t:"histEq",c,serie};render();}
 function doExportConsumoCSV(){
   const rFrom=window._rFrom||"";const rTo=window._rTo||"";const rPais=window._rPais||"todos";
   let data=visits.filter(v=>v.ml>0&&v.esencia);
@@ -1056,31 +1242,9 @@ function render(){
                 +"</div>"
                 +(ev.baterias>0&&baterias<ev.baterias?"<div style='font-size:11px;color:var(--D);margin-top:4px'>&#x26A0; Stock insuficiente ("+baterias+" disponibles)</div>":"")
                 +"</div>"
-                +"<div class='fr' style='margin-top:6px;gap:8px'>"
-                +"<div class='fw'><label class='lbl' style='font-size:11px'>Esencia usada</label>"
-                +"<select class='inp' style='font-size:12px' data-serie='"+eq.serie+"' onchange='_uev(this,this.dataset.serie,\"esencia\")'>"
-                +"<option value=''>Sin esencia / solo mantenimiento</option>"
-                +allScents.map(s=>"<option value='"+s+"'"+(ev.esencia===s?" selected":"")+">"+s+"</option>").join("")
-                +"</select></div>"
-                +"<div class='fw'><label class='lbl' style='font-size:11px'>ML usados</label>"
-                +"<input type='number' class='inp' style='font-size:12px' placeholder='0' min='0' value='"+(ev.ml||"")+"' data-serie='"+eq.serie+"' oninput='_uev(this,this.dataset.serie,this.name)' name='ml'/></div>"
-                +"</div>";
+                +_mlBlock(eq,ev);
             } else {
-              html+="<div class='fr' style='margin-top:8px;gap:8px'>"
-                +"<div class='fw'><label class='lbl' style='font-size:11px'>Esencia usada</label>"
-                +"<select class='inp' style='font-size:12px' data-serie='"+eq.serie+"' onchange='_uev(this,this.dataset.serie,\"esencia\");updEqVisit(this.dataset.serie,\"tipo\",\"ml\")'>"
-                +"<option value=''>Sin esencia / solo mantenimiento</option>"
-                +allScents.map(s=>"<option value='"+s+"'"+(ev.esencia===s?" selected":"")+">"+s+"</option>").join("")
-                +"</select></div>"
-                +"<div class='fw'><label class='lbl' style='font-size:11px'>ML usados</label>"
-                +"<input type='number' class='inp' style='font-size:12px' placeholder='0' min='0' value='"+(ev.ml||"")+"' data-serie='"+eq.serie+"' oninput='_uev(this,this.dataset.serie,this.name)' name='ml'/></div>"
-                +"</div>"
-                +"<div class='fr' style='margin-top:6px;gap:8px'>"
-                +"<div class='fw'><label class='lbl' style='font-size:11px'>ML al llegar</label>"
-                +"<input type='number' class='inp' style='font-size:12px' placeholder='Ej: 450' min='0' value='"+(ev.mlLlegada||"")+"' data-serie='"+eq.serie+"' oninput='_uev(this,this.dataset.serie,this.name)' name='mlLlegada'/></div>"
-                +"<div class='fw'><label class='lbl' style='font-size:11px'>ML al salir</label>"
-                +"<input type='number' class='inp' style='font-size:12px' placeholder='Ej: 800' min='0' value='"+(ev.mlSalida||"")+"' data-serie='"+eq.serie+"' oninput='_uev(this,this.dataset.serie,this.name)' name='mlSalida'/></div>"
-                +"</div>";
+              html+=_mlBlock(eq,ev);
             }
             html+="<div class='fw' style='margin-top:6px'><label class='lbl' style='font-size:11px'>Notas del equipo</label>"
               +"<input class='inp' style='font-size:12px' placeholder='Observacion...' value='"+(ev.notas||"")+"' data-serie='"+eq.serie+"' oninput='_uevN(this,this.dataset.serie)'/></div>";
@@ -1143,7 +1307,7 @@ function render(){
           const serieBadge=v.serie?"<span class='chip chip-b' style='font-size:10px'>"+v.modelo+"&#183;"+v.serie+"</span>":"";
           const probBadge=v.prob?"<span class='chip chip-r' style='font-size:10px'><i class='ti ti-alert-triangle' style='font-size:11px'></i> Problema</span>":"";
           const notaDiv=v.notas?"<div style='font-size:11px;color:var(--M);margin-top:5px'>"+v.notas+"</div>":"";
-          const nivelDiv=(v.mlLlegada!=null||v.mlSalida!=null)?"<div style='font-size:11px;color:var(--M);margin-top:4px;display:flex;gap:10px'>"+(v.mlLlegada!=null?"<span>&#x2193; "+v.mlLlegada+"ml al llegar</span>":"")+(v.mlSalida!=null?"<span>&#x2191; "+v.mlSalida+"ml al salir</span>":"")+(v.mlLlegada!=null&&v.mlSalida!=null?"<span style='color:var(--F);font-weight:600'>Consumo: "+(v.mlSalida-v.mlLlegada)+"ml</span>":"")+"</div>":"";
+          const nivelDiv=nivelHTML(v);
           const batDiv=v.baterias?"<div style='font-size:11px;margin-top:4px'><span style='background:#5d4037;color:#fff;border-radius:6px;padding:2px 8px;font-weight:600'>🔋 "+v.baterias+" bater\xEDa"+(v.baterias!==1?"s":"")+" D cambiada"+(v.baterias!==1?"s":"")+"</span></div>":"";
           html+="<div class='card sl' style='padding:10px 12px;margin-bottom:6px;"+border+"'>"
             +"<div class='ch'><div><div class='ct' style='font-size:12px'>"+v.cliente+badge+"</div><div class='cs'>"+fmt(v.fecha)+"</div></div>"
@@ -1161,7 +1325,7 @@ function render(){
         const serieBadge=v.serie?"<span class='chip chip-b' style='font-size:10px'>"+v.modelo+"&#183;"+v.serie+"</span>":"";
         const probBadge=v.prob?"<span class='chip chip-r' style='font-size:10px'><i class='ti ti-alert-triangle' style='font-size:11px'></i> Problema</span>":"";
         const notaDiv=v.notas?"<div style='font-size:11px;color:var(--M);margin-top:5px'>"+v.notas+"</div>":"";
-        const nivelDiv=(v.mlLlegada!=null||v.mlSalida!=null)?"<div style='font-size:11px;color:var(--M);margin-top:4px;display:flex;gap:10px'>"+(v.mlLlegada!=null?"<span>&#x2193; "+v.mlLlegada+"ml al llegar</span>":"")+(v.mlSalida!=null?"<span>&#x2191; "+v.mlSalida+"ml al salir</span>":"")+(v.mlLlegada!=null&&v.mlSalida!=null?"<span style='color:var(--F);font-weight:600'>Consumo: "+(v.mlSalida-v.mlLlegada)+"ml</span>":"")+"</div>":"";
+        const nivelDiv=nivelHTML(v);
         const batDiv=v.baterias?"<div style='font-size:11px;margin-top:4px'><span style='background:#5d4037;color:#fff;border-radius:6px;padding:2px 8px;font-weight:600'>🔋 "+v.baterias+" bater\xEDa"+(v.baterias!==1?"s":"")+" D cambiada"+(v.baterias!==1?"s":"")+"</span></div>":"";
         html+="<div class='card sl' style='padding:10px 12px;margin-bottom:6px;"+border+"'>"
           +"<div class='ch'><div><div class='ct' style='font-size:12px'>"+v.cliente+badge+"</div><div class='cs'>"+fmt(v.fecha)+((isA||isAC)?" &#183; "+v.vnd:"")+"</div></div>"
@@ -1428,6 +1592,11 @@ function render(){
       +"<button class='btn' onclick='doExportEquiposCSV()' style='margin-bottom:10px;background:#3456a0'><i class='ti ti-file-export'></i> Exportar Equipos CSV</button>"
       +"<button class='btn' onclick='doExportVendedoresCSV()' style='margin-bottom:10px;background:var(--G)'><i class='ti ti-file-export'></i> Exportar Vendedores CSV</button>"
       +"<button class='btn' onclick='doExportConsumoCSV()' style='margin-bottom:10px;background:var(--WN)'><i class='ti ti-file-export'></i> Exportar Consumo CSV</button>"
+      +renderStatsDash()
+      +"<p style='font-size:12px;font-weight:700;color:var(--M);margin:14px 0 8px'>CONSUMO DE ESENCIA (usa las fechas de arriba)</p>"
+      +"<button class='btn' onclick='doExportConsumoMensual(\"cliente\")' style='margin-bottom:10px;background:#00897b'><i class='ti ti-calendar-stats'></i> Consumo mensual por cliente</button>"
+      +"<button class='btn' onclick='doExportConsumoMensual(\"equipo\")' style='margin-bottom:10px;background:#00897b'><i class='ti ti-device-desktop-analytics'></i> Consumo mensual por equipo</button>"
+      +"<button class='btn' onclick='doExportHistorialEquipos()' style='margin-bottom:10px;background:#455a64'><i class='ti ti-history'></i> Historial de visitas por equipo</button>"
       +"<button class='btn' onclick='doExportBateriasCSV()' style='background:#7b1fa2'><i class='ti ti-battery'></i> Exportar Cambios Baterías CSV</button>";
   }
 
@@ -1616,6 +1785,19 @@ function render(){
     }
     else if(t==="editEsencia"){
       mHTML="<div class='mb-bg' onclick='if(event.target===this){modal=null;render()}'><div class='mb'><div class='mb-t'>Editar esencia</div><div class='fw'><label class='lbl'>Nombre *</label><input class='inp' id='ees_n' value='"+modal.nombre+"' style='text-transform:uppercase' oninput='this.value=this.value.toUpperCase()'/></div><div class='mb-act'><button class='btn-c' onclick='modal=null;render()'>Cancelar</button><button class='btn' onclick='saveEditEsencia()'>Guardar</button></div></div></div>";
+    }
+    else if(t==="histEq"){
+      const hv=visits.filter(v=>v.cliente===modal.c&&v.serie===modal.serie).sort((a,b)=>b.fecha.localeCompare(a.fecha));
+      const eqI=getClientEqs(modal.c).find(e=>e.serie===modal.serie)||{};
+      const porMes={};hv.forEach(v=>{const m=v.fecha.slice(0,7);if(!porMes[m])porMes[m]={a:0,g:0,n:0};porMes[m].a+=(v.ml||0);const c=v.consumo!=null?v.consumo:consumoReal(v);if(c!=null){porMes[m].g+=c;porMes[m].n++;}});
+      const mesRows=Object.entries(porMes).sort((a,b)=>b[0].localeCompare(a[0])).map(([m,r])=>"<tr><td style='padding:4px 6px'>"+m+"</td><td style='padding:4px 6px;text-align:right'>"+r.a+"</td><td style='padding:4px 6px;text-align:right;color:var(--F);font-weight:700'>"+(r.n?r.g:"—")+"</td></tr>").join("");
+      const visRows=hv.slice(0,60).map(v=>{const c=v.consumo!=null?v.consumo:consumoReal(v);return"<tr style='border-top:1px solid #eee'><td style='padding:4px 6px'>"+fmtD(v.fecha.slice(0,10))+"<div style='font-size:10px;color:var(--M)'>"+(v.vnd||"")+"</div></td><td style='padding:4px 6px;text-align:right'>"+(_num(v.mlLlegada)??"—")+"</td><td style='padding:4px 6px;text-align:right'>"+(v.ml||0)+"</td><td style='padding:4px 6px;text-align:right'>"+(_num(v.mlSalida)??"—")+"</td><td style='padding:4px 6px;text-align:right;color:var(--F);font-weight:700'>"+(c??"—")+"</td></tr>";}).join("");
+      mHTML="<div class='mb-bg' onclick='if(event.target===this){modal=null;render()}'><div class='mb' style='max-height:85vh;overflow:auto'><div class='mb-t'>&#128200; "+modal.serie+"</div>"
+        +"<p class='ps'>"+modal.c+(eqI.modelo?" &#183; "+eqI.modelo:"")+(eqI.area?" &#183; "+eqI.area:"")+"</p>"
+        +(hv.length?"<p style='font-size:12px;font-weight:700;color:var(--M);margin:8px 0 4px'>POR MES</p><table style='width:100%;font-size:12px;border-collapse:collapse'><tr style='color:var(--M);font-size:11px'><th style='text-align:left;padding:4px 6px'>Mes</th><th style='text-align:right;padding:4px 6px'>Agregó</th><th style='text-align:right;padding:4px 6px'>Gastó</th></tr>"+mesRows+"</table>"
+          +"<p style='font-size:12px;font-weight:700;color:var(--M);margin:14px 0 4px'>VISITAS (ml)</p><table style='width:100%;font-size:12px;border-collapse:collapse'><tr style='color:var(--M);font-size:11px'><th style='text-align:left;padding:4px 6px'>Fecha</th><th style='text-align:right;padding:4px 6px'>Tenía</th><th style='text-align:right;padding:4px 6px'>Agregó</th><th style='text-align:right;padding:4px 6px'>Quedó</th><th style='text-align:right;padding:4px 6px'>Gastó</th></tr>"+visRows+"</table>"
+          :"<div class='empty'>Sin visitas registradas para este equipo</div>")
+        +"<div class='mb-act'><button class='btn' onclick='modal=null;render()'>Cerrar</button></div></div></div>";
     }
     else if(t==="pedido"){
       mHTML="<div class='mb-bg' onclick='if(event.target===this){modal=null;render()}'><div class='mb'><div class='mb-t'>📦 Registrar pedido</div>"
