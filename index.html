@@ -426,14 +426,26 @@ function getGradeDisplay(serie){
   return"";
 }
 function getNextSerie(modelo){
-  const allS=[];
-  Object.values(EQUIPOS_DB).forEach(eqs=>eqs.forEach(eq=>{if(eq.modelo===modelo)allS.push(eq.serie);}));
-  Object.entries(ceq).forEach(([k,v])=>{if(Array.isArray(v)){v.forEach(eq=>{if(eq&&eq.modelo===modelo&&!eq._del)allS.push(eq.serie);});}else if(v&&v.modelo===modelo&&!v._del){allS.push(k);}});
-  demos.forEach(d=>{if(d.modelo===modelo&&d.serie)allS.push(d.serie);});
-  const nums=allS.map(s=>{const m=s.match(/(\d+)$/);return m?parseInt(m[1]):0;}).filter(n=>n>0);
-  const next=nums.length>0?Math.max(...nums)+1:1;
-  const prefix="ES"+modelo.replace(/^AE/,"").replace(/\s.*/,"");
-  return prefix+"-"+String(next).padStart(3,"0");
+  // Junta TODAS las series usadas de ese modelo (incluye bajas, demos y visitas) para no repetir
+  const usadas=new Set();const delModelo=[];
+  const add=(m,s)=>{if(!s)return;s=String(s).trim();usadas.add(s.toUpperCase());if(m===modelo)delModelo.push(s);};
+  Object.values(ceq).forEach(v=>{if(Array.isArray(v))v.forEach(eq=>{if(eq)add(eq.modelo,eq.serie);});});
+  Object.values(EQUIPOS_DB).forEach(l=>l.forEach(eq=>add(eq.modelo,eq.serie)));
+  demos.forEach(d=>add(d.modelo,d.serie));visits.forEach(v=>add(v.modelo,v.serie));movs.forEach(m=>add(m.modelo,m.serie));
+  // Patrón más usado (ej. "ES701_" o "Mini "), ignorando series temporales S/N
+  const pats={};let maxN=0;
+  delModelo.forEach(s=>{if(/^S\/N/i.test(s))return;const m=s.match(/^(.*?)(\d+)$/);if(!m)return;
+    const pre=m[1];pats[pre]=(pats[pre]||{n:0,w:{}});pats[pre].n++;pats[pre].w[m[2].length]=(pats[pre].w[m[2].length]||0)+1;});
+  const norm=p=>p.replace(/[-_ ]+$/,"").toUpperCase();
+  let best=Object.entries(pats).sort((a,b)=>b[1].n-a[1].n)[0];
+  let pre,pad=0;
+  if(best){pre=best[0];const w=Object.entries(best[1].w).sort((a,b)=>b[1]-a[1])[0];pad=(+w[0]>1&&best[1].w[w[0]]===best[1].n)?+w[0]:0;}
+  else{const code=modelo.replace(/^AE\s*/i,"").replace(/\s.*/,"");pre=/^radiant/i.test(modelo)?"ESRAD_":/^mini/i.test(modelo)?"Mini ":"ES"+code.toUpperCase()+"_";}
+  const base=norm(pre);
+  delModelo.forEach(s=>{const m=s.match(/^(.*?)(\d+)$/);if(m&&norm(m[1])===base&&!/^S\/N/i.test(s))maxN=Math.max(maxN,+m[2]);});
+  let n=maxN+1,cand;
+  do{cand=pre+String(n).padStart(pad,"0");n++;}while(usadas.has(cand.toUpperCase()));
+  return cand;
 }
 function setSelEqManual(v){selEq={modelo:document.getElementById("mmm")?.value||"",serie:v,area:"",aroma:""};}
 function togC(c){expC=expC===c?"":c;render();}
