@@ -378,11 +378,12 @@ function applyClientFixes(){
 }
 // Al unir: el cliente correcto se queda con sus equipos; del viejo solo pasan los equipos que NO son copia del Excel original
 function _mergeEqs(dstL,srcL,srcName){
-  if(!(dstL||[]).some(e=>e&&!e._del))return[...(dstL||[]),...(srcL||[]).filter(e=>e&&!(dstL||[]).some(d=>d.serie===e.serie))]; // renombrar: pasa todo
-  const dst=[...(dstL||[])];const s=new Set(dst.map(e=>e.serie));
+  const N=x=>(typeof _nSer==="function"?_nSer(x):x);
+  if(!(dstL||[]).some(e=>e&&!e._del))return[...(dstL||[]),...(srcL||[]).filter(e=>e&&!(dstL||[]).some(d=>N(d.serie)===N(e.serie)))]; // renombrar: pasa todo
+  const dst=[...(dstL||[])];const s=new Set(dst.map(e=>N(e.serie)));
   const imp=new Map(((typeof EQ_IMPORT!=="undefined"&&EQ_IMPORT[srcName])||[]).map(e=>[e.serie,e]));
   const sig=e=>JSON.stringify([e.modelo||"",e.area||"",e.aroma||"",!!e._del]);
-  (srcL||[]).forEach(e=>{if(!e||s.has(e.serie))return;const ie=imp.get(e.serie);if(ie&&sig(ie)===sig(e))return;if(/^S\/N/i.test(e.serie)&&dst.length)return;dst.push(e);s.add(e.serie);});
+  (srcL||[]).forEach(e=>{if(!e||s.has(N(e.serie)))return;const ie=imp.get(e.serie);if(ie&&sig(ie)===sig(e))return;if(/^S\/N/i.test(e.serie)&&dst.length)return;dst.push(e);s.add(N(e.serie));});
   return dst;
 }
 function _vendorDe(c){return Object.entries(VC).find(([,a])=>a.includes(c))?.[0]||"";}
@@ -856,6 +857,66 @@ function seriesRepetidas(){
   const m={};
   _activos().forEach(c=>getClientEqs(c).forEach(e=>{if(!e||e._del||!e.serie)return;const n=_nSer(e.serie);(m[n]=m[n]||[]).push({c,e});}));
   return Object.values(m).filter(l=>l.length>1).sort((a,b)=>b.length-a.length);
+}
+function quitarRepetido(c,serie){
+  // quita esta copia del equipo; si la otra copia no tiene área/aroma, le pasa los datos
+  const lst=ceq[c]||[];const n=_nSer(serie);
+  const quitar=lst.find(e=>e&&!e._del&&e.serie===serie);
+  const otro=lst.find(e=>e&&!e._del&&e!==quitar&&_nSer(e.serie)===n);
+  if(!quitar||!otro){showToast("No se encontró el repetido");return;}
+  const merged={...otro,area:otro.area||quitar.area||"",aroma:otro.aroma||quitar.aroma||""};
+  ceq={...ceq,[c]:lst.filter(e=>e!==quitar).map(e=>e===otro?merged:e)};
+  let ch=false;visits=visits.map(v=>{if(v.cliente===c&&v.serie===serie){ch=true;return{...v,serie:otro.serie};}return v;});if(ch)sv("vis",visits);
+  if(eqGrades[serie]&&!eqGrades[otro.serie]){eqGrades={...eqGrades,[otro.serie]:eqGrades[serie]};sv("eqgrades",eqGrades);}
+  eqEdits=[{id:uid(),ts:new Date().toISOString(),user:sess.name,cliente:c,antes:serie,despues:"(REPETIDO quitado, queda "+otro.serie+")"},...eqEdits].slice(0,2000);sv("eqEdits",eqEdits);
+  sv("ceq",ceq);showToast("Repetido quitado");render();
+}
+// ── CORRECCIÓN AUTOMÁTICA DE SERIES REPETIDAS ──
+function _planSeries(){
+  const plan=[];const usados=new Set();
+  const visto=(c,s)=>visits.some(v=>v.cliente===c&&v.serie===s);
+  const enExcel=(c,s)=>((typeof EQ_IMPORT!=="undefined"&&EQ_IMPORT[c])||[]).some(e=>e.serie===s);
+  const info=e=>(e.area?1:0)+(e.aroma?1:0);
+  seriesRepetidas().forEach(l=>{
+    // 1) mismo cliente dos veces: quitar la copia con menos datos
+    const porC={};l.forEach(x=>{(porC[x.c]=porC[x.c]||[]).push(x);});
+    const quedan=[];
+    Object.values(porC).forEach(g=>{g.sort((a,b)=>info(b.e)-info(a.e)||(visto(b.c,b.e.serie)?1:0)-(visto(a.c,a.e.serie)?1:0));quedan.push(g[0]);g.slice(1).forEach(x=>plan.push({tipo:"quitar",c:x.c,e:x.e,queda:g[0].e.serie}));});
+    if(quedan.length<2)return;
+    // 2) clientes distintos: conserva la que tiene visitas o viene del Excel; las demás reciben serie nueva
+    quedan.sort((a,b)=>(visto(b.c,b.e.serie)?2:0)+(enExcel(b.c,b.e.serie)?1:0)-((visto(a.c,a.e.serie)?2:0)+(enExcel(a.c,a.e.serie)?1:0)));
+    quedan.slice(1).forEach(x=>plan.push({tipo:"nueva",c:x.c,e:x.e,conserva:quedan[0].c}));
+  });
+  return plan;
+}
+function openAutoSeries(){modal={t:"autoSeries",plan:_planSeries()};render();}
+function aplicarAutoSeries(){
+  const plan=modal.plan;const cambios=[];
+  plan.filter(p=>p.tipo==="quitar").forEach(p=>{quitarRepetidoSilencioso(p.c,p.e.serie);cambios.push({Cliente:p.c,Modelo:p.e.modelo||"",Area:p.e.area||"",Serie_anterior:p.e.serie,Serie_final:p.queda,Accion:"Copia repetida quitada"});});
+  plan.filter(p=>p.tipo==="nueva").forEach(p=>{
+    const nueva=getNextSerie(p.e.modelo);
+    cambiarSerie(p.c,p.e.serie,nueva);
+    cambios.push({Cliente:p.c,Modelo:p.e.modelo||"",Area:p.e.area||"",Serie_anterior:p.e.serie,Serie_final:nueva,Accion:"Serie nueva (cambiar etiqueta)"});
+  });
+  sv("ceq",ceq);sv("vis",visits);sv("eqgrades",eqGrades);sv("eqEdits",eqEdits);
+  modal=null;render();
+  _dlCSV(cambios.sort((a,b)=>a.Cliente.localeCompare(b.Cliente)),"cambios_de_series_"+today()+".csv");
+  showToast(cambios.length+" series corregidas");
+}
+function cambiarSerie(c,old,nueva){
+  const lst=ceq[c]||[];
+  ceq={...ceq,[c]:lst.map(e=>(e&&!e._del&&e.serie===old)?{...e,serie:nueva,editadoPor:sess.name,editadoEn:new Date().toISOString()}:e)};
+  visits=visits.map(v=>(v.cliente===c&&v.serie===old)?{...v,serie:nueva}:v);
+  eqEdits=[{id:uid(),ts:new Date().toISOString(),user:sess.name,cliente:c,antes:old,despues:"(SERIE NUEVA por repetida) "+nueva},...eqEdits].slice(0,2000);
+}
+function quitarRepetidoSilencioso(c,serie){
+  const lst=ceq[c]||[];const n=_nSer(serie);
+  const quitar=lst.find(e=>e&&!e._del&&e.serie===serie);const otro=lst.find(e=>e&&!e._del&&e!==quitar&&_nSer(e.serie)===n);
+  if(!quitar||!otro)return;
+  const merged={...otro,area:otro.area||quitar.area||"",aroma:otro.aroma||quitar.aroma||""};
+  ceq={...ceq,[c]:lst.filter(e=>e!==quitar).map(e=>e===otro?merged:e)};
+  visits=visits.map(v=>(v.cliente===c&&v.serie===serie)?{...v,serie:otro.serie}:v);
+  eqEdits=[{id:uid(),ts:new Date().toISOString(),user:sess.name,cliente:c,antes:serie,despues:"(REPETIDO quitado, queda "+otro.serie+")"},...eqEdits].slice(0,2000);
 }
 function asignarSerieNueva(c,serie){
   const eq=getClientEqs(c).find(e=>!e._del&&e.serie===serie);if(!eq)return;
@@ -1372,6 +1433,42 @@ function buildStats(){
   return S;
 }
 function _loadXLSX(){return new Promise((ok,ko)=>{if(window.XLSX)return ok();const s=document.createElement("script");s.src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js";s.onload=()=>ok();s.onerror=()=>ko();document.head.appendChild(s);});}
+function imprimirClientesEquipos(){
+  const bajasC=new Set((bajas||[]).map(b=>b.c));
+  const esc=s=>String(s??"").replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+  let tot=0;
+  const bloques=ALL_CLIENTS.filter(c=>!bajasC.has(c)).sort((a,b)=>a.localeCompare(b)).map(c=>{
+    const eqs=getClientEqs(c).filter(e=>e&&!e._del).sort((a,b)=>String(a.modelo).localeCompare(String(b.modelo))||String(a.serie).localeCompare(String(b.serie),undefined,{numeric:true}));
+    if(!eqs.length)return"";tot+=eqs.length;
+    return "<div class='cl'><h2>"+esc(c)+"</h2><div class='sub'>Vendedor: "+esc(_vendorOf(c))+" &middot; "+eqs.length+" equipo"+(eqs.length!==1?"s":"")+"</div>"
+      +"<table><tr><th>#</th><th>Modelo</th><th>Serie</th><th>Área</th><th>Aroma</th></tr>"+eqs.map((e,i)=>"<tr><td>"+(i+1)+"</td><td>"+esc(e.modelo)+"</td><td><b>"+esc(e.serie)+"</b></td><td>"+esc(e.area)+"</td><td>"+esc(e.aroma)+"</td></tr>").join("")+"</table></div>";
+  }).join("");
+  const html="<!doctype html><html><head><meta charset='utf-8'><title>Clientes y equipos - EcobasicScents</title><style>body{font:12px Arial,sans-serif;margin:24px;color:#222}h1{font-size:18px;margin:0 0 4px}.top{color:#666;margin-bottom:16px}.cl{break-inside:avoid;margin-bottom:18px}h2{font-size:14px;margin:0;color:#1b4332}.sub{color:#666;font-size:11px;margin:2px 0 6px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ccc;padding:4px 6px;text-align:left}th{background:#e8f5ee}@media print{.np{display:none}body{margin:10mm}}</style></head><body>"
+    +"<div class='np' style='margin-bottom:12px'><button onclick='window.print()' style='padding:8px 16px;font-size:14px'>Imprimir / Guardar PDF</button></div>"
+    +"<h1>EcobasicScents — Clientes con equipos instalados</h1><div class='top'>"+new Date().toLocaleDateString("es-SV")+" &middot; "+tot+" equipos</div>"+bloques+"</body></html>";
+  const w=window.open("","_blank");
+  if(!w){const blob=new Blob([html],{type:"text/html"});const u=URL.createObjectURL(blob);location.href=u;return;}
+  w.document.open();w.document.write(html);w.document.close();setTimeout(()=>{try{w.focus();w.print();}catch{}},600);
+}
+async function doExportSeriesXLSX(){
+  showToast("Generando Excel de equipos...");
+  try{await _loadXLSX();}catch{alert("No se pudo cargar el generador de Excel (revisa internet).");return;}
+  const bajasC=new Set((bajas||[]).map(b=>b.c));
+  const lastV={};visits.forEach(v=>{const k=v.cliente+"|"+v.serie;if(!lastV[k]||v.fecha>lastV[k])lastV[k]=v.fecha;});
+  const rows=[];
+  ALL_CLIENTS.filter(c=>!bajasC.has(c)).sort((a,b)=>a.localeCompare(b)).forEach(c=>{
+    getClientEqs(c).filter(e=>e&&!e._del).sort((a,b)=>String(a.modelo).localeCompare(String(b.modelo))||String(a.serie).localeCompare(String(b.serie),undefined,{numeric:true})).forEach(e=>{
+      rows.push({Cliente:c,Vendedor:_vendorOf(c),Modelo:e.modelo||"",Serie:e.serie||"",Area:e.area||"",Aroma:e.aroma||"",Instalado:e.fechaInst||"",Ultima_visita:lastV[c+"|"+e.serie]?lastV[c+"|"+e.serie].slice(0,10):""});
+    });
+  });
+  const wb=XLSX.utils.book_new();
+  const mk=(r,n)=>{const ws=XLSX.utils.json_to_sheet(r.length?r:[{Info:"Sin datos"}]);ws["!cols"]=Object.keys(r[0]||{Info:1}).map(k=>({wch:Math.min(48,Math.max(k.length+2,...r.slice(0,500).map(x=>String(x[k]??"").length+1)))}));ws["!autofilter"]={ref:ws["!ref"]};XLSX.utils.book_append_sheet(wb,ws,n);};
+  mk(rows,"Equipos por cliente");
+  mk([...rows].sort((a,b)=>a.Modelo.localeCompare(b.Modelo)||String(a.Serie).localeCompare(String(b.Serie),undefined,{numeric:true})),"Por serie");
+  const res={};rows.forEach(r=>{res[r.Modelo]=(res[r.Modelo]||0)+1;});
+  mk(Object.entries(res).sort((a,b)=>b[1]-a[1]).map(([m,n])=>({Modelo:m,Equipos_instalados:n})).concat([{Modelo:"TOTAL",Equipos_instalados:rows.length}]),"Resumen por modelo");
+  XLSX.writeFile(wb,"Equipos_y_series_EcobasicScents_"+today()+".xlsx");
+}
 async function doExportEstadisticasXLSX(){
   showToast("Generando Excel...");
   try{await _loadXLSX();}catch{alert("No se pudo cargar el generador de Excel (revisa internet).");return;}
@@ -1944,6 +2041,8 @@ function render(){
       +"<p style='font-size:12px;font-weight:700;color:var(--M);margin:14px 0 8px'>CONSUMO DE ESENCIA (usa las fechas de arriba)</p>"
       +"<button class='btn' onclick='doExportConsumoMensual(\"cliente\")' style='margin-bottom:10px;background:#00897b'><i class='ti ti-calendar-stats'></i> Consumo mensual por cliente</button>"
       +"<button class='btn' onclick='doExportConsumoMensual(\"equipo\")' style='margin-bottom:10px;background:#00897b'><i class='ti ti-device-desktop-analytics'></i> Consumo mensual por equipo</button>"
+      +"<button class='btn' onclick='doExportSeriesXLSX()' style='margin-bottom:10px;background:#3456a0'><i class='ti ti-file-spreadsheet'></i> Excel: todos los equipos y series</button>"
+      +"<button class='btn' onclick='imprimirClientesEquipos()' style='margin-bottom:10px;background:#455a64'><i class='ti ti-printer'></i> Imprimir clientes con sus equipos</button>"
       +"<button class='btn' onclick='doExportHistorialEquipos()' style='margin-bottom:10px;background:#455a64'><i class='ti ti-history'></i> Historial de visitas por equipo</button>"
       +"<button class='btn' onclick='doExportBateriasCSV()' style='background:#7b1fa2'><i class='ti ti-battery'></i> Exportar Cambios Baterías CSV</button>";
   }
@@ -1963,8 +2062,10 @@ function render(){
     const repHTML="<div class='card' style='margin-bottom:14px'><p style='font-weight:700;margin-bottom:6px;color:var(--D)'>Series repetidas</p>"
       +"<div style='font-size:11px;color:var(--M);margin-bottom:8px'>Equipos activos con la misma serie en distintos lugares. Une primero los clientes duplicados; luego corrige aquí la serie del equipo que esté mal (✏️) o dale una serie nueva libre.</div>"
       +(!window._showRep?"<button class='btn-add' onclick='window._showRep=true;render()'>Buscar series repetidas</button>":
-        (rs.length?"<div style='font-size:12px;font-weight:700;margin-bottom:6px'>"+rs.length+" series repetidas</div>"+rs.slice(0,80).map(l=>"<div style='border-top:1px solid #eee;padding:8px 0'><div style='font-weight:700;font-size:12px'>"+l[0].e.serie+"</div>"
+        (rs.length?"<div style='font-size:12px;font-weight:700;margin-bottom:6px'>"+rs.length+" series repetidas</div>"
+          +"<button class='btn' style='background:var(--D);margin-bottom:10px' onclick='openAutoSeries()'>Corregir todas automáticamente</button>"+rs.slice(0,80).map(l=>"<div style='border-top:1px solid #eee;padding:8px 0'><div style='font-weight:700;font-size:12px'>"+l[0].e.serie+"</div>"
           +l.map(x=>{const cj=JSON.stringify(x.c).replace(/'/g,"&#39;"),sj=JSON.stringify(x.e.serie).replace(/'/g,"&#39;"),ij=JSON.stringify(x.e.id||"");return"<div style='display:flex;align-items:center;gap:6px;font-size:11px;margin-top:4px'><div style='flex:1'>"+x.c+" &#183; "+(x.e.modelo||"")+(x.e.area?" &#183; "+x.e.area:"")+(x.e.serie!==l[0].e.serie?" ("+x.e.serie+")":"")+"</div>"
+            +(l.filter(y=>y.c===x.c).length>1?"<button title='Es el mismo equipo anotado dos veces: quitar esta copia' onclick='quitarRepetido("+cj+","+sj+")' style='padding:3px 8px;background:#fdecea;color:var(--D);border:none;border-radius:7px;font-size:11px;cursor:pointer;font-weight:700'>Quitar repetido</button>":"")
             +"<button title='Unir este cliente con otro' onclick='openUnirCliente("+cj+")' style='padding:3px 8px;background:#f3e5f5;color:#6a1b9a;border:none;border-radius:7px;font-size:11px;cursor:pointer;font-weight:700'>&#8644;</button>"
             +"<button onclick='openEditCEq("+cj+","+ij+","+sj+")' style='padding:3px 8px;background:#e8f0ff;color:#3456a0;border:none;border-radius:7px;font-size:11px;cursor:pointer'>&#9999;&#65039;</button>"
             +"<button onclick='asignarSerieNueva("+cj+","+sj+")' style='padding:3px 8px;background:#fff3e0;color:#e65100;border:none;border-radius:7px;font-size:11px;cursor:pointer;font-weight:700'>Serie nueva</button></div>";}).join("")+"</div>").join(""):"<div style='font-size:12px;color:var(--F)'>✓ No hay series repetidas.</div>"))
@@ -1973,7 +2074,9 @@ function render(){
     const bkHTML="<div class='card' style='margin-bottom:14px;border:2px solid #1b5e20'><p style='font-weight:700;margin-bottom:6px;color:#1b5e20'>Respaldo de datos</p>"
       +"<div style='font-size:11px;color:var(--M);margin-bottom:8px'>Descarga una copia completa (clientes, equipos, visitas, inventarios, usuarios). Guárdala en tu computadora o Drive. Recomendado: una vez por semana.</div>"
       +"<div style='font-size:11px;margin-bottom:8px'>Último respaldo desde este dispositivo: <b>"+(lb?fmt(lb):"nunca")+"</b></div>"
-      +"<button class='btn' style='background:#1b5e20' onclick='descargarRespaldo()'><i class='ti ti-download'></i> Descargar respaldo completo</button></div>";
+      +"<button class='btn' style='background:#1b5e20;margin-bottom:8px' onclick='descargarRespaldo()'><i class='ti ti-download'></i> Descargar respaldo completo</button>"
+      +"<button class='btn' style='background:#3456a0;margin-bottom:8px' onclick='doExportSeriesXLSX()'><i class='ti ti-file-spreadsheet'></i> Excel: todos los equipos y series</button>"
+      +"<button class='btn' style='background:#455a64' onclick='imprimirClientesEquipos()'><i class='ti ti-printer'></i> Imprimir clientes con sus equipos</button></div>";
     con="<p class='pt'>Configuracion</p>"+bkHTML+dupHTML+repHTML
       +"<div class='card' style='margin-bottom:14px;border:2px solid "+(perms.vndQuitarEq?"var(--D)":"#dde8e2")+"'><p style='font-weight:700;margin-bottom:6px;color:var(--F)'>Permisos de vendedores</p>"
       +"<div style='display:flex;align-items:center;gap:10px;cursor:pointer' onclick='togPermQuitar()'><div style='width:44px;height:24px;border-radius:12px;background:"+(perms.vndQuitarEq?"var(--D)":"#ccc")+";position:relative;flex-shrink:0'><div style='width:20px;height:20px;border-radius:50%;background:#fff;position:absolute;top:2px;left:"+(perms.vndQuitarEq?"22px":"2px")+"'></div></div>"
@@ -2061,6 +2164,13 @@ function render(){
         +"<div class='fw'><label class='lbl'>Area</label><input class='inp' id='ec_a' value='"+(eq.area||"")+"'/></div>"
         +"<div class='fw'><label class='lbl'>Aroma</label><select class='inp' id='ec_aroma'><option value=''>Sin aroma</option>"+getAllScents().map(s=>"<option value='"+s+"'"+(s===eq.aroma?" selected":"")+">"+s+"</option>").join("")+"</select></div>"
         +"<div class='mb-act'><button class='btn-c' onclick='modal=null;render()'>Cancelar</button><button class='btn' onclick='saveEditCEq()'>Guardar</button></div></div></div>";
+    }
+    else if(t==="autoSeries"){
+      const pl=modal.plan;const nq=pl.filter(p=>p.tipo==="quitar").length,nn=pl.filter(p=>p.tipo==="nueva").length;
+      mHTML="<div class='mb-bg' onclick='if(event.target===this){modal=null;render()}'><div class='mb' style='max-height:85vh;overflow:auto'><div class='mb-t' style='color:var(--D)'>Corregir series repetidas</div>"
+        +"<div style='font-size:12px;margin-bottom:8px'>&#8226; <b>"+nq+"</b> copias repetidas dentro del mismo cliente se quitan (queda una).<br>&#8226; <b>"+nn+"</b> equipos reciben una <b>serie nueva libre</b>; se conserva la serie en el cliente que tiene visitas o que viene del Excel.<br>Al aplicar se descarga la lista para cambiar las etiquetas físicas.</div>"
+        +"<div style='font-size:11px;border-top:1px solid #eee'>"+pl.map(p=>"<div style='padding:5px 0;border-bottom:1px solid #f3f3f3'><b>"+p.c+"</b> &#183; "+(p.e.modelo||"")+(p.e.area?" &#183; "+p.e.area:"")+"<br>"+(p.tipo==="quitar"?"<span style='color:var(--D)'>Quitar copia "+p.e.serie+" (queda "+p.queda+")</span>":"<span style='color:#e65100'>"+p.e.serie+" &#8594; serie nueva</span> <span style='color:var(--M)'>(se queda con "+p.e.serie+": "+p.conserva+")</span>")+"</div>").join("")+"</div>"
+        +"<div class='mb-act'><button class='btn-c' onclick='modal=null;render()'>Cancelar</button><button class='btn' style='background:var(--D)' onclick='aplicarAutoSeries()'>Aplicar ("+pl.length+")</button></div></div></div>";
     }
     else if(t==="unirCliente"){
       const src=modal.c;const nSrc=getClientEqs(src).filter(e=>!e._del).length;
@@ -2254,7 +2364,7 @@ function regVisitSimple(){
 // ── INIT ──
 render();
 // ── ACTUALIZACIÓN AUTOMÁTICA DE LA APP ──
-const APP_VER="2026-10-07b";
+const APP_VER="2026-10-07e";
 async function checkUpdate(){
   try{
     const r=await fetch(location.pathname+"?_="+Date.now(),{cache:"no-store"});if(!r.ok)return;
