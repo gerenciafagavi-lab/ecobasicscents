@@ -1009,7 +1009,7 @@ function confirmBajaEq(){
   _marcarEq(m.c,m.id,m.serie,{_baja:true,bajaMotivo:mot,bajaNota:nota,bajaPor:sess.name,bajaFecha:today()},"(BAJA: "+mot+(nota?" - "+nota:"")+")");
   modal=null;showToast("Equipo dado de baja");
 }
-function togPermQuitar(){perms={...perms,vndQuitarEq:!perms.vndQuitarEq};sv("perms",perms);render();showToast(perms.vndQuitarEq?"Vendedores pueden quitar equipos":"Permiso de quitar equipos desactivado");}
+function togPermQuitar(){perms={...perms,vndQuitarEq:!perms.vndQuitarEq};sv("perms",perms);render();showToast(perms.vndQuitarEq?"Vendedores pueden depurar equipos":"Depuración de vendedores desactivada");}
 function renderClientEqs(c){
   const allEq=getClientEqs(c).filter(e=>!e._del);
   if(!allEq.length)return "<div style='font-size:12px;color:var(--M);margin-bottom:8px'>Sin equipos</div>";
@@ -1925,7 +1925,7 @@ function render(){
       const cj=JSON.stringify(c);
       const activeVnds4=vendors.filter(v=>v.active!==false&&v.role!=="admin");
       const asignarSelect=isA?"<div style='display:flex;align-items:center;gap:8px;margin-bottom:10px;padding:8px;background:#fffbea;border:1px solid #ffe082;border-radius:8px'><span style='font-size:11px;font-weight:700;color:#e65100;white-space:nowrap'>Vendedor:</span><select onchange='_asignarDirecto("+cj+",this.value)' style='flex:1;padding:5px 8px;border:1px solid #dde;border-radius:6px;font-size:12px;background:#fff'><option value=''"+(vn==="Sin asignar"?" selected":"")+">Sin asignar</option>"+activeVnds4.map(v=>"<option value='"+v.name+"'"+(v.name===vn?" selected":"")+">"+v.name+"</option>").join("")+"</select></div>":"";
-      const expDiv=exp?"<div style='margin-top:10px;border-top:1px solid #f0f0f0;padding-top:10px'>"+asignarSelect+renderClientEqs(c)+(isA?"<button onclick='openAddCEq("+cj+")' style='margin-top:8px;display:flex;align-items:center;gap:5px;background:#e8f5ee;color:var(--F);border:none;padding:7px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;width:100%;justify-content:center'>+ Agregar equipo</button>":"")+"</div>":"";
+      const expDiv=exp?"<div style='margin-top:10px;border-top:1px solid #f0f0f0;padding-top:10px'>"+asignarSelect+renderClientEqs(c)+((isA||perms.vndQuitarEq)?"<button onclick='openAddCEq("+cj+")' style='margin-top:8px;display:flex;align-items:center;gap:5px;background:#e8f5ee;color:var(--F);border:none;padding:7px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;width:100%;justify-content:center'>+ Agregar equipo</button>":"")+"</div>":"";
       return"<div class='card'><div class='ch' onclick='togC("+cj+")' style='cursor:pointer'>"
         +"<div><div class='ct' style='font-size:12px'>"+c+gtFlag+"</div><div class='cs'>"+vn+"</div></div>"
         +"<div style='display:flex;align-items:center;gap:5px'><span class='chip'>"+cv.length+"v</span><span class='chip chip-b'>"+allEq.length+"eq</span>"
@@ -2080,7 +2080,7 @@ function render(){
     con="<p class='pt'>Configuracion</p>"+bkHTML+dupHTML+repHTML
       +"<div class='card' style='margin-bottom:14px;border:2px solid "+(perms.vndQuitarEq?"var(--D)":"#dde8e2")+"'><p style='font-weight:700;margin-bottom:6px;color:var(--F)'>Permisos de vendedores</p>"
       +"<div style='display:flex;align-items:center;gap:10px;cursor:pointer' onclick='togPermQuitar()'><div style='width:44px;height:24px;border-radius:12px;background:"+(perms.vndQuitarEq?"var(--D)":"#ccc")+";position:relative;flex-shrink:0'><div style='width:20px;height:20px;border-radius:50%;background:#fff;position:absolute;top:2px;left:"+(perms.vndQuitarEq?"22px":"2px")+"'></div></div>"
-      +"<div style='font-size:12px'><b>Permitir quitar equipos</b> (depuración temporal)<br><span style='color:var(--M)'>"+(perms.vndQuitarEq?"ACTIVO: los vendedores pueden quitar equipos.":"Apagado: los vendedores solo pueden dar de baja.")+"</span></div></div></div>"
+      +"<div style='font-size:12px'><b>Vendedores pueden depurar equipos</b> (temporal)<br><span style='color:var(--M)'>"+(perms.vndQuitarEq?"ACTIVO: los vendedores pueden agregar, corregir y quitar equipos de los clientes.":"Apagado: los vendedores solo corrigen y dan de baja durante la visita.")+"</span></div></div></div>"
       +"<div class='card' style='margin-bottom:14px'><p style='font-weight:700;margin-bottom:10px;color:var(--F)'>Modelos</p>"+modCards+"<button class='btn-add' style='margin-top:10px' onclick='openAddModelo()'><i class='ti ti-plus'></i> Agregar modelo</button></div>"
       +"<div class='card'><p style='font-weight:700;margin-bottom:10px;color:var(--F)'>Esencias</p>"+esCards+"<button class='btn-add' style='margin-top:10px' onclick='openAddEsencia()'><i class='ti ti-plus'></i> Agregar esencia</button></div>";
   }
@@ -2364,7 +2364,7 @@ function regVisitSimple(){
 // ── INIT ──
 render();
 // ── ACTUALIZACIÓN AUTOMÁTICA DE LA APP ──
-const APP_VER="2026-10-07e";
+const APP_VER="2026-10-07f";
 async function checkUpdate(){
   try{
     const r=await fetch(location.pathname+"?_="+Date.now(),{cache:"no-store"});if(!r.ok)return;
