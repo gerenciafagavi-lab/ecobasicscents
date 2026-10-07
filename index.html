@@ -490,12 +490,14 @@ let notV="";
 let expC="";
 
 // ── HELPERS ──
+// Las AirFin de urinario son alfombras (consumible), no equipos: no se listan como equipo
+const esNoEquipo=m=>/airfin|urinal/i.test(m||"");
 function getClientEqs(c){
   if(!c)return[];
-  const custom=ceq[c]||[];
+  const custom=(ceq[c]||[]).filter(e=>e&&!esNoEquipo(e.modelo));
   const replaceFull=new Set(["CEPA AEROPUERTO","PALMETTO RAMBLAS SANTA ANA"]);
   if(replaceFull.has(c))return custom;
-  const base=EQUIPOS_DB[c]||[];
+  const base=(EQUIPOS_DB[c]||[]).filter(e=>!esNoEquipo(e.modelo));
   const extra=base.filter(b=>!custom.find(x=>x.serie===b.serie&&!x._del));
   return[...custom,...extra];
 }
@@ -1502,7 +1504,7 @@ function render(){
       }
       if(eqsC.length===0){
         html+="<div style='background:#fffbe8;border:1px solid #ffe;border-radius:var(--R);padding:10px 12px;font-size:12px;color:#856404;margin-bottom:12px'>Sin equipos. El admin puede agregarlos en Clientes.</div>"
-          +"<div class='fw'><label class='lbl'>Modelo</label><select class='inp' id='mmm'>"+modelos.map(m=>"<option>"+m+"</option>").join("")+"</select></div>"
+          +"<div class='fw'><label class='lbl'>Modelo</label><select class='inp' id='mmm'>"+modelos.filter(m=>!esNoEquipo(m)).map(m=>"<option>"+m+"</option>").join("")+"</select></div>"
           +"<div class='fw'><label class='lbl'>Serie</label><input id='ec_s_tmp' class='inp' placeholder='Nro serie' oninput='setSelEqManual(this.value)'/></div>"
           +"<div class='fw'><label class='lbl'>Esencia usada</label><select class='inp' onchange='selS=this.value'><option value=''>Sin esencia / solo mantenimiento</option>"+allScents.map(s=>"<option value='"+s+"'"+(s===selS?" selected":"")+">"+s+"</option>").join("")+"</select></div>"
           +"<div class='fw'><label class='lbl'>ML usados *</label><input type='number' class='inp' placeholder='0' min='1' oninput='mlV=this.value' value='"+(mlV||"")+"'/></div>"
@@ -2021,7 +2023,7 @@ function render(){
     }
     else if(t==="addCEq"){
       mHTML="<div class='mb-bg' onclick='if(event.target===this){modal=null;render()}'><div class='mb'><div class='mb-t'>Agregar equipo</div><p class='ps'>"+modal.c+"</p>"
-        +"<div class='fw'><label class='lbl'>Modelo *</label><select class='inp' id='ceq_m' onchange='document.getElementById(\"ceq_s\").value=getNextSerie(this.value)'>"+modelos.map(m=>"<option>"+m+"</option>").join("")+"</select></div>"
+        +"<div class='fw'><label class='lbl'>Modelo *</label><select class='inp' id='ceq_m' onchange='document.getElementById(\"ceq_s\").value=getNextSerie(this.value)'>"+modelos.filter(m=>!esNoEquipo(m)).map(m=>"<option>"+m+"</option>").join("")+"</select></div>"
         +"<div class='fw'><label class='lbl'>Serie *</label><input class='inp' id='ceq_s' placeholder='Ej: ES701-001'/></div>"
         +"<div class='fw'><label class='lbl'>Area</label><input class='inp' id='ceq_area' placeholder='Ej: Recepcion'/></div>"
         +"<div class='fw'><label class='lbl'>Aroma</label><select class='inp' id='ceq_aroma'><option value=''>Sin aroma</option>"+getAllScents().map(s=>"<option>"+s+"</option>").join("")+"</select></div>"
@@ -2031,7 +2033,7 @@ function render(){
     else if(t==="editCEq"){
       const eq=modal.eq||{};
       mHTML="<div class='mb-bg' onclick='if(event.target===this){modal=null;render()}'><div class='mb'><div class='mb-t'>Editar equipo</div><p class='ps'>"+modal.c+"</p>"
-        +"<div class='fw'><label class='lbl'>Modelo</label><select class='inp' id='ec_m'>"+[...new Set([eq.modelo,...modelos].filter(Boolean))].map(m=>"<option"+(m===eq.modelo?" selected":"")+">"+m+"</option>").join("")+"</select></div>"
+        +"<div class='fw'><label class='lbl'>Modelo</label><select class='inp' id='ec_m'>"+[...new Set([eq.modelo,...modelos].filter(m=>m&&!esNoEquipo(m)))].map(m=>"<option"+(m===eq.modelo?" selected":"")+">"+m+"</option>").join("")+"</select></div>"
         +"<div class='fw'><label class='lbl'>Serie *</label><input class='inp' id='ec_s' value='"+(eq.serie||"")+"'/></div>"
         +"<div class='fw'><label class='lbl'>Area</label><input class='inp' id='ec_a' value='"+(eq.area||"")+"'/></div>"
         +"<div class='fw'><label class='lbl'>Aroma</label><select class='inp' id='ec_aroma'><option value=''>Sin aroma</option>"+getAllScents().map(s=>"<option value='"+s+"'"+(s===eq.aroma?" selected":"")+">"+s+"</option>").join("")+"</select></div>"
