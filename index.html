@@ -369,12 +369,21 @@ function applyClientFixes(){
     else if(!ALL_CLIENTS.includes(nw))ALL_CLIENTS.push(nw);
     Object.keys(VC).forEach(v=>{if(VC[v].includes(old)){VC[v]=VC[v].filter(x=>x!==old);if(!Object.values(VC).some(a=>a.includes(nw)))VC[v].push(nw);}});
     if(window._clientPais&&window._clientPais[old]&&!window._clientPais[nw])window._clientPais[nw]=window._clientPais[old];
-    if(ceq[old]){const dst=[...(ceq[nw]||[])];const s=new Set(dst.map(e=>e.serie));ceq[old].forEach(e=>{if(e&&!s.has(e.serie)){dst.push(e);s.add(e.serie);}});const nc={...ceq,[nw]:dst};delete nc[old];ceq=nc;ceqCh=true;}
+    if(ceq[old]){const dst=_mergeEqs(ceq[nw],ceq[old],old);const nc={...ceq,[nw]:dst};delete nc[old];ceq=nc;ceqCh=true;}
   });
   del.forEach(c=>{const i=ALL_CLIENTS.indexOf(c);if(i>-1)ALL_CLIENTS.splice(i,1);Object.keys(VC).forEach(v=>{VC[v]=VC[v].filter(x=>x!==c);});});
   // Red de seguridad: un cliente con equipos nunca queda invisible
   Object.entries(ceq).forEach(([c,l])=>{if(Array.isArray(l)&&l.some(e=>e&&!e._del)&&!ALL_CLIENTS.includes(c)&&!del.has(c)&&!(c in ren))ALL_CLIENTS.push(c);});
   if(ceqCh){try{localStorage.setItem("eco_ceq",JSON.stringify(ceq));}catch{}if(typeof _markDirty==="function"){_markDirty("ceq");schedulePush("ceq");}}
+}
+// Al unir: el cliente correcto se queda con sus equipos; del viejo solo pasan los equipos que NO son copia del Excel original
+function _mergeEqs(dstL,srcL,srcName){
+  if(!(dstL||[]).some(e=>e&&!e._del))return[...(dstL||[]),...(srcL||[]).filter(e=>e&&!(dstL||[]).some(d=>d.serie===e.serie))]; // renombrar: pasa todo
+  const dst=[...(dstL||[])];const s=new Set(dst.map(e=>e.serie));
+  const imp=new Map(((typeof EQ_IMPORT!=="undefined"&&EQ_IMPORT[srcName])||[]).map(e=>[e.serie,e]));
+  const sig=e=>JSON.stringify([e.modelo||"",e.area||"",e.aroma||"",!!e._del]);
+  (srcL||[]).forEach(e=>{if(!e||s.has(e.serie))return;const ie=imp.get(e.serie);if(ie&&sig(ie)===sig(e))return;if(/^S\/N/i.test(e.serie)&&dst.length)return;dst.push(e);s.add(e.serie);});
+  return dst;
 }
 function _vendorDe(c){return Object.entries(VC).find(([,a])=>a.includes(c))?.[0]||"";}
 function renameClient(old,nw,unir){
@@ -393,7 +402,7 @@ function renameClient(old,nw,unir){
   let ch=false;visits=visits.map(x=>{if(x.cliente===old){ch=true;return{...x,cliente:nw};}return x;});if(ch)sv("vis",visits);
   let cs=false;solicitudes=solicitudes.map(x=>{if(x.clienteExist===old){cs=true;return{...x,clienteExist:nw};}return x;});if(cs)sv("sols",solicitudes);
   let cb=false;batMovs=batMovs.map(x=>{if(x.cliente===old){cb=true;return{...x,cliente:nw};}return x;});if(cb)sv("batMovs",batMovs);
-  if(ceq[old]){const dst=[...(ceq[nw]||[])];const s=new Set(dst.map(e=>e.serie));ceq[old].forEach(e=>{if(e&&!s.has(e.serie)){dst.push(e);s.add(e.serie);}});const nc={...ceq,[nw]:dst};delete nc[old];ceq=nc;sv("ceq",ceq);}
+  if(ceq[old]){const dst=_mergeEqs(ceq[nw],ceq[old],old);const nc={...ceq,[nw]:dst};delete nc[old];ceq=nc;sv("ceq",ceq);}
   Object.keys(VC).forEach(k=>{VC[k]=VC[k].filter(x=>x!==old&&x!==nw);});const vv=cc.vcOverride[nw];if(vv){if(!VC[vv])VC[vv]=[];VC[vv].push(nw);}
   applyClientFixes();
   if(expC===old)expC=nw;if(selC===old)selC=nw;
@@ -500,7 +509,7 @@ function getGradeDisplay(serie){
 function getNextSerie(modelo){
   // Junta TODAS las series usadas de ese modelo (incluye bajas, demos y visitas) para no repetir
   const usadas=new Set();const delModelo=[];
-  const add=(m,s)=>{if(!s)return;s=String(s).trim();usadas.add(s.toUpperCase());if(m===modelo)delModelo.push(s);};
+  const add=(m,s)=>{if(!s)return;s=String(s).trim();usadas.add(_nSer(s));if(m===modelo)delModelo.push(s);};
   Object.values(ceq).forEach(v=>{if(Array.isArray(v))v.forEach(eq=>{if(eq)add(eq.modelo,eq.serie);});});
   Object.values(EQUIPOS_DB).forEach(l=>l.forEach(eq=>add(eq.modelo,eq.serie)));
   demos.forEach(d=>add(d.modelo,d.serie));visits.forEach(v=>add(v.modelo,v.serie));movs.forEach(m=>add(m.modelo,m.serie));
@@ -516,7 +525,7 @@ function getNextSerie(modelo){
   const base=norm(pre);
   delModelo.forEach(s=>{const m=s.match(/^(.*?)(\d+)$/);if(m&&norm(m[1])===base&&!/^S\/N/i.test(s))maxN=Math.max(maxN,+m[2]);});
   let n=maxN+1,cand;
-  do{cand=pre+String(n).padStart(pad,"0");n++;}while(usadas.has(cand.toUpperCase()));
+  do{cand=pre+String(n).padStart(pad,"0");n++;}while(usadas.has(_nSer(cand)));
   return cand;
 }
 function setSelEqManual(v){selEq={modelo:document.getElementById("mmm")?.value||"",serie:v,area:"",aroma:""};}
@@ -833,6 +842,25 @@ function confirmDeleteCliente(){
 }
 
 // ── CEQ FUNCTIONS ──
+// ── SERIES ÚNICAS ──
+function _nSer(s){s=String(s||"").toUpperCase().trim();const m=s.match(/^(.*?)[\s_-]+0*(\d+)$/);if(m)return m[1].replace(/[\s_-]+/g,"")+"#"+parseInt(m[2],10);return s.replace(/[\s_-]+/g,"");}
+function _activos(){const b=new Set((bajas||[]).map(x=>x.c));const del=new Set((ld("customclients",{})||{}).deleted||[]);return ALL_CLIENTS.filter(c=>!b.has(c)&&!del.has(c));}
+function serieEnUso(serie,exCliente,exSerie){
+  const n=_nSer(serie);if(!n)return null;
+  for(const c of _activos()){for(const e of getClientEqs(c)){if(!e||e._del)continue;if(c===exCliente&&e.serie===exSerie)continue;if(_nSer(e.serie)===n)return c;}}
+  return null;
+}
+function seriesRepetidas(){
+  const m={};
+  _activos().forEach(c=>getClientEqs(c).forEach(e=>{if(!e||e._del||!e.serie)return;const n=_nSer(e.serie);(m[n]=m[n]||[]).push({c,e});}));
+  return Object.values(m).filter(l=>l.length>1).sort((a,b)=>b.length-a.length);
+}
+function asignarSerieNueva(c,serie){
+  const eq=getClientEqs(c).find(e=>!e._del&&e.serie===serie);if(!eq)return;
+  const nueva=getNextSerie(eq.modelo);
+  modal={t:"editCEq",c,eq};render();
+  setTimeout(()=>{const i=document.getElementById("ec_s");if(i)i.value=nueva;},0);
+}
 function openAddCEq(c){modal={t:"addCEq",c,eqTipo:"nuevo"};render();}
 function saveCEq(){
   const c=modal.c;
@@ -842,7 +870,7 @@ function saveCEq(){
   const aroma=document.getElementById("ceq_aroma")?.value||"";
   if(!m||!s){showToast("Modelo y serie requeridos");return;}
   const existing=ceq[c]||[];
-  if(getClientEqs(c).some(e=>!e._del&&e.serie===s)){showToast("Esa serie ya existe en este cliente");return;}
+  {const u=serieEnUso(s,null,null);if(u){showToast("La serie "+s+" ya está en "+u);return;}}
   ceq={...ceq,[c]:[...existing,{id:uid(),modelo:m,serie:s,area,aroma,agregadoPor:sess.name}]};
   eqEdits=[{id:uid(),ts:new Date().toISOString(),user:sess.name,cliente:c,antes:"(nuevo)",despues:[m,s,area,aroma].join(" | ")},...eqEdits].slice(0,2000);sv("eqEdits",eqEdits);
   sv("ceq",ceq);modal=null;showToast("Equipo agregado");
@@ -861,7 +889,7 @@ function saveEditCEq(){
   const newModelo=document.getElementById("ec_m")?.value||eq.modelo;
   if(!newSerie){showToast("Serie requerida");return;}
   const oldSerie=eq.serie;
-  if(newSerie!==oldSerie&&getClientEqs(c).some(e=>!e._del&&e.serie===newSerie)){showToast("Esa serie ya existe en este cliente");return;}
+  if(_nSer(newSerie)!==_nSer(oldSerie)){const u=serieEnUso(newSerie,c,oldSerie);if(u){showToast("La serie "+newSerie+" ya está en "+u);return;}}
   const existing=ceq[c]||[];
   const inCustom=existing.find(e=>(eq.id&&e.id===eq.id)||e.serie===oldSerie);
   const updated={...eq,id:eq.id||uid(),serie:newSerie,modelo:newModelo,area:newArea,aroma:newAroma,editadoPor:sess.name,editadoEn:new Date().toISOString()};
@@ -1911,7 +1939,16 @@ function render(){
         (dups.length?dups.map(d=>{const aj=JSON.stringify(d.a).replace(/'/g,"&#39;"),bj=JSON.stringify(d.b).replace(/'/g,"&#39;");return"<div style='border-top:1px solid #eee;padding:8px 0;font-size:12px'><div><b>"+d.a+"</b> ("+d.na+" eq)</div><div><b>"+d.b+"</b> ("+d.nb+" eq)</div><div style='color:var(--M);font-size:11px'>"+(d.ov?d.ov+" series en común":"mismo nombre")+"</div>"
           +"<div style='display:flex;gap:6px;margin-top:4px'><button onclick='renameClient("+aj+","+bj+",true);render();showToast(\"Unido\")' style='flex:1;padding:5px;border:1px solid #6a1b9a;border-radius:8px;background:none;color:#6a1b9a;font-size:11px;cursor:pointer'>Pasar 1º → 2º</button><button onclick='renameClient("+bj+","+aj+",true);render();showToast(\"Unido\")' style='flex:1;padding:5px;border:1px solid #6a1b9a;border-radius:8px;background:none;color:#6a1b9a;font-size:11px;cursor:pointer'>Pasar 2º → 1º</button></div></div>";}).join(""):"<div style='font-size:12px;color:var(--F)'>No se encontraron duplicados.</div>"))
       +"</div>";
-    con="<p class='pt'>Configuracion</p>"+dupHTML
+    const rs=window._showRep?seriesRepetidas():[];
+    const repHTML="<div class='card' style='margin-bottom:14px'><p style='font-weight:700;margin-bottom:6px;color:var(--D)'>Series repetidas</p>"
+      +"<div style='font-size:11px;color:var(--M);margin-bottom:8px'>Equipos activos con la misma serie en distintos lugares. Une primero los clientes duplicados; luego corrige aquí la serie del equipo que esté mal (✏️) o dale una serie nueva libre.</div>"
+      +(!window._showRep?"<button class='btn-add' onclick='window._showRep=true;render()'>Buscar series repetidas</button>":
+        (rs.length?"<div style='font-size:12px;font-weight:700;margin-bottom:6px'>"+rs.length+" series repetidas</div>"+rs.slice(0,80).map(l=>"<div style='border-top:1px solid #eee;padding:8px 0'><div style='font-weight:700;font-size:12px'>"+l[0].e.serie+"</div>"
+          +l.map(x=>{const cj=JSON.stringify(x.c).replace(/'/g,"&#39;"),sj=JSON.stringify(x.e.serie).replace(/'/g,"&#39;"),ij=JSON.stringify(x.e.id||"");return"<div style='display:flex;align-items:center;gap:6px;font-size:11px;margin-top:4px'><div style='flex:1'>"+x.c+" &#183; "+(x.e.modelo||"")+(x.e.area?" &#183; "+x.e.area:"")+(x.e.serie!==l[0].e.serie?" ("+x.e.serie+")":"")+"</div>"
+            +"<button onclick='openEditCEq("+cj+","+ij+","+sj+")' style='padding:3px 8px;background:#e8f0ff;color:#3456a0;border:none;border-radius:7px;font-size:11px;cursor:pointer'>&#9999;&#65039;</button>"
+            +"<button onclick='asignarSerieNueva("+cj+","+sj+")' style='padding:3px 8px;background:#fff3e0;color:#e65100;border:none;border-radius:7px;font-size:11px;cursor:pointer;font-weight:700'>Serie nueva</button></div>";}).join("")+"</div>").join(""):"<div style='font-size:12px;color:var(--F)'>✓ No hay series repetidas.</div>"))
+      +"</div>";
+    con="<p class='pt'>Configuracion</p>"+dupHTML+repHTML
       +"<div class='card' style='margin-bottom:14px;border:2px solid "+(perms.vndQuitarEq?"var(--D)":"#dde8e2")+"'><p style='font-weight:700;margin-bottom:6px;color:var(--F)'>Permisos de vendedores</p>"
       +"<div style='display:flex;align-items:center;gap:10px;cursor:pointer' onclick='togPermQuitar()'><div style='width:44px;height:24px;border-radius:12px;background:"+(perms.vndQuitarEq?"var(--D)":"#ccc")+";position:relative;flex-shrink:0'><div style='width:20px;height:20px;border-radius:50%;background:#fff;position:absolute;top:2px;left:"+(perms.vndQuitarEq?"22px":"2px")+"'></div></div>"
       +"<div style='font-size:12px'><b>Permitir quitar equipos</b> (depuración temporal)<br><span style='color:var(--M)'>"+(perms.vndQuitarEq?"ACTIVO: los vendedores pueden quitar equipos.":"Apagado: los vendedores solo pueden dar de baja.")+"</span></div></div></div>"
