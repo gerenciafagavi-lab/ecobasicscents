@@ -863,6 +863,7 @@ function asignarSerieNueva(c,serie){
   modal={t:"editCEq",c,eq};render();
   setTimeout(()=>{const i=document.getElementById("ec_s");if(i)i.value=nueva;},0);
 }
+function _eqKey(m){const u=String(m).toUpperCase().trim();return Object.keys(eqStk).find(k=>k.toUpperCase().trim()===u)||m;}
 function openAddCEq(c){modal={t:"addCEq",c,eqTipo:"nuevo"};render();}
 function saveCEq(){
   const c=modal.c;
@@ -1018,7 +1019,7 @@ function saveMov(){
     chks.forEach(chk=>{
       const m=chk.dataset.m,s=chk.dataset.s,id2=chk.dataset.id;
       movs=[{id:uid(),fecha:new Date().toISOString(),vnd:sess.name,tipo:"salida",modelo:m,serie:s,cant:1,motivo:"Retiro de cliente",cliente:retC,notas},...movs];
-      const curStk=eqStk[m]||0;eqStk={...eqStk,[m]:curStk+1};
+      const km=_eqKey(m);const curStk=eqStk[km]||0;eqStk={...eqStk,[km]:curStk+1};
       _marcarEq(retC,id2,s,{_baja:true,bajaMotivo:"Retiro a oficina",bajaPor:sess.name,bajaFecha:today()},"(RETIRADO a oficina"+(notas?": "+notas:"")+")");
     });
     sv("movs",movs);sv("eqs",eqStk);modal=null;showToast("Equipos retirados");
@@ -1027,9 +1028,9 @@ function saveMov(){
     const cant=parseInt(document.getElementById("mv_cant")?.value)||1;
     const cl=document.getElementById("mv_cl")?.value.trim()||"";
     if(!m){showToast("Selecciona un modelo");return;}
-    const curStk=eqStk[m]||0;
+    const km=_eqKey(m);const curStk=eqStk[km]||0;
     const newStk=esE?curStk+cant:Math.max(0,curStk-cant);
-    eqStk={...eqStk,[m]:newStk};
+    eqStk={...eqStk,[km]:newStk};
     movs=[{id:uid(),fecha:new Date().toISOString(),vnd:sess.name,tipo:esE?"entrada":"salida",modelo:m,cant,motivo:mot,cliente:cl,notas},...movs];
     sv("movs",movs);sv("eqs",eqStk);modal=null;showToast((esE?"Entrada":"Salida")+" registrada");
   }
@@ -1432,7 +1433,7 @@ function render(){
   const myC=(isA||isAC)?activeClients:[...myOwnC,...activeClients.filter(c=>!myOwnC.includes(c))];
   const actVnd=vendors.filter(v=>v.active!==false);
   const activeVnds=vendors.filter(v=>v.active!==false&&v.role!=="admin"&&v.role!=="atencion");
-  const totEq=Object.values(eqStk).reduce((a,b)=>a+b,0);
+  const totEq=Object.entries(eqStk).filter(([k])=>!esNoEquipo(k)).reduce((a,[,b])=>a+(+b||0),0);
 
   if(!sess){
     root.innerHTML="<div class='lb'><div class='lc'>"
@@ -1783,7 +1784,12 @@ function render(){
   // ── EQS TAB ──
   else if(tab==="eqs"){
     const mf=window._mf||"todos";
-    const eqCards=modelos.map(m=>{const q=eqStk[m]||0;const col=q===0?"var(--D)":q<=2?"var(--WN)":"var(--F)";return"<div class='sr'><div><div class='sm'>"+m+"</div><div class='ss' style='font-size:11px;color:"+col+"'>"+q+" unidades</div></div><div style='display:flex;gap:4px;align-items:center'>"+(isA?"<button onclick='modal={t:\"mov\",tipo:\"entrada\"};render()' style='padding:3px 10px;background:#f0f7f4;color:var(--F);border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer'>+</button>":"")+(isA?"<button onclick='modal={t:\"mov\",tipo:\"salida\"};render()' style='padding:3px 10px;background:#fdecea;color:var(--D);border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer'>-</button>":"")+"</div></div>";}).join("");
+    // stock agrupado sin importar mayúsculas; sin AirFin (es consumible, va en Rejillas)
+    const _u=s=>String(s).toUpperCase().trim();
+    const eqModelos=[...modelos.filter(m=>!esNoEquipo(m))];
+    Object.keys(eqStk).forEach(k=>{if(!esNoEquipo(k)&&!eqModelos.some(m=>_u(m)===_u(k))&&(eqStk[k]||0)>0)eqModelos.push(k);});
+    const qDe=m=>Object.keys(eqStk).filter(k=>_u(k)===_u(m)).reduce((a,k)=>a+(+eqStk[k]||0),0);
+    const eqCards=eqModelos.map(m=>{const q=qDe(m);const col=q===0?"var(--D)":q<=2?"var(--WN)":"var(--F)";return"<div class='sr'><div><div class='sm'>"+m+"</div><div class='ss' style='font-size:11px;color:"+col+"'>"+q+" unidades</div></div><div style='display:flex;gap:4px;align-items:center'>"+(isA?"<button onclick='modal={t:\"mov\",tipo:\"entrada\"};render()' style='padding:3px 10px;background:#f0f7f4;color:var(--F);border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer'>+</button>":"")+(isA?"<button onclick='modal={t:\"mov\",tipo:\"salida\"};render()' style='padding:3px 10px;background:#fdecea;color:var(--D);border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer'>-</button>":"")+"</div></div>";}).join("");
     const myMovs=isA?movs:movs.filter(m=>m.vnd===sess.name);
     const filtMovs=mf==="todos"?myMovs:myMovs.filter(m=>m.tipo===mf);
     const movCards=filtMovs.slice(0,40).map(m=>{const typeColor=m.tipo==="entrada"?"var(--F)":"var(--D)";const serieBadge=m.serie?"<span class='chip' style='font-size:10px;background:#f0f7f3'>"+m.serie+"</span>":"";const cliBadge=m.cliente?"<span class='chip chip-b' style='font-size:10px'>"+m.cliente+"</span>":"";const notaDiv=m.notas?"<div style='font-size:11px;color:var(--M);margin-top:5px'>"+m.notas+"</div>":"";return"<div class='card "+(m.tipo==="entrada"?"sl":"sl-r")+"' style='margin-bottom:8px'><div class='ch'><div><div class='ct' style='font-size:13px'>"+m.modelo+" &#183; <span style='color:"+typeColor+"'>"+(m.tipo==="entrada"?"&#8595; Entrada":"&#8593; Salida")+"</span></div><div class='cs'>"+fmt(m.fecha)+" &#183; "+m.vnd+"</div></div><span class='chip "+(m.tipo==="entrada"?"":"chip-r")+"' style='font-size:13px;font-weight:700'>"+(m.tipo==="entrada"?"+":"-")+m.cant+"</span></div><div class='mr'><span class='chip chip-g' style='font-size:10px'>"+m.motivo+"</span> "+serieBadge+" "+cliBadge+"</div>"+notaDiv+"</div>";}).join("");
@@ -2105,7 +2111,7 @@ function render(){
           retBlock+="<div class='fw'><label class='lbl'>Equipos en "+retC+"</label>"+eqsHtml+"</div>";
         }
       } else {
-        retBlock="<div class='fr'><div class='fw'><label class='lbl'>Modelo *</label><select class='inp' id='mv_mod'>"+modelos.map(m=>"<option"+(m===(modal.modelo||modelos[0])?" selected":"")+">"+m+"</option>").join("")+"</select></div><div class='fw'><label class='lbl'>Cantidad *</label><input type='number' class='inp' id='mv_cant' min='1' value='1'/></div></div>"
+        retBlock="<div class='fr'><div class='fw'><label class='lbl'>Modelo *</label><select class='inp' id='mv_mod'>"+modelos.filter(m=>!esNoEquipo(m)).map(m=>"<option"+(m===(modal.modelo||modelos[0])?" selected":"")+">"+m+"</option>").join("")+"</select></div><div class='fw'><label class='lbl'>Cantidad *</label><input type='number' class='inp' id='mv_cant' min='1' value='1'/></div></div>"
           +"<div class='fw'><label class='lbl'>"+(esE?"Cliente que devuelve":"Destino")+"</label><input class='inp' id='mv_cl' list='mv_cl_l' placeholder='"+(esE?"Ej: Club Campestre":"Ej: Hotel")+"'/><datalist id='mv_cl_l'>"+ALL_CLIENTS.map(c=>"<option>"+c+"</option>").join("")+"</datalist></div>";
       }
       mHTML="<div class='mb-bg' onclick='if(event.target===this){modal=null;render()}'><div class='mb'>"
