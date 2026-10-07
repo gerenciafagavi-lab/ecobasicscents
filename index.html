@@ -864,6 +864,18 @@ function asignarSerieNueva(c,serie){
   setTimeout(()=>{const i=document.getElementById("ec_s");if(i)i.value=nueva;},0);
 }
 function _eqKey(m){const u=String(m).toUpperCase().trim();return Object.keys(eqStk).find(k=>k.toUpperCase().trim()===u)||m;}
+async function descargarRespaldo(){
+  showToast("Preparando respaldo...");
+  let data={};
+  try{
+    const r=await fetch(SB_URL+"/rest/v1/app_data?key=in.("+SB_KEYS.map(k=>'"'+k+'"').join(",")+")&select=key,value,updated_at",{cache:"no-store",headers:{...SB_H,"Accept":"application/json"}});
+    if(!r.ok)throw 0;(await r.json()).forEach(x=>{try{data[x.key]={updated_at:x.updated_at,value:JSON.parse(x.value)};}catch{}});
+  }catch{SB_KEYS.forEach(k=>{const v=ld(k,null);if(v!==null)data[k]={updated_at:"local",value:v};});showToast("Sin internet: respaldo con datos de este teléfono");}
+  const blob=new Blob([JSON.stringify({app:"EcobasicScents",fecha:new Date().toISOString(),por:sess?.name||"",datos:data},null,1)],{type:"application/json"});
+  const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="Respaldo_EcobasicScents_"+new Date().toISOString().slice(0,16).replace(/[:T]/g,"-")+".json";document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
+  try{localStorage.setItem("eco__lastBackup",new Date().toISOString());}catch{}
+  setTimeout(()=>showToast("Respaldo descargado"),300);
+}
 function openAddCEq(c){modal={t:"addCEq",c,eqTipo:"nuevo"};render();}
 function saveCEq(){
   const c=modal.c;
@@ -1957,7 +1969,12 @@ function render(){
             +"<button onclick='openEditCEq("+cj+","+ij+","+sj+")' style='padding:3px 8px;background:#e8f0ff;color:#3456a0;border:none;border-radius:7px;font-size:11px;cursor:pointer'>&#9999;&#65039;</button>"
             +"<button onclick='asignarSerieNueva("+cj+","+sj+")' style='padding:3px 8px;background:#fff3e0;color:#e65100;border:none;border-radius:7px;font-size:11px;cursor:pointer;font-weight:700'>Serie nueva</button></div>";}).join("")+"</div>").join(""):"<div style='font-size:12px;color:var(--F)'>✓ No hay series repetidas.</div>"))
       +"</div>";
-    con="<p class='pt'>Configuracion</p>"+dupHTML+repHTML
+    const lb=(()=>{try{return localStorage.getItem("eco__lastBackup");}catch{return null;}})();
+    const bkHTML="<div class='card' style='margin-bottom:14px;border:2px solid #1b5e20'><p style='font-weight:700;margin-bottom:6px;color:#1b5e20'>Respaldo de datos</p>"
+      +"<div style='font-size:11px;color:var(--M);margin-bottom:8px'>Descarga una copia completa (clientes, equipos, visitas, inventarios, usuarios). Guárdala en tu computadora o Drive. Recomendado: una vez por semana.</div>"
+      +"<div style='font-size:11px;margin-bottom:8px'>Último respaldo desde este dispositivo: <b>"+(lb?fmt(lb):"nunca")+"</b></div>"
+      +"<button class='btn' style='background:#1b5e20' onclick='descargarRespaldo()'><i class='ti ti-download'></i> Descargar respaldo completo</button></div>";
+    con="<p class='pt'>Configuracion</p>"+bkHTML+dupHTML+repHTML
       +"<div class='card' style='margin-bottom:14px;border:2px solid "+(perms.vndQuitarEq?"var(--D)":"#dde8e2")+"'><p style='font-weight:700;margin-bottom:6px;color:var(--F)'>Permisos de vendedores</p>"
       +"<div style='display:flex;align-items:center;gap:10px;cursor:pointer' onclick='togPermQuitar()'><div style='width:44px;height:24px;border-radius:12px;background:"+(perms.vndQuitarEq?"var(--D)":"#ccc")+";position:relative;flex-shrink:0'><div style='width:20px;height:20px;border-radius:50%;background:#fff;position:absolute;top:2px;left:"+(perms.vndQuitarEq?"22px":"2px")+"'></div></div>"
       +"<div style='font-size:12px'><b>Permitir quitar equipos</b> (depuración temporal)<br><span style='color:var(--M)'>"+(perms.vndQuitarEq?"ACTIVO: los vendedores pueden quitar equipos.":"Apagado: los vendedores solo pueden dar de baja.")+"</span></div></div></div>"
@@ -2236,6 +2253,22 @@ function regVisitSimple(){
 
 // ── INIT ──
 render();
+// ── ACTUALIZACIÓN AUTOMÁTICA DE LA APP ──
+const APP_VER="2026-10-07b";
+async function checkUpdate(){
+  try{
+    const r=await fetch(location.pathname+"?_="+Date.now(),{cache:"no-store"});if(!r.ok)return;
+    const t=await r.text();const m=t.match(/const APP_VER="([^"]+)"/);
+    if(!m||m[1]===APP_VER)return;
+    const ocupado=modal||(tab==="visit"&&selC)||_dirty().length;
+    if(!ocupado){location.replace(location.pathname+"?v="+encodeURIComponent(m[1]));return;}
+    let el=document.getElementById("upd_banner");
+    if(!el){el=document.createElement("div");el.id="upd_banner";el.style.cssText="position:fixed;top:8px;left:50%;transform:translateX(-50%);z-index:99999;background:#1b5e20;color:#fff;font:600 13px system-ui;padding:10px 14px;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.3);cursor:pointer";el.onclick=()=>location.replace(location.pathname+"?v="+encodeURIComponent(m[1]));document.body.appendChild(el);}
+    el.textContent="⟳ Hay una versión nueva de la app — toca aquí para actualizar";
+  }catch{}
+}
+setTimeout(checkUpdate,3000);setInterval(checkUpdate,10*60*1000);
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")checkUpdate();});
 // Sincronizar al abrir, cada 30 s, al volver a la app y al recuperar internet
 syncDown().then(ok=>{if(ok)_softRender();});
 setInterval(()=>{syncDown();},30000);
