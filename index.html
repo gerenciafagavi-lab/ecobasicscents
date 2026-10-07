@@ -147,6 +147,15 @@ function _mSet(b,l,r){
 function mergeKey(k,b,l,r){
   if(r==null)return l;if(l==null)return r;
   const t=MERGE_T[k];
+  if(b==null){
+    // Sin punto de partida (teléfono nuevo o sin sincronizar): NUNCA se pisa lo que hay en la nube, solo se agrega lo que falte
+    if(t==="arr"){const rk=new Set(r.map(_idk));return[...l.filter(x=>!rk.has(_idk(x))),...r];}
+    if(t==="num"||t==="obj"){const res={...r};Object.keys(l).forEach(x=>{if(!(x in res))res[x]=l[x];});return res;}
+    if(t==="set")return[...r,...l.filter(x=>!r.includes(x))];
+    if(t==="scalar")return r;
+    if(t==="cc"){const add=(lo,ro)=>{const res={...(ro||{})};Object.keys(lo||{}).forEach(x=>{if(!(x in res))res[x]=lo[x];});return res;};return{...l,...r,clients:[...(r.clients||[]),...(l.clients||[]).filter(x=>!(r.clients||[]).includes(x))],vc:add(l.vc,r.vc),pais:add(l.pais,r.pais),vcOverride:add(l.vcOverride,r.vcOverride)};}
+    return r;
+  }
   if(t==="arr")return _mArr(b,l,r);
   if(t==="num")return _mNum(b,l,r);
   if(t==="obj")return _mObj(b,l,r);
@@ -177,6 +186,7 @@ function applyRemote(key,val){
   if(key==="batMovs")batMovs=val;
   if(key==="baterias")baterias=val;
   if(key==="sols")solicitudes=val;
+  if((key==="ceq"||key==="customclients")&&val)setTimeout(()=>{applyClientFixes();},0);
   if(key==="customclients"&&val){
     if(val.clients)val.clients.forEach(c=>{if(!ALL_CLIENTS.includes(c))ALL_CLIENTS.push(c);});
     if(val.vc)Object.keys(val.vc).forEach(v=>{if(!VC[v])VC[v]=[];val.vc[v].forEach(c=>{if(!VC[v].includes(c))VC[v].push(c);});});
@@ -347,6 +357,67 @@ if(_cc){
   // Aplicar overrides de asignación: {cliente: "Vendedor"|""} — sobreescribe BASE_CC.vc
   if(_cc.vcOverride){Object.entries(_cc.vcOverride).forEach(([c,nv])=>{Object.keys(VC).forEach(v=>{VC[v]=VC[v].filter(x=>x!==c);});if(nv&&!VC[nv])VC[nv]=[];if(nv&&!VC[nv].includes(c))VC[nv].push(c);});}
 }
+// ── NOMBRES DE CLIENTES: renombrar / unir / eliminar quedan guardados y se aplican siempre ──
+function _ccGet(){const cc=ld("customclients",{clients:[],vc:{},pais:{},vcOverride:{}});cc.clients=cc.clients||[];cc.vc=cc.vc||{};cc.pais=cc.pais||{};cc.vcOverride=cc.vcOverride||{};cc.renames=cc.renames||{};cc.deleted=cc.deleted||[];return cc;}
+function _finalName(n,ren){let g=0;while(ren[n]&&ren[n]!==n&&g<20){n=ren[n];g++;}return n;}
+function applyClientFixes(){
+  const cc=ld("customclients",null)||{};const ren=cc.renames||{};const del=new Set(cc.deleted||[]);
+  let ceqCh=false;
+  Object.keys(ren).forEach(old=>{
+    const nw=_finalName(old,ren);if(nw===old)return;
+    const i=ALL_CLIENTS.indexOf(old);if(i>-1){if(ALL_CLIENTS.includes(nw))ALL_CLIENTS.splice(i,1);else ALL_CLIENTS[i]=nw;}
+    else if(!ALL_CLIENTS.includes(nw))ALL_CLIENTS.push(nw);
+    Object.keys(VC).forEach(v=>{if(VC[v].includes(old)){VC[v]=VC[v].filter(x=>x!==old);if(!Object.values(VC).some(a=>a.includes(nw)))VC[v].push(nw);}});
+    if(window._clientPais&&window._clientPais[old]&&!window._clientPais[nw])window._clientPais[nw]=window._clientPais[old];
+    if(ceq[old]){const dst=[...(ceq[nw]||[])];const s=new Set(dst.map(e=>e.serie));ceq[old].forEach(e=>{if(e&&!s.has(e.serie)){dst.push(e);s.add(e.serie);}});const nc={...ceq,[nw]:dst};delete nc[old];ceq=nc;ceqCh=true;}
+  });
+  del.forEach(c=>{const i=ALL_CLIENTS.indexOf(c);if(i>-1)ALL_CLIENTS.splice(i,1);Object.keys(VC).forEach(v=>{VC[v]=VC[v].filter(x=>x!==c);});});
+  // Red de seguridad: un cliente con equipos nunca queda invisible
+  Object.entries(ceq).forEach(([c,l])=>{if(Array.isArray(l)&&l.some(e=>e&&!e._del)&&!ALL_CLIENTS.includes(c)&&!del.has(c)&&!(c in ren))ALL_CLIENTS.push(c);});
+  if(ceqCh){try{localStorage.setItem("eco_ceq",JSON.stringify(ceq));}catch{}if(typeof _markDirty==="function"){_markDirty("ceq");schedulePush("ceq");}}
+}
+function _vendorDe(c){return Object.entries(VC).find(([,a])=>a.includes(c))?.[0]||"";}
+function renameClient(old,nw,unir){
+  const cc=_ccGet();
+  Object.keys(cc.renames).forEach(k=>{if(cc.renames[k]===old)cc.renames[k]=nw;});
+  delete cc.renames[nw];cc.renames[old]=nw;
+  const v=cc.vcOverride[nw]!==undefined&&unir?cc.vcOverride[nw]:(cc.vcOverride[old]!==undefined?cc.vcOverride[old]:_vendorDe(old));
+  if(!(unir&&cc.vcOverride[nw]))cc.vcOverride[nw]=v||"";
+  delete cc.vcOverride[old];
+  cc.clients=cc.clients.filter(x=>x!==old);if(!cc.clients.includes(nw))cc.clients.push(nw);
+  Object.keys(cc.vc).forEach(k=>{cc.vc[k]=(cc.vc[k]||[]).filter(x=>x!==old);});
+  if(cc.pais[old]&&!cc.pais[nw])cc.pais[nw]=cc.pais[old];delete cc.pais[old];
+  cc.deleted=cc.deleted.filter(x=>x!==nw);
+  sv("customclients",cc);
+  // pasar historial al nombre nuevo
+  let ch=false;visits=visits.map(x=>{if(x.cliente===old){ch=true;return{...x,cliente:nw};}return x;});if(ch)sv("vis",visits);
+  let cs=false;solicitudes=solicitudes.map(x=>{if(x.clienteExist===old){cs=true;return{...x,clienteExist:nw};}return x;});if(cs)sv("sols",solicitudes);
+  let cb=false;batMovs=batMovs.map(x=>{if(x.cliente===old){cb=true;return{...x,cliente:nw};}return x;});if(cb)sv("batMovs",batMovs);
+  if(ceq[old]){const dst=[...(ceq[nw]||[])];const s=new Set(dst.map(e=>e.serie));ceq[old].forEach(e=>{if(e&&!s.has(e.serie)){dst.push(e);s.add(e.serie);}});const nc={...ceq,[nw]:dst};delete nc[old];ceq=nc;sv("ceq",ceq);}
+  Object.keys(VC).forEach(k=>{VC[k]=VC[k].filter(x=>x!==old&&x!==nw);});const vv=cc.vcOverride[nw];if(vv){if(!VC[vv])VC[vv]=[];VC[vv].push(nw);}
+  applyClientFixes();
+  if(expC===old)expC=nw;if(selC===old)selC=nw;
+}
+function openUnirCliente(c){modal={t:"unirCliente",c};render();}
+function confirmUnirCliente(){
+  const src=modal.c;const dst=document.getElementById("uc_dst").value;
+  if(!dst||dst===src){showToast("Elige el cliente correcto");return;}
+  renameClient(src,dst,true);modal=null;showToast("Clientes unidos en "+dst);render();
+}
+function _dupSugeridos(){
+  const norm=s=>s.toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/\(.*?\)/g,' ').replace(/[^A-Z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
+  const stop=new Set(['SA','CV','DE','DEL','LOS','LAS','LA','EL','Y']);
+  const W=s=>new Set(norm(s).split(' ').filter(w=>w.length>2&&!stop.has(w)));
+  const bajasC=new Set((bajas||[]).map(b=>b.c));
+  const cl=ALL_CLIENTS.filter(c=>!bajasC.has(c));
+  const info=cl.map(c=>({c,w:W(c),s:new Set(getClientEqs(c).filter(e=>!e._del&&!/^S\/N/i.test(e.serie)).map(e=>e.serie)),n:getClientEqs(c).filter(e=>!e._del).length}));
+  const out=[];
+  for(let i=0;i<info.length;i++)for(let j=i+1;j<info.length;j++){const a=info[i],b=info[j];
+    let ov=0;a.s.forEach(x=>{if(b.s.has(x))ov++;});
+    let cw=0;a.w.forEach(x=>{if(b.w.has(x))cw++;});const sim=cw/Math.max(1,Math.min(a.w.size,b.w.size));
+    if(ov>=1||(sim>=0.99&&cw>=1))out.push({a:a.c,b:b.c,na:a.n,nb:b.n,ov,sim});}
+  return out.sort((x,y)=>y.ov-x.ov||y.sim-x.sim).slice(0,60);
+}
 // Importación de equipos por cliente: REEMPLAZA (no suma) los equipos de los clientes del Excel
 function applyEqImport(){
   const nc={...ceq};
@@ -366,7 +437,7 @@ function applyEqImport(){
   if(mch)sv("modelos",modelos);
   sv("ceq",ceq);sv("customclients",cc);sv("eqImportVer",EQ_IMPORT_VER);
 }
-if(ld("eqImportVer",null)!==EQ_IMPORT_VER)applyEqImport();
+// (se ejecuta solo después de leer la nube, dentro de syncDown — nunca en un teléfono recién abierto)
 // Kevin tomó los clientes de Angel (Angel ya no está)
 const VND_FIX_VER="2026-09-27-kevin";
 function applyVendFix(){
@@ -384,19 +455,20 @@ function applyVendFix(){
   });
   sv("vnd",vendors);sv("customclients",cc);sv("vndFixVer",VND_FIX_VER);
 }
-if(ld("vndFixVer",null)!==VND_FIX_VER)applyVendFix();
+// (se ejecuta solo después de leer la nube, dentro de syncDown — nunca en un teléfono recién abierto)
 // Jason recibe la cartera de Kevin; Kevin queda como soporte
-const JASON_FIX_VER="2026-10-06-jason-b";
+const JASON_FIX_VER="2026-10-06-jason-c";
 function applyJasonFix(){
-  if(!vendors.find(v=>v.name==="Jason")){let pin="9090";if(vendors.find(v=>v.pin===pin)){do{pin=String(1000+Math.floor(Math.random()*9000));}while(vendors.find(v=>v.pin===pin));}vendors=[...vendors,{id:uid(),name:"Jason",pin,role:"vendor",active:true}];}
+  if(!vendors.find(v=>v.name==="Jason")){let pin="9090";if(vendors.find(v=>v.pin===pin)){do{pin=String(1000+Math.floor(Math.random()*9000));}while(vendors.find(v=>v.pin===pin));}vendors=[...vendors,{id:"vJason",name:"Jason",pin,role:"vendor",active:true}];}
   // Kevin sigue activo como soporte de mantenimiento (sin cartera)
   vendors=vendors.map(v=>v.name==="Kevin"?{...v,active:true,soporte:true}:v);
   const lista=[...(VC["Kevin"]||[])];if(lista.length)_moverClientes(lista,"Jason");
   let ns=0;solicitudes=solicitudes.map(s=>{if(s.vendedor==="Kevin"&&s.estado==="pendiente"){ns++;return{...s,vendedor:"Jason"};}return s;});if(ns)sv("sols",solicitudes);
   sv("vnd",vendors);sv("jasonFixVer",JASON_FIX_VER);
 }
-if(ld("jasonFixVer",null)!==JASON_FIX_VER)applyJasonFix();
+// (se ejecuta solo después de leer la nube, dentro de syncDown — nunca en un teléfono recién abierto)
 
+applyClientFixes();
 let modal=null;
 let toast="";
 let tab="visit";
@@ -480,13 +552,7 @@ function updMin(s,v){const n=parseInt(v)||0;nivMin={...nivMin,[s]:n};sv("nvm",ni
 function logout(){sess=null;sv("sess",null);selC="";selEq=null;tab="visit";render();}
 function setRole(r){document.getElementById("lrole").value=r;document.querySelectorAll(".rb").forEach(b=>b.classList.remove("on"));event.target.classList.add("on");const vwrap=document.getElementById("vwrap");if(vwrap)vwrap.style.display=(r==="admin"||r==="atencion")?"none":"block";const lpin=document.getElementById("lpin");if(lpin){lpin.value="";lpin.placeholder=r==="admin"?"PIN de admin":"PIN";}}
 function doSync(){showToast("Sincronizando...");syncDown().then(ok=>{console.log("syncDown result:",ok);if(ok){const cc=ld("customclients",{clients:[],vc:{},pais:{}});if(cc.clients)cc.clients.forEach(c=>{if(!ALL_CLIENTS.includes(c))ALL_CLIENTS.push(c);});if(cc.vc)Object.keys(cc.vc).forEach(v=>{if(!VC[v])VC[v]=[];cc.vc[v].forEach(c=>{if(!VC[v].includes(c))VC[v].push(c);});});if(cc.pais)Object.assign(window._clientPais,cc.pais);render();showToast("\u2713 Sincronizado");}else showToast("Error de conexion");});}
-function forceSyncUp(){
-  if(!confirm("\u00bfSubir todos los datos locales a la nube? Esto sobreescribe lo que est\u00e1 en Supabase con los datos de este dispositivo."))return;
-  showToast("Subiendo datos...");
-  const keys=["vis","inv","demos","eqs","movs","eqgrades","ceq","bajas","nvm","vnd","modelos","stkseries","cartuchos","customclients","sols","rejillas","baterias"];
-  let done=0;
-  keys.forEach(k=>{const v=ld(k,null);if(v!==null){sbSet(k,v).then(ts=>{_sB(k,v);_sU(k,ts);_clearDirty(k);done++;if(done===keys.length){showToast("\u2713 Datos subidos a la nube");render();}});}else{done++;if(done===keys.length){showToast("\u2713 Datos subidos a la nube");render();}}});
-}
+function forceSyncUp(){showToast("Opción desactivada: la app sincroniza sola");}
 
 // ── AUTH ──
 function doLogin(){
@@ -710,18 +776,9 @@ function saveRenameCliente(){
   const newName=document.getElementById("rc_n").value.trim().toUpperCase();
   if(!newName){showToast("Ingresa el nombre");return;}
   if(newName===oldName){modal=null;render();return;}
-  if(ALL_CLIENTS.includes(newName)){showToast("Ya existe");return;}
-  const idx=ALL_CLIENTS.indexOf(oldName);if(idx>-1)ALL_CLIENTS[idx]=newName;
-  Object.keys(VC).forEach(v=>{const i=VC[v].indexOf(oldName);if(i>-1)VC[v][i]=newName;});
-  const cc=ld("customclients",{clients:[],vc:{},pais:{}});
-  const ci=cc.clients.indexOf(oldName);if(ci>-1)cc.clients[ci]=newName;
-  Object.keys(cc.vc||{}).forEach(v=>{const i=(cc.vc[v]||[]).indexOf(oldName);if(i>-1)cc.vc[v][i]=newName;});
-  if(cc.pais&&cc.pais[oldName]){cc.pais[newName]=cc.pais[oldName];delete cc.pais[oldName];}
-  if(window._clientPais&&window._clientPais[oldName]){window._clientPais[newName]=window._clientPais[oldName];delete window._clientPais[oldName];}
-  sv("customclients",cc);
-  if(ceq[oldName]){ceq={...ceq,[newName]:ceq[oldName]};delete ceq[oldName];sv("ceq",ceq);}
-  visits=visits.map(v=>v.cliente===oldName?{...v,cliente:newName}:v);sv("vis",visits);
-  modal=null;showToast("Cliente renombrado");
+  if(ALL_CLIENTS.includes(newName)){showToast("Ya existe ese nombre. Usa 'Unir' si es el mismo cliente.");return;}
+  renameClient(oldName,newName,false);
+  modal=null;showToast("Cliente renombrado");render();
 }
 function _asignarDirecto(c,nuevoV){
   Object.keys(VC).forEach(v=>{VC[v]=VC[v].filter(x=>x!==c);});
@@ -765,8 +822,8 @@ function confirmDeleteCliente(){
   const c=modal.c;
   const idx=ALL_CLIENTS.indexOf(c);if(idx>-1)ALL_CLIENTS.splice(idx,1);
   Object.keys(VC).forEach(v=>{VC[v]=VC[v].filter(x=>x!==c);});
-  const cc=ld("customclients",{clients:[],vc:{},pais:{}});
-  cc.clients=cc.clients.filter(x=>x!==c);
+  const cc=_ccGet();
+  cc.clients=cc.clients.filter(x=>x!==c);if(!cc.deleted.includes(c))cc.deleted.push(c);
   Object.keys(cc.vc||{}).forEach(v=>{cc.vc[v]=(cc.vc[v]||[]).filter(x=>x!==c);});
   if(cc.pais)delete cc.pais[c];
   if(window._clientPais)delete window._clientPais[c];
@@ -1729,6 +1786,7 @@ function render(){
         +"<div style='display:flex;align-items:center;gap:5px'><span class='chip'>"+cv.length+"v</span><span class='chip chip-b'>"+allEq.length+"eq</span>"
         +(isA?"<button onclick='event.stopPropagation();openAsignarVendedor("+cj+")' style='padding:2px 7px;background:#fff8e1;color:#e65100;border:none;border-radius:6px;font-size:11px;cursor:pointer' title='Asignar vendedor'>&#128101;</button>":"")
         +(isA?"<button onclick='event.stopPropagation();openRenameCliente("+cj+")' style='padding:2px 7px;background:#e8f0ff;color:#3456a0;border:none;border-radius:6px;font-size:11px;cursor:pointer'>&#9999;&#65039;</button>":"")
+        +(isA?"<button title='Unir con otro cliente (duplicado)' onclick='event.stopPropagation();openUnirCliente("+cj+")' style='padding:2px 7px;background:#f3e5f5;color:#6a1b9a;border:none;border-radius:6px;font-size:11px;cursor:pointer;font-weight:700'>&#8644;</button>":"")
         +(isA?"<button onclick='event.stopPropagation();openDeleteCliente("+cj+")' style='padding:2px 7px;background:#fdecea;color:var(--D);border:none;border-radius:6px;font-size:11px;cursor:pointer'>&#x2715;</button>":"")
         +"<i class='ti ti-chevron-"+(exp?"up":"down")+"' style='font-size:15px;color:var(--M)'></i></div></div>"+expDiv+"</div>";
     }).join("");
@@ -1846,7 +1904,14 @@ function render(){
   else if(tab==="config"&&isA){
     const modCards=modelos.map(m=>"<div class='sr'><div class='sm'>"+m+"</div><button class='del' onclick='delModelo("+JSON.stringify(m)+")'>Eliminar</button></div>").join("");
     const esCards=Object.keys(inv).sort().map(n=>"<div class='sr'><div><div class='sm'>"+n+"</div><div style='font-size:11px;color:var(--M)'>Stock: "+inv[n]+"ml</div></div><div style='display:flex;gap:5px'><button class='be' onclick='openEditEsencia("+JSON.stringify(n)+")'>&#9999;&#65039;</button><button class='del' onclick='delEsencia("+JSON.stringify(n)+")'>&#x2715;</button></div></div>").join("");
-    con="<p class='pt'>Configuracion</p>"
+    const dups=window._showDups?_dupSugeridos():[];
+    const dupHTML="<div class='card' style='margin-bottom:14px'><p style='font-weight:700;margin-bottom:6px;color:#6a1b9a'>Clientes posiblemente duplicados</p>"
+      +"<div style='font-size:11px;color:var(--M);margin-bottom:8px'>Clientes con el mismo nombre o con equipos de la misma serie. Revisa y une el nombre viejo en el correcto.</div>"
+      +(!window._showDups?"<button class='btn-add' onclick='window._showDups=true;render()'>Buscar duplicados</button>":
+        (dups.length?dups.map(d=>{const aj=JSON.stringify(d.a).replace(/'/g,"&#39;"),bj=JSON.stringify(d.b).replace(/'/g,"&#39;");return"<div style='border-top:1px solid #eee;padding:8px 0;font-size:12px'><div><b>"+d.a+"</b> ("+d.na+" eq)</div><div><b>"+d.b+"</b> ("+d.nb+" eq)</div><div style='color:var(--M);font-size:11px'>"+(d.ov?d.ov+" series en común":"mismo nombre")+"</div>"
+          +"<div style='display:flex;gap:6px;margin-top:4px'><button onclick='renameClient("+aj+","+bj+",true);render();showToast(\"Unido\")' style='flex:1;padding:5px;border:1px solid #6a1b9a;border-radius:8px;background:none;color:#6a1b9a;font-size:11px;cursor:pointer'>Pasar 1º → 2º</button><button onclick='renameClient("+bj+","+aj+",true);render();showToast(\"Unido\")' style='flex:1;padding:5px;border:1px solid #6a1b9a;border-radius:8px;background:none;color:#6a1b9a;font-size:11px;cursor:pointer'>Pasar 2º → 1º</button></div></div>";}).join(""):"<div style='font-size:12px;color:var(--F)'>No se encontraron duplicados.</div>"))
+      +"</div>";
+    con="<p class='pt'>Configuracion</p>"+dupHTML
       +"<div class='card' style='margin-bottom:14px;border:2px solid "+(perms.vndQuitarEq?"var(--D)":"#dde8e2")+"'><p style='font-weight:700;margin-bottom:6px;color:var(--F)'>Permisos de vendedores</p>"
       +"<div style='display:flex;align-items:center;gap:10px;cursor:pointer' onclick='togPermQuitar()'><div style='width:44px;height:24px;border-radius:12px;background:"+(perms.vndQuitarEq?"var(--D)":"#ccc")+";position:relative;flex-shrink:0'><div style='width:20px;height:20px;border-radius:50%;background:#fff;position:absolute;top:2px;left:"+(perms.vndQuitarEq?"22px":"2px")+"'></div></div>"
       +"<div style='font-size:12px'><b>Permitir quitar equipos</b> (depuración temporal)<br><span style='color:var(--M)'>"+(perms.vndQuitarEq?"ACTIVO: los vendedores pueden quitar equipos.":"Apagado: los vendedores solo pueden dar de baja.")+"</span></div></div></div>"
@@ -1933,6 +1998,16 @@ function render(){
         +"<div class='fw'><label class='lbl'>Area</label><input class='inp' id='ec_a' value='"+(eq.area||"")+"'/></div>"
         +"<div class='fw'><label class='lbl'>Aroma</label><select class='inp' id='ec_aroma'><option value=''>Sin aroma</option>"+getAllScents().map(s=>"<option value='"+s+"'"+(s===eq.aroma?" selected":"")+">"+s+"</option>").join("")+"</select></div>"
         +"<div class='mb-act'><button class='btn-c' onclick='modal=null;render()'>Cancelar</button><button class='btn' onclick='saveEditCEq()'>Guardar</button></div></div></div>";
+    }
+    else if(t==="unirCliente"){
+      const src=modal.c;const nSrc=getClientEqs(src).filter(e=>!e._del).length;
+      const bajasC=new Set((bajas||[]).map(b=>b.c));
+      const otros=ALL_CLIENTS.filter(c=>c!==src&&!bajasC.has(c)).sort((a,b)=>a.localeCompare(b));
+      mHTML="<div class='mb-bg' onclick='if(event.target===this){modal=null;render()}'><div class='mb'><div class='mb-t' style='color:#6a1b9a'>Unir clientes duplicados</div>"
+        +"<p class='ps'>"+src+" ("+nSrc+" equipos)</p>"
+        +"<div style='font-size:12px;color:var(--M);margin-bottom:10px'>Pasa los equipos, visitas y vendedor de <b>este cliente</b> al cliente correcto, y este nombre desaparece. Los equipos repetidos (misma serie) no se duplican.</div>"
+        +"<div class='fw'><label class='lbl'>Pasar todo a *</label><select class='inp' id='uc_dst'><option value=''>Selecciona el cliente correcto...</option>"+otros.map(c=>"<option value='"+c.replace(/'/g,"&#39;")+"'>"+c+" ("+getClientEqs(c).filter(e=>!e._del).length+" eq)</option>").join("")+"</select></div>"
+        +"<div class='mb-act'><button class='btn-c' onclick='modal=null;render()'>Cancelar</button><button class='btn' style='background:#6a1b9a' onclick='confirmUnirCliente()'>Unir</button></div></div></div>";
     }
     else if(t==="quitarEq"){
       mHTML="<div class='mb-bg' onclick='if(event.target===this){modal=null;render()}'><div class='mb'><div class='mb-t' style='color:var(--D)'>Quitar equipo</div><p class='ps'>"+modal.c+" &#183; "+modal.serie+"</p>"
