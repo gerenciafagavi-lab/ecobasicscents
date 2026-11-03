@@ -285,7 +285,62 @@ async function _syncDownImpl(){
 
 // ── STORAGE ──
 const ld=(k,fb)=>{try{const v=localStorage.getItem("eco_"+k);return v?JSON.parse(v):fb;}catch{return fb;}};
-const sv=(k,v)=>{try{localStorage.setItem("eco_"+k,JSON.stringify(v));}catch{} if(SB_KEYS.includes(k)){_markDirty(k);schedulePush(k);}};
+const sv=(k,v)=>{let _old=null;try{_old=localStorage.getItem("eco_"+k);}catch{} try{localStorage.setItem("eco_"+k,JSON.stringify(v));}catch{} if(SB_KEYS.includes(k)){try{_logChange(k,_old,v);}catch(e){console.warn("bitacora",e);} _markDirty(k);schedulePush(k);}};
+// ── BITÁCORA: quién cambió qué ──
+let _noLog=0,_lastUI=0,_logBuf=null,_logT=null,_logSending=false;
+["pointerdown","keydown","change","input"].forEach(ev=>document.addEventListener(ev,()=>{_lastUI=Date.now();},true));
+const LOG_SKIP=["eqImportVer","vndFixVer","jasonFixVer"];
+const LOG_LBL={vis:"Visitas",inv:"Inventario de esencias",demos:"Demos",eqs:"Stock de equipos",movs:"Movimientos de equipos",eqgrades:"Intensidades / horarios",ceq:"Equipos por cliente",bajas:"Bajas",nvm:"Niveles mínimos",vnd:"Usuarios",modelos:"Modelos",stkseries:"Series en stock",cartuchos:"Cartuchos",customclients:"Clientes",sols:"Solicitudes",rejillas:"Rejillas",baterias:"Baterías (stock)",pedidos:"Pedidos",invMovs:"Movimientos de esencias",batMovs:"Cambios de baterías",eqEdits:"Ediciones de equipos",perms:"Permisos",consumoCfg:"Config. de consumo"};
+const LOG_TAB={visit:"Registrar",hist:"Visitas",inv:"Esencias",demos:"Demos",eqs:"Equipos",clts:"Clientes",sols:"Solicitudes",usrs:"Usuarios",bajas:"Bajas",lost:"Perdidos",grades:"Intensidades",reports:"Reportes",config:"Config",log:"Bitácora"};
+function _lv(x){if(x==null||x==="")return"∅";if(typeof x==="object")return Array.isArray(x)?"["+x.length+"]":"{…}";const s=String(x);return s.length>40?s.slice(0,40)+"…":s;}
+function _ldesc(o){if(!o||typeof o!=="object")return _lv(o);const p=[];["cliente","c","nombre","name","serie","esencia","aroma","modelo","item","tipo","fecha"].forEach(f=>{if(p.length<3&&o[f]!=null&&o[f]!==""&&typeof o[f]!=="object")p.push(String(o[f]).slice(0,40));});return p.join(" · ")||(o.id?"id "+o.id:"registro");}
+function _lid(o){return o&&typeof o==="object"?(o.id||o.serie||o.name||null):null;}
+function _lfields(a,b){const out=[];new Set([...Object.keys(a||{}),...Object.keys(b||{})]).forEach(f=>{const x=a?a[f]:undefined,y=b?b[f]:undefined;if(_J(x)!==_J(y))out.push(f+": "+_lv(x)+" → "+_lv(y));});return out;}
+function _lf4(f){return f.length?" ("+f.slice(0,4).join("; ")+(f.length>4?"; …":"")+")":"";}
+function _ldiffArr(a,b,pre,out){
+  if([...a,...b].every(o=>_lid(o)!=null)){
+    const ma=new Map(a.map(o=>[_lid(o),o])),mb=new Map(b.map(o=>[_lid(o),o]));
+    mb.forEach((o,id)=>{if(!ma.has(id))out.push(pre+"+ "+_ldesc(o));else{const x=ma.get(id);if(_J(x)!==_J(o))out.push(pre+"✎ "+_ldesc(o)+_lf4(_lfields(x,o)));}});
+    ma.forEach((o,id)=>{if(!mb.has(id))out.push(pre+"− "+_ldesc(o));});
+  }else{const sa=new Set(a.map(_J)),sb=new Set(b.map(_J));b.forEach(o=>{if(!sa.has(_J(o)))out.push(pre+"+ "+_ldesc(o));});a.forEach(o=>{if(!sb.has(_J(o)))out.push(pre+"− "+_ldesc(o));});}
+}
+function _ldiffAny(x,y,pre,out,d){
+  if(_J(x)===_J(y))return;
+  const nm=pre.replace(/ › $/,"");
+  if(Array.isArray(x)||Array.isArray(y)){_ldiffArr(Array.isArray(x)?x:[],Array.isArray(y)?y:[],pre,out);return;}
+  const ox=!!x&&typeof x==="object",oy=!!y&&typeof y==="object";
+  if(ox||oy){
+    if(!ox&&x==null){out.push(pre+"+ "+(nm&&!_ldesc(y).startsWith("id ")?"":"")+_ldesc(y));return;}
+    if(!oy&&y==null){out.push(pre+"− "+_ldesc(x));return;}
+    if(d<2&&ox&&oy){new Set([...Object.keys(x),...Object.keys(y)]).forEach(k=>_ldiffAny(x[k],y[k],pre+k+" › ",out,d+1));return;}
+    out.push((nm||"valor")+_lf4(_lfields(ox?x:{},oy?y:{})));return;
+  }
+  out.push((nm?nm+": ":"")+_lv(x)+" → "+_lv(y));
+}
+function _logCtx(){return (LOG_TAB[tab]||tab||"")+(selC?" · "+selC:"")+(modal&&modal.t?" · "+modal.t:"");}
+function _logChange(k,oldRaw,nv){
+  if(_noLog||!sess||LOG_SKIP.includes(k))return;
+  let old=null;try{old=oldRaw?JSON.parse(oldRaw):null;}catch{}
+  const lines=[];try{_ldiffAny(old,nv,"",lines,0);}catch(e){lines.push("(cambio)");}
+  if(!lines.length)return;
+  if(!_logBuf)_logBuf={id:uid()+uid(),ts:new Date().toISOString(),u:sess.name,rol:sess.role,ctx:_logCtx(),auto:Date.now()-_lastUI>10000,c:{}};
+  const cur=_logBuf.c[k]||(_logBuf.c[k]={n:0,l:[]});
+  lines.forEach(s=>{cur.n++;if(cur.l.length<12)cur.l.push(s);});
+  clearTimeout(_logT);_logT=setTimeout(_logFlushBuf,1500);
+}
+function _logQ(){try{return JSON.parse(localStorage.getItem("eco__logq")||"[]");}catch{return[];}}
+function _logFlushBuf(){clearTimeout(_logT);if(!_logBuf)return;const e=_logBuf;_logBuf=null;const q=_logQ();q.push(e);if(q.length>800)q.splice(0,q.length-800);try{localStorage.setItem("eco__logq",JSON.stringify(q));}catch{}_logSend();}
+async function _logSend(){
+  if(_logSending)return;const q=_logQ();if(!q.length)return;_logSending=true;
+  try{
+    const rows=q.slice(0,100).map(e=>({key:"log:"+e.ts+":"+e.id,value:JSON.stringify(e),updated_at:e.ts}));
+    const r=await fetch(SB_URL+"/rest/v1/app_data",{method:"POST",mode:"cors",credentials:"omit",headers:{...SB_H,"Content-Type":"application/json","Prefer":"resolution=ignore-duplicates,return=minimal"},body:JSON.stringify(rows)});
+    if(r.ok){const sent=new Set(rows.map(x=>x.key));try{localStorage.setItem("eco__logq",JSON.stringify(_logQ().filter(e=>!sent.has("log:"+e.ts+":"+e.id))));}catch{}}
+    else console.warn("bitacora HTTP",r.status);
+  }catch(e){console.warn("bitacora",e.message);}finally{_logSending=false;}
+}
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden")_logFlushBuf();});
+window.addEventListener("pagehide",()=>_logFlushBuf());
 // Base inicial para teléfonos que vienen de la versión anterior: lo último que tenían se toma como punto de partida
 SB_KEYS.forEach(k=>{try{if(localStorage.getItem("eco__b_"+k)===null){const v=localStorage.getItem("eco_"+k);if(v!==null)localStorage.setItem("eco__b_"+k,v);}}catch{}});
 const uid=()=>Math.random().toString(36).slice(2,9);
@@ -382,10 +437,13 @@ function serviciosPendientes(clientes,dias){
 }
 function proximosHTML(clientes){
   const dias=+(window._proxDias||7);
-  const l=serviciosPendientes(clientes,dias);
+  const tipo=window._proxTipo||"todos";
+  const l=serviciosPendientes(clientes,dias).filter(x=>tipo==="todos"||x.tipo===tipo);
+  const tb=(v,t)=>"<button onclick='window._proxTipo=\""+v+"\";render()' style='flex:1;padding:4px;border-radius:14px;border:1px solid "+(tipo===v?"#6a1b9a":"#dde8e2")+";background:"+(tipo===v?"#6a1b9a":"none")+";color:"+(tipo===v?"#fff":"var(--M)")+";font-size:11px;cursor:pointer'>"+t+"</button>";
   const btn=(d,t)=>"<button onclick='window._proxDias="+d+";render()' style='padding:4px 10px;border-radius:14px;border:1px solid "+(dias===d?"var(--F)":"#dde8e2")+";background:"+(dias===d?"var(--F)":"none")+";color:"+(dias===d?"#fff":"var(--M)")+";font-size:11px;cursor:pointer'>"+t+"</button>";
-  return"<div class='card' style='margin-top:12px'><div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:6px'><p style='font-weight:700;color:var(--F);font-size:13px'>Próximos servicios</p><div style='display:flex;gap:4px'>"+btn(7,"7 días")+btn(15,"15")+btn(30,"30")+"</div></div>"
+  return"<div class='card' style='margin-top:12px'><div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:6px'><p style='font-weight:700;color:var(--F);font-size:13px'>Próximos servicios</p><div style='display:flex;gap:4px'>"+btn(7,"7 días")+btn(15,"15")+btn(30,"30")+btn(60,"60")+btn(90,"90")+"</div></div>"
     +"<div style='font-size:10px;color:var(--M);margin-bottom:6px'>Según el consumo esperado de cada equipo, lo que quedó en la última visita y el último cambio de baterías.</div>"
+    +"<div style='display:flex;gap:4px;margin-bottom:6px'>"+tb("todos","Todo")+tb("Esencia","&#128167; Esencia")+tb("Baterías","&#128267; Baterías")+"</div>"
     +(l.length?l.slice(0,60).map(x=>{const col=x.restan<0?"var(--D)":x.restan<=3?"#b45309":"var(--F)";return"<div style='border-top:1px solid #f0f0f0;padding:6px 0;font-size:12px;cursor:pointer' onclick='onCChange("+JSON.stringify(x.c).replace(/'/g,"&#39;")+")'><div style='display:flex;justify-content:space-between'><b>"+x.c+"</b><span style='color:"+col+";font-weight:700'>"+(x.restan<0?"vencido "+_r(-x.restan)+" d":"en "+_r(x.restan)+" d")+"</span></div><div style='font-size:11px;color:var(--M)'>"+(x.tipo==="Esencia"?"&#128167;":"&#128267;")+" "+x.tipo+" &#183; "+x.eq.modelo+" "+x.eq.serie+(x.eq.area?" &#183; "+x.eq.area:"")+" &#183; "+_fd(x.fecha)+"</div><div style='font-size:10px;color:var(--M)'>"+x.det+"</div></div>";}).join("")
       :"<div style='font-size:12px;color:var(--M)'>Nada pendiente en este periodo.</div>")
     +"</div>";
@@ -1127,7 +1185,7 @@ function saveEditCEq(){
   if(antes!==despues){eqEdits=[{id:uid(),ts:new Date().toISOString(),user:sess.name,cliente:c,antes,despues},...eqEdits].slice(0,2000);sv("eqEdits",eqEdits);}
   sv("ceq",ceq);modal=null;showToast("Equipo actualizado");
 }
-function puedeQuitarEq(){return sess?.role==="admin"||!!perms.vndQuitarEq;}
+function puedeQuitarEq(){return sess?.role==="admin"||sess?.role==="atencion"||!!perms.vndQuitarEq;}
 function _marcarEq(c,id,serie,extra,logTxt){
   const existing=ceq[c]||[];
   const eq=getClientEqs(c).find(e=>!e._del&&((id&&e.id===id)||e.serie===serie));if(!eq)return null;
@@ -1322,7 +1380,7 @@ function saveConvertir(){
 function getClientesVencidos(){
   const hoy=new Date();
   const bajasClientes=new Set((bajas||[]).map(b=>b.c));
-  const myC=sess?.role==="admin"?ALL_CLIENTS.filter(c=>!bajasClientes.has(c)):(VC[sess?.name]||[]);
+  const myC=(sess?.role==="admin"||sess?.role==="atencion")?ALL_CLIENTS.filter(c=>!bajasClientes.has(c)):(VC[sess?.name]||[]);
   return myC.filter(c=>{
     const lv=visits.filter(v=>v.cliente===c).sort((a,b)=>new Date(b.fecha)-new Date(a.fecha))[0];
     if(!lv)return true;
@@ -1333,13 +1391,15 @@ function getClientesVencidos(){
 // ── USUARIOS ──
 function editVnd(id){const v=window._vRefs&&window._vRefs[id];if(v){modal={t:"addVnd",v};render();}}
 function addNewVnd(){modal={t:"addVnd"};render();}
-function toggleVnd(id){vendors=vendors.map(x=>x.id===id?{...x,active:!x.active}:x);sv("vnd",vendors);render();}
-function delVnd(id){if(vendors.length<=1){showToast("Debe haber al menos un usuario");return;}vendors=vendors.filter(v=>v.id!==id);sv("vnd",vendors);render();}
+function _protAdm(v){if(sess?.role!=="admin"&&v&&v.role==="admin"){showToast("Solo el administrador puede modificar usuarios Admin");return true;}return false;}
+function toggleVnd(id){if(_protAdm(vendors.find(x=>x.id===id)))return;vendors=vendors.map(x=>x.id===id?{...x,active:!x.active}:x);sv("vnd",vendors);render();}
+function delVnd(id){if(_protAdm(vendors.find(x=>x.id===id)))return;if(vendors.length<=1){showToast("Debe haber al menos un usuario");return;}vendors=vendors.filter(v=>v.id!==id);sv("vnd",vendors);render();}
 function saveVnd(){
   const n=document.getElementById("vn_n").value.trim();
   const p=document.getElementById("vn_p").value.trim();
   let role=document.getElementById("vn_role")?.value||"vendor";if(modal.v?.role==="atencion"&&role==="vendor")role="atencion";
   if(!n||!p||p.length<4){showToast("Nombre y PIN (min 4) requeridos");return;}
+  if(_protAdm(modal.v)||_protAdm(role==="admin"?{role:"admin"}:null))return;
   if(modal.t==="addVnd"&&!modal.v){
     if(vendors.find(v=>v.pin===p)){showToast("PIN ya en uso");return;}
     vendors=[...vendors,{id:uid(),name:n,pin:p,role,active:true}];
@@ -1679,8 +1739,9 @@ function doExportBateriasCSV(){
 function render(){
   const root=document.getElementById("root");
   if(!root)return;
-  const isA=sess?.role==="admin";
   const isAC=sess?.role==="atencion";
+  const isAdm=sess?.role==="admin";
+  const isA=isAdm||isAC; // Atención tiene acceso completo
   const bajasClientes=new Set(bajas.map(b=>b.c));
   const activeClients=ALL_CLIENTS.filter(c=>!bajasClientes.has(c));
   const myOwnC=(VC[sess?.name]||[]).filter(c=>!bajasClientes.has(c));
@@ -1726,7 +1787,7 @@ function render(){
 
   // ── TABS ──
   const tabs=isA
-    ?[{k:"visit",i:"ti-clipboard-plus",l:"Registrar"},{k:"hist",i:"ti-list",l:"Visitas"},{k:"inv",i:"ti-box",l:"Esencias"},{k:"demos",i:"ti-eye",l:"Demos"},{k:"eqs",i:"ti-device-ipad",l:"Equipos"},{k:"clts",i:"ti-building",l:"Clientes"},{k:"sols",i:"ti-bell",l:"Solicitudes",badge:solicitudes.filter(s=>s.vendedor===sess?.name&&s.estado==="pendiente").length},{k:"usrs",i:"ti-users",l:"Usuarios"},{k:"bajas",i:"ti-user-minus",l:"Bajas"},{k:"lost",i:"ti-trending-down",l:"Perdidos"},{k:"grades",i:"ti-gauge",l:"Intensidad"},{k:"reports",i:"ti-file-export",l:"Reportes"},{k:"config",i:"ti-settings",l:"Config"}]
+    ?[{k:"visit",i:"ti-clipboard-plus",l:"Registrar"},{k:"hist",i:"ti-list",l:"Visitas"},{k:"inv",i:"ti-box",l:"Esencias"},{k:"demos",i:"ti-eye",l:"Demos"},{k:"eqs",i:"ti-device-ipad",l:"Equipos"},{k:"clts",i:"ti-building",l:"Clientes"},{k:"sols",i:"ti-bell",l:"Solicitudes",badge:solicitudes.filter(s=>s.vendedor===sess?.name&&s.estado==="pendiente").length},{k:"usrs",i:"ti-users",l:"Usuarios"},{k:"bajas",i:"ti-user-minus",l:"Bajas"},{k:"lost",i:"ti-trending-down",l:"Perdidos"},{k:"grades",i:"ti-gauge",l:"Intensidad"},{k:"reports",i:"ti-file-export",l:"Reportes"},{k:"config",i:"ti-settings",l:"Config"}].concat(isAdm?[{k:"log",i:"ti-history",l:"Bitácora"}]:[])
     :isAC
     ?[{k:"hist",i:"ti-list",l:"Visitas"},{k:"inv",i:"ti-box",l:"Esencias"},{k:"clts",i:"ti-building",l:"Clientes"},{k:"eqs",i:"ti-device-ipad",l:"Equipos"},{k:"sols",i:"ti-bell",l:"Solicitudes",badge:solicitudes.filter(s=>s.vendedor===sess?.name&&s.estado==="pendiente").length}]
     :[{k:"visit",i:"ti-clipboard-plus",l:"Registrar"},{k:"hist",i:"ti-list",l:"Mis Visitas"},{k:"inv",i:"ti-box",l:"Esencias"},{k:"demos",i:"ti-eye",l:"Demos"},{k:"eqs",i:"ti-device-ipad",l:"Equipos"},{k:"clts",i:"ti-building",l:"Clientes"},{k:"bajas",i:"ti-user-minus",l:"Bajas"},{k:"sols",i:"ti-bell",l:"Solicitudes",badge:solicitudes.filter(s=>s.vendedor===sess?.name&&s.estado==="pendiente").length}];
@@ -2106,6 +2167,9 @@ function render(){
   }
 
   // ── USRS TAB ──
+  else if(tab==="log"&&isAdm){
+    con=bitacoraHTML();
+  }
   else if(tab==="usrs"&&isA){
     if(!window._vRefs)window._vRefs={};
     const vCards=vendors.map(v=>{
@@ -2117,7 +2181,7 @@ function render(){
       const activeLabel=v.active===false?"Activar":"Inactivar";
       const vid=JSON.stringify(v.id);
       return"<div class='card sl' style='border-left-color:"+borderC+"'>"
-        +"<div class='ch'><div><div class='ct'>"+v.name+"</div><div class='cs'>PIN: "+v.pin+" &#183; "+roleL+" &#183; "+activeL+"</div></div>"
+        +"<div class='ch'><div><div class='ct'>"+v.name+"</div><div class='cs'>PIN: "+(v.role==="admin"&&!isAdm?"••••":v.pin)+" &#183; "+roleL+" &#183; "+activeL+"</div></div>"
         +"<div style='display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end'>"
         +"<button class='be' onclick='editVnd("+vid+")'>&#9999;&#65039;</button>"
         +((VC[v.name]||[]).length?"<button class='be' style='font-size:11px;color:#3456a0' onclick='openTraspaso("+vid+")'>Pasar "+(VC[v.name]||[]).length+" clientes</button>":"")
@@ -2524,7 +2588,7 @@ function regVisitSimple(){
 // ── INIT ──
 render();
 // ── ACTUALIZACIÓN AUTOMÁTICA DE LA APP ──
-const APP_VER="2026-11-03c";
+const APP_VER="2026-11-03e";
 async function checkUpdate(){
   try{
     const r=await fetch(location.pathname+"?_="+Date.now(),{cache:"no-store"});if(!r.ok)return;
@@ -2541,7 +2605,67 @@ setTimeout(checkUpdate,3000);setInterval(checkUpdate,10*60*1000);
 document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")checkUpdate();});
 // Sincronizar al abrir, cada 30 s, al volver a la app y al recuperar internet
 syncDown().then(ok=>{if(ok)_softRender();});
-setInterval(()=>{syncDown();},30000);
+setInterval(()=>{syncDown();_logSend();},30000);
+setTimeout(_logSend,5000);
+["applyClientFixes","applyEqImport","applyVendFix","applyJasonFix"].forEach(n=>{const f=window[n];if(typeof f!=="function")return;window[n]=function(){_noLog++;try{return f.apply(this,arguments);}finally{_noLog--;}};});
+async function cargarBitacora(mas){
+  const B=window._bit||(window._bit={dias:7,u:"",q:"",data:[],cargando:false,fin:false,err:""});
+  if(B.cargando)return;B.cargando=true;B.err="";if(!mas){B.data=[];B.fin=false;}render();
+  try{
+    _logFlushBuf();await _logSend();
+    const desde=new Date(Date.now()-B.dias*864e5).toISOString();
+    const url=SB_URL+"/rest/v1/app_data?key=like.log:*&key=gte.log:"+encodeURIComponent(desde)+"&select=value&order=key.desc&limit=300&offset="+B.data.length;
+    const r=await fetch(url,{mode:"cors",credentials:"omit",cache:"no-store",headers:{...SB_H,"Accept":"application/json"}});
+    if(!r.ok)throw new Error("HTTP "+r.status);
+    const rows=await r.json();rows.forEach(x=>{try{B.data.push(JSON.parse(x.value));}catch{}});
+    if(rows.length<300)B.fin=true;
+  }catch(e){B.err="No se pudo cargar ("+e.message+")";}
+  B.cargando=false;render();
+}
+function _bitFiltrados(){
+  const B=window._bit;const pend=_logQ().map(e=>({...e,_pend:true}));
+  const ids=new Set(B.data.map(e=>e.id));
+  let l=[...pend.filter(e=>!ids.has(e.id)),...B.data];
+  if(B.u)l=l.filter(e=>e.u===B.u);
+  if(B.q){const q=B.q.toLowerCase();l=l.filter(e=>(e.ctx+" "+JSON.stringify(e.c)).toLowerCase().includes(q));}
+  return l.sort((a,b)=>a.ts<b.ts?1:-1);
+}
+function bitacoraHTML(){
+  if(!window._bit){cargarBitacora();return"<p class='pt'>Bitácora de cambios</p><div class='empty'>Cargando…</div>";}
+  const B=window._bit;const l=_bitFiltrados();
+  const users=[...new Set([...B.data,..._logQ()].map(e=>e.u))].sort();
+  const db=(d,t)=>"<button onclick='window._bit.dias="+d+";cargarBitacora()' style='flex:1;padding:5px;border-radius:14px;border:1px solid "+(B.dias===d?"var(--F)":"#dde8e2")+";background:"+(B.dias===d?"var(--F)":"none")+";color:"+(B.dias===d?"#fff":"var(--M)")+";font-size:11px;cursor:pointer'>"+t+"</button>";
+  const rc={admin:"#3456a0",atencion:"#6a1b9a",vendor:"#2e7d32"},rl={admin:"Admin",atencion:"Atención",vendor:"Vendedor"};
+  let html="<p class='pt'>Bitácora de cambios</p><p class='ps'>Quién cambió qué y cuándo. Se registra solo, en cada teléfono, y no se puede borrar desde la app.</p>"
+    +"<div style='display:flex;gap:4px;margin-bottom:8px'>"+db(1,"Hoy")+db(7,"7 días")+db(30,"30 días")+db(90,"90 días")+"</div>"
+    +"<div style='display:flex;gap:6px;margin-bottom:8px'><select class='inp' style='flex:1' onchange='window._bit.u=this.value;render()'><option value=''>Todos los usuarios</option>"+users.map(u=>"<option"+(u===B.u?" selected":"")+">"+u+"</option>").join("")+"</select>"
+    +"<button class='be' onclick='exportBitacoraXLSX()' title='Excel'>&#128229; Excel</button></div>"
+    +"<div class='sw'><i class='ti ti-search'></i><input class='si2' placeholder='Buscar cliente, serie, esencia…' value='"+(B.q||"").replace(/'/g,"&#39;")+"' onchange='window._bit.q=this.value;render()'/></div>";
+  if(B.err)html+="<div style='color:var(--D);font-size:12px;margin:8px 0'>"+B.err+"</div>";
+  if(B.cargando&&!B.data.length)html+="<div class='empty'>Cargando…</div>";
+  else if(!l.length)html+="<div class='empty'><i class='ti ti-history'></i>Sin cambios registrados en este periodo</div>";
+  let dia="";
+  l.forEach(e=>{
+    const d=new Date(e.ts);const ds=d.toLocaleDateString("es-SV",{weekday:"short",day:"2-digit",month:"2-digit",year:"2-digit"});
+    if(ds!==dia){dia=ds;html+="<p style='font-size:11px;color:var(--M);font-weight:700;margin:14px 0 6px'>"+ds.toUpperCase()+"</p>";}
+    html+="<div class='card sl' style='border-left-color:"+(rc[e.rol]||"var(--F)")+";padding:9px 11px'>"
+      +"<div style='display:flex;justify-content:space-between;gap:6px;font-size:12px'><b>"+e.u+" <span style='font-weight:400;color:"+(rc[e.rol]||"var(--M)")+"'>("+(rl[e.rol]||e.rol)+")</span></b><span style='color:var(--M)'>"+d.toLocaleTimeString("es-SV",{hour:"2-digit",minute:"2-digit"})+"</span></div>"
+      +"<div style='font-size:10px;color:var(--M);margin:2px 0 5px'>"+(e.ctx||"")+(e.auto?" · automático":"")+(e._pend?" · <span style='color:#e65100'>pendiente de subir</span>":"")+"</div>"
+      +Object.entries(e.c||{}).map(([k,v])=>"<div style='font-size:11px;font-weight:700;margin-top:3px'>"+(LOG_LBL[k]||k)+(v.n>1?" <span style='font-weight:400;color:var(--M)'>("+v.n+")</span>":"")+"</div>"
+        +v.l.map(s=>"<div style='font-size:11px;color:#333;padding-left:8px;word-break:break-word'>"+s.replace(/</g,"&lt;")+"</div>").join("")
+        +(v.n>v.l.length?"<div style='font-size:10px;color:var(--M);padding-left:8px'>… y "+(v.n-v.l.length)+" más</div>":"")).join("")
+      +"</div>";
+  });
+  if(!B.fin&&B.data.length)html+="<button class='btn-c' style='width:100%;margin-top:8px' onclick='cargarBitacora(true)'>"+(B.cargando?"Cargando…":"Cargar más")+"</button>";
+  return html;
+}
+function exportBitacoraXLSX(){
+  const l=_bitFiltrados();const rows=[];
+  l.forEach(e=>{const d=new Date(e.ts);Object.entries(e.c||{}).forEach(([k,v])=>{(v.l.length?v.l:["(cambio)"]).forEach(s=>rows.push({Fecha:d.toLocaleDateString("es-SV"),Hora:d.toLocaleTimeString("es-SV",{hour:"2-digit",minute:"2-digit"}),Usuario:e.u,Rol:e.rol,Pantalla:e.ctx||"",Automatico:e.auto?"Sí":"",Seccion:LOG_LBL[k]||k,Detalle:s}));});});
+  if(!rows.length){showToast("No hay cambios para exportar");return;}
+  const wb=XLSX.utils.book_new();const ws=XLSX.utils.json_to_sheet(rows);ws["!cols"]=[{wch:11},{wch:7},{wch:16},{wch:9},{wch:30},{wch:10},{wch:24},{wch:80}];
+  XLSX.utils.book_append_sheet(wb,ws,"Bitacora");XLSX.writeFile(wb,"Bitacora_cambios_"+today()+".xlsx");
+}
 document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")syncDown();});
 window.addEventListener("online",()=>{syncDown();});
 window.addEventListener("offline",_syncBadge);
