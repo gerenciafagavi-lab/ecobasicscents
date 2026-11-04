@@ -1835,6 +1835,26 @@ function renderStatsDash(){
    +"<button class='btn' onclick='doExportEstadisticasXLSX()' style='margin-bottom:10px;background:#1b5e20'><i class='ti ti-file-spreadsheet'></i> Descargar reporte estadístico completo (Excel)</button>";
 }
 function openHistEq(c,serie){modal={t:"histEq",c,serie};render();}
+function _hace(ts){const d=Math.floor(_dias(ts,Date.now()));return d<=0?"hoy":d===1?"hace 1 día":"hace "+d+" días";}
+function _histResumen(c,serie,eqI,hv){
+  const eq=eqI&&eqI.serie?eqI:{serie,modelo:eqI&&eqI.modelo};
+  const pr=proyEq(c,eq);const uv=hv[0];const gi=eqGrades[serie]||{};
+  const seen=new Set();
+  const bats=[...batMovs.filter(b=>b.cliente===c&&b.serie===serie).map(b=>({ts:b.ts,qty:b.qty,u:b.user||""})),...visits.filter(v=>v.cliente===c&&v.serie===serie&&v.baterias>0).map(v=>({ts:v.fecha,qty:v.baterias,u:v.vnd||""}))]
+    .sort((x,y)=>String(y.ts).localeCompare(String(x.ts))).filter(b=>{const k=String(b.ts).slice(0,10)+"|"+b.qty;if(seen.has(k))return false;seen.add(k);return true;});
+  const fila=(ic,lbl,val)=>"<div style='display:flex;gap:8px;padding:6px 0;border-bottom:1px solid #eef2ef;font-size:12px'><span style='width:18px'>"+ic+"</span><div style='flex:1'><div style='color:var(--M);font-size:10px;text-transform:uppercase;letter-spacing:.5px'>"+lbl+"</div><div>"+val+"</div></div></div>";
+  const prox=o=>{if(!o)return null;const r=o.restan;return"<b style='color:"+(r<0?"var(--D)":r<=7?"#b45309":"var(--F)")+"'>~"+_fd(o.fecha)+"</b> "+(r<0?"(vencido hace "+_r(-r)+" días)":"(en "+_r(r)+" días)");};
+  let s="<div style='background:#f6faf8;border:1px solid #dde8e2;border-radius:12px;padding:6px 12px;margin:8px 0 4px'>";
+  s+=fila("&#128197;","Última visita",uv?"<b>"+fmtD(uv.fecha.slice(0,10))+"</b> · "+_hace(uv.fecha)+(uv.vnd?" · "+uv.vnd:"")+(_num(uv.mlSalida)!=null?" · quedó "+_num(uv.mlSalida)+" ml":""):"Sin visitas registradas");
+  s+=fila("&#128267;","Último cambio de baterías",bats.length?"<b>"+fmtD(String(bats[0].ts).slice(0,10))+"</b> · "+_hace(bats[0].ts)+" · "+bats[0].qty+" baterías"+(bats[0].u?" · "+bats[0].u:""):"Sin cambio registrado");
+  if(pr.vidaBat)s+=fila("&#9203;","Próximo cambio de baterías",prox(pr.bat)||("Las baterías duran ~"+_r(pr.vidaBat)+" días (falta registrar el último cambio)"));
+  if(pr.mlDia!=null)s+=fila("&#128167;","Consumo y próximo relleno",(pr.mlDia<10?pr.mlDia.toFixed(1):Math.round(pr.mlDia))+" ml/día"+(pr.relleno?" · relleno "+prox(pr.relleno):""));
+  const it=gi.grade?"Grado "+gi.grade:(gi.onSec&&gi.offSec?gi.onSec+" s encendido / "+gi.offSec+" s apagado":null);
+  if(it)s+=fila("&#9889;","Intensidad",it+(gi.hours?" · "+gi.hours+" h/día":"")+(gi.fechaCambio?" · desde "+fmtD(gi.fechaCambio.slice(0,10))+(gi.changedBy?" ("+gi.changedBy+")":""):""));
+  s+="</div>";
+  if(bats.length>1)s+="<p style='font-size:12px;font-weight:700;color:var(--M);margin:12px 0 4px'>CAMBIOS DE BATERÍAS</p>"+bats.slice(0,20).map(b=>"<div style='font-size:12px;padding:3px 0'>"+fmtD(String(b.ts).slice(0,10))+" · "+b.qty+" baterías"+(b.u?" · <span style='color:var(--M)'>"+b.u+"</span>":"")+"</div>").join("");
+  return s;
+}
 function doExportConsumoCSV(){
   const rFrom=window._rFrom||"";const rTo=window._rTo||"";const rPais=window._rPais||"todos";
   let data=visits.filter(v=>v.ml>0&&v.esencia);
@@ -2674,6 +2694,7 @@ function render(){
       const visRows=hv.slice(0,60).map(v=>{const c=v.consumo!=null?v.consumo:consumoReal(v);return"<tr style='border-top:1px solid #eee'><td style='padding:4px 6px'>"+fmtD(v.fecha.slice(0,10))+"<div style='font-size:10px;color:var(--M)'>"+(v.vnd||"")+"</div></td><td style='padding:4px 6px;text-align:right'>"+(_num(v.mlLlegada)??"—")+"</td><td style='padding:4px 6px;text-align:right'>"+(v.ml||0)+"</td><td style='padding:4px 6px;text-align:right'>"+(_num(v.mlSalida)??"—")+"</td><td style='padding:4px 6px;text-align:right;color:var(--F);font-weight:700'>"+(c??"—")+"</td></tr>";}).join("");
       mHTML="<div class='mb-bg' onclick='if(event.target===this){modal=null;render()}'><div class='mb' style='max-height:85vh;overflow:auto'><div class='mb-t'>&#128200; "+modal.serie+"</div>"
         +"<p class='ps'>"+modal.c+(eqI.modelo?" &#183; "+eqI.modelo:"")+(eqI.area?" &#183; "+eqI.area:"")+"</p>"
+        +_histResumen(modal.c,modal.serie,eqI,hv)
         +(hv.length?"<p style='font-size:12px;font-weight:700;color:var(--M);margin:8px 0 4px'>POR MES</p><table style='width:100%;font-size:12px;border-collapse:collapse'><tr style='color:var(--M);font-size:11px'><th style='text-align:left;padding:4px 6px'>Mes</th><th style='text-align:right;padding:4px 6px'>Agregó</th><th style='text-align:right;padding:4px 6px'>Gastó</th></tr>"+mesRows+"</table>"
           +"<p style='font-size:12px;font-weight:700;color:var(--M);margin:14px 0 4px'>VISITAS (ml)</p><table style='width:100%;font-size:12px;border-collapse:collapse'><tr style='color:var(--M);font-size:11px'><th style='text-align:left;padding:4px 6px'>Fecha</th><th style='text-align:right;padding:4px 6px'>Tenía</th><th style='text-align:right;padding:4px 6px'>Agregó</th><th style='text-align:right;padding:4px 6px'>Quedó</th><th style='text-align:right;padding:4px 6px'>Gastó</th></tr>"+visRows+"</table>"
           :"<div class='empty'>Sin visitas registradas para este equipo</div>")
@@ -2731,7 +2752,7 @@ function regVisitSimple(){
 // ── INIT ──
 render();
 // ── ACTUALIZACIÓN AUTOMÁTICA DE LA APP ──
-const APP_VER="2026-11-04e";
+const APP_VER="2026-11-04f";
 async function checkUpdate(){
   try{
     const r=await fetch(location.pathname+"?_="+Date.now(),{cache:"no-store"});if(!r.ok)return;
