@@ -359,10 +359,10 @@ const CONSUME={"AE701":{1:26.0,2:28.9,3:32.5,4:37.1,5:43.3,6:51.8,7:64.6,8:85.7,
 const SPEC_DEF={
   "AE701":{tipo:"grado",on:5,rate:0.00422454,apb:2500,nb:4,horas:10},
   "AE301":{tipo:"grado",on:3,rate:0.00564815,apb:9754.5,nb:2,horas:10},
-  "AE3500":{tipo:"onoff",rate:0.00099537,horas:10,on:10,off:120},
+  "AE3500":{tipo:"onoff",rate:0.00112608025,horas:10,on:25,off:45} /* Air Essentials, calculadora nov-2026 */,
   "AE TOWER BLACK":{tipo:"onoff",rate:0.00110023148,horas:9,on:10,off:55},
-  "AE801":{tipo:"onoff",rate:null,apb:null,nb:4,horas:10,on:10,off:120},
-  "Radiant":{tipo:"onoff",rate:0.00099537,horas:10,on:10,off:120} // provisional: mismo consumo que AE3500
+  "AE801":{tipo:"onoff",rate:0.0012525462962963,apb:2500,nb:4,horas:10,on:10,off:90}, // Air Essentials, calculadora nov-2026
+  "Radiant":{tipo:"onoff",rate:0.00141856,horas:10,on:25,off:45} // Air Essentials, calculadora nov-2026
 };
 const offDeGrado=g=>900-90*(Math.min(10,Math.max(1,+g))-1);
 function cfgC(){return Object.assign({umbral:20,gradoDef:7,margenBat:7},consumoCfg||{});}
@@ -938,6 +938,7 @@ function selGrade(g){
   const btn=document.getElementById("gb"+g);
   if(btn){btn.style.background="var(--F)";btn.style.color="#fff";btn.style.borderColor="var(--F)";}
   const inp=document.getElementById("gr_grade");if(inp)inp.value=g;
+  _prevIntens();
 }
 function saveGradeChange(){
   const newGrade=parseInt(document.getElementById("gr_grade").value);
@@ -945,9 +946,10 @@ function saveGradeChange(){
   if(!newGrade||newGrade<1||newGrade>10){showToast("Selecciona un grado");return;}
   const eq=modal.eq;const serie=eq.serie;
   const prev=eqGrades[serie];
-  eqGrades={...eqGrades,[serie]:{grade:newGrade,gradeCotizado:prev?.gradeCotizado||newGrade,fechaCambio:new Date().toISOString(),changedBy:sess.name}};
+  const hrs=parseFloat(document.getElementById("gr_h")?.value)||0;
+  eqGrades={...eqGrades,[serie]:{...(prev||{}),grade:newGrade,gradeCotizado:prev?.gradeCotizado||newGrade,...(hrs>0?{hours:hrs}:{}),fechaCambio:new Date().toISOString(),changedBy:sess.name}};
   sv("eqgrades",eqGrades);
-  const reg={id:uid(),fecha:new Date().toISOString(),vnd:sess.name,cliente:modal.c,modelo:eq.modelo,serie,area:eq.area||"",esencia:eq.aroma||"",ml:0,notas:"Grado "+(prev?.grade||"N/A")+"->"+newGrade+(notas?" · "+notas:""),gradeCambio:true};
+  const reg={id:uid(),fecha:new Date().toISOString(),vnd:sess.name,cliente:modal.c,modelo:eq.modelo,serie,area:eq.area||"",esencia:eq.aroma||"",ml:0,notas:"Grado "+(prev?.grade||"N/A")+"->"+newGrade+(hrs>0&&hrs!==+(prev?.hours||0)?" · "+hrs+" h/día":"")+(notas?" · "+notas:""),gradeCambio:true};
   visits=[reg,...visits];sv("vis",visits);
   modal=null;showToast("Grado "+newGrade+" guardado");
 }
@@ -958,14 +960,34 @@ function saveGradeOnOff(){
   if(!on||!off){showToast("Ingresa tiempos On y Off");return;}
   const eq=modal.eq;const serie=eq.serie;
   const prev=eqGrades[serie];
-  const ml=calcAE3500(on,off);
-  eqGrades={...eqGrades,[serie]:{tipo:"onoff",onSec:on,offSec:off,mlMes:ml,fechaCambio:new Date().toISOString(),changedBy:sess.name}};
+  const hrs=parseFloat(document.getElementById("go_h")?.value)||0;
+  const _sp=specDe(eq.modelo);const _h=hrs||+(prev?.hours||_sp?.horas||10);
+  const ml=_sp&&_sp.rate?Math.round(on/(on+off)*_h*3600*_sp.rate*30*10)/10:null;
+  eqGrades={...eqGrades,[serie]:{...(prev||{}),tipo:"onoff",onSec:on,offSec:off,mlMes:ml,...(hrs>0?{hours:hrs}:{}),fechaCambio:new Date().toISOString(),changedBy:sess.name}};
   sv("eqgrades",eqGrades);
-  const reg={id:uid(),fecha:new Date().toISOString(),vnd:sess.name,cliente:modal.c,modelo:eq.modelo,serie,area:eq.area||"",esencia:eq.aroma||"",ml:0,notas:"On:"+on+"s Off:"+off+"s"+(notas?" · "+notas:""),gradeCambio:true};
+  const reg={id:uid(),fecha:new Date().toISOString(),vnd:sess.name,cliente:modal.c,modelo:eq.modelo,serie,area:eq.area||"",esencia:eq.aroma||"",ml:0,notas:"On:"+on+"s Off:"+off+"s"+(hrs>0?" · "+hrs+" h/día":"")+(notas?" · "+notas:""),gradeCambio:true};
   visits=[reg,...visits];sv("vis",visits);
   modal=null;showToast("Intensidad guardada");
 }
-function updateAE3500Preview(){const on=parseInt(document.getElementById("go_on")?.value)||0;const off=parseInt(document.getElementById("go_off")?.value)||0;const prev=document.getElementById("go_preview");if(!prev)return;if(on>0&&off>0){const ml=calcAE3500(on,off);prev.innerHTML="Consumo estimado: <strong>"+ml+"ml/mes</strong>";prev.style.background=ml>235?"#fdecea":"#f0f7f4";prev.style.color=ml>235?"var(--D)":"var(--F)";}}
+function updateAE3500Preview(){_prevIntens();}
+function _mlDiaCand(modelo,on,off,h){const sp=specDe(modelo);return sp&&sp.rate?on/(on+off)*h*3600*sp.rate:null;}
+function _prevIntens(){
+  const m=modal;if(!m||!m.eq)return;const eq=m.eq,serie=eq.serie,isG=m.t==="gradeChange";
+  const el=document.getElementById(isG?"gr_preview":"go_preview");if(!el)return;
+  const sp=specDe(eq.modelo);const prev=eqGrades[serie];
+  const h=parseFloat(document.getElementById(isG?"gr_h":"go_h")?.value)||+(prev?.hours||sp?.horas||10);
+  if(isG&&sp)[1,2,3,4,5,6,7,8,9,10].forEach(g=>{const s=document.querySelector("#gb"+g+" .gml");if(s){const v=_mlDiaCand(eq.modelo,sp.on,offDeGrado(g),h);s.textContent=v!=null?(v<10?v.toFixed(1):Math.round(v))+" ml/d":"";}});
+  const tmp={...(prev||{}),hours:h};
+  if(isG){const g=parseInt(document.getElementById("gr_grade")?.value);if(!g){el.innerHTML="Selecciona un grado para ver el cálculo";return;}tmp.grade=g;}
+  else{const on=parseInt(document.getElementById("go_on")?.value)||0,off=parseInt(document.getElementById("go_off")?.value)||0;if(!(on>0&&off>0)){el.innerHTML="Ingresa los tiempos para ver el cálculo";return;}tmp.onSec=on;tmp.offSec=off;}
+  if(!sp||!sp.rate){el.innerHTML="Sin datos de consumo para "+eq.modelo+" (agrégalos en Config)";return;}
+  eqGrades[serie]=tmp;let pr;try{pr=proyEq(m.c,eq);}finally{if(prev===undefined)delete eqGrades[serie];else eqGrades[serie]=prev;}
+  const md=pr.mlDia;let s="<div style='font-size:15px;font-weight:700'>≈ "+(md<10?md.toFixed(1):Math.round(md))+" ml/día · "+Math.round(md*30)+" ml/mes</div>";
+  if(pr.relleno)s+="<div style='margin-top:4px'>&#128167; Próximo relleno ~"+_fd(pr.relleno.fecha)+" ("+(pr.relleno.restan<0?"vencido hace "+Math.round(-pr.relleno.restan)+" d":"en "+Math.round(pr.relleno.restan)+" d")+")</div>";
+  else s+="<div style='margin-top:4px;font-size:11px;opacity:.8'>&#128167; El próximo relleno se calcula cuando se registre cuánto quedó en una visita</div>";
+  if(pr.vidaBat){s+="<div style='margin-top:4px'>&#128267; Baterías duran ~"+Math.round(pr.vidaBat)+" días"+(pr.bat?" → cambio ~"+_fd(pr.bat.fecha)+" ("+(pr.bat.restan<0?"vencido hace "+Math.round(-pr.bat.restan)+" d":"en "+Math.round(pr.bat.restan)+" d")+")":" (sin cambio registrado aún)")+"</div>";}
+  el.innerHTML=s;
+}
 
 // ── CLIENT FUNCTIONS ──
 function openAddCliente(){modal={t:"addCliente"};render();}
@@ -2299,7 +2321,7 @@ function render(){
       +"<label>Grado por defecto (AE701/AE301) <input type='number' min='1' max='10' style='"+inS+"' value='"+C.gradoDef+"' onchange='setCfgC(\"gradoDef\",this.value)'/></label>"
       +"<label>Avisar baterías con más de <input type='number' style='"+inS+"' value='"+C.margenBat+"' onchange='setCfgC(\"margenBat\",this.value)'/> días de vida</label></div>"
       +"<div style='overflow-x:auto'><table style='font-size:11px;border-collapse:collapse;width:100%'><tr style='color:var(--M)'><th style='text-align:left'>Modelo</th><th>ml/seg</th><th>Horas/día</th><th>On/Off seg</th><th>Baterías · activ./batería</th></tr>"+specRows+"</table></div>"
-      +"<div style='font-size:10px;color:var(--M);margin-top:6px'>Radiant usa por ahora el mismo consumo del AE3500. AE801: pendiente de los datos de Air Essentials (ml/seg y activaciones por batería).</div>"
+      +"<div style='font-size:10px;color:var(--M);margin-top:6px'>AE3500, AE801 y Radiant: datos de la calculadora de Air Essentials (nov-2026). Si cambias un valor aquí, manda sobre el de fábrica.</div>"
       +"<button class='btn' style='background:#6a1b9a;margin-top:8px' onclick='doExportProyeccionXLSX()'><i class='ti ti-calendar-time'></i> Excel: proyección de esencia y baterías</button></div>";
     con="<p class='pt'>Configuracion</p>"+bkHTML+ccHTML+dupHTML+repHTML
       +"<div class='card' style='margin-bottom:14px;border:2px solid "+(perms.vndQuitarEq?"var(--D)":"#dde8e2")+"'><p style='font-weight:700;margin-bottom:6px;color:var(--F)'>Permisos de vendedores</p>"
@@ -2474,12 +2496,15 @@ function render(){
     }
     else if(t==="gradeChange"){
       const eq=modal.eq||{};const gi=eqGrades[eq.serie]||{};const curGrade=gi.grade||null;
-      const gradeBtns=[1,2,3,4,5,6,7,8,9,10].map(g=>{const isSel=curGrade===g;const ml=CONSUME[eq.modelo]?CONSUME[eq.modelo][g]:"";return"<button type='button' onclick='selGrade("+g+")' class='gb' id='gb"+g+"' style='padding:8px 4px;border:2px solid "+(isSel?"var(--F)":"#dde8e2")+";border-radius:8px;background:"+(isSel?"var(--F)":"none")+";color:"+(isSel?"#fff":"var(--M)")+";cursor:pointer;font-weight:700;font-size:12px'><div>G"+g+"</div>"+(ml?"<div style='font-size:9px;font-weight:400'>"+ml+"ml</div>":"")+"</button>";}).join("");
+      const gradeBtns=[1,2,3,4,5,6,7,8,9,10].map(g=>{const isSel=curGrade===g;const _sp=specDe(eq.modelo),_h=+(gi.hours||_sp?.horas||10),_v=_sp?_mlDiaCand(eq.modelo,_sp.on,offDeGrado(g),_h):null;const ml=_v!=null?(_v<10?_v.toFixed(1):Math.round(_v))+" ml/d":"";return"<button type='button' onclick='selGrade("+g+")' class='gb' id='gb"+g+"' style='padding:8px 4px;border:2px solid "+(isSel?"var(--F)":"#dde8e2")+";border-radius:8px;background:"+(isSel?"var(--F)":"none")+";color:"+(isSel?"#fff":"var(--M)")+";cursor:pointer;font-weight:700;font-size:12px'><div>G"+g+"</div>"+"<div class='gml' style='font-size:9px;font-weight:400'>"+ml+"</div></button>";}).join("");
+      const _hDef=+(gi.hours||specDe(eq.modelo)?.horas||10);
       mHTML="<div class='mb-bg' onclick='if(event.target===this){modal=null;render()}'><div class='mb'>"
         +"<div class='mb-t' style='color:#3456a0'>Cambiar intensidad</div>"
         +"<p class='ps' style='margin-top:-10px;margin-bottom:14px'>"+eq.modelo+" &#183; "+eq.serie+(eq.area?" &#183; "+eq.area:"")+"</p>"
         +(curGrade?"<div style='background:#e8f0ff;border-radius:10px;padding:10px;text-align:center;margin-bottom:14px'><div style='font-size:11px;color:#3456a0;font-weight:600'>GRADO ACTUAL</div><div style='font-size:28px;font-weight:700;color:#3456a0'>G"+curGrade+"</div></div>":"")
         +"<div class='fw'><label class='lbl'>Nuevo grado *</label><div style='display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:6px'>"+gradeBtns+"</div><input type='hidden' id='gr_grade' value='"+(curGrade||"")+"'/></div>"
+        +"<div class='fw'><label class='lbl'>Horas encendido al día</label><input type='number' class='inp' id='gr_h' min='1' max='24' step='0.5' value='"+_hDef+"' oninput='_prevIntens()'/></div>"
+        +"<div id='gr_preview' style='border-radius:10px;padding:10px;text-align:center;margin-bottom:10px;font-size:13px;background:#f0f7f4;color:var(--F)'></div>"
         +"<div class='fw'><label class='lbl'>Notas</label><textarea class='inp' id='gr_n' placeholder='Motivo del cambio...'></textarea></div>"
         +"<div class='mb-act'><button class='btn-c' onclick='modal=null;render()'>Cancelar</button><button class='btn' style='background:#3456a0' onclick='saveGradeChange()'>Guardar</button></div></div></div>";
     }
@@ -2491,7 +2516,8 @@ function render(){
         +(gi.onSec?"<div style='background:#e8f0ff;border-radius:10px;padding:10px;text-align:center;margin-bottom:14px'><div style='font-size:11px;color:#3456a0;font-weight:600'>ACTUAL</div><div style='font-size:18px;font-weight:700;color:#3456a0'>On: "+gi.onSec+"s / Off: "+gi.offSec+"s</div></div>":"")
         +"<div class='fr'><div class='fw'><label class='lbl'>Segundos ON *</label><input type='number' class='inp' id='go_on' placeholder='Ej: 3' min='1' value='"+(gi.onSec||"")+"' oninput='updateAE3500Preview()'/></div>"
         +"<div class='fw'><label class='lbl'>Segundos OFF *</label><input type='number' class='inp' id='go_off' placeholder='Ej: 57' min='1' value='"+(gi.offSec||"")+"' oninput='updateAE3500Preview()'/></div></div>"
-        +"<div id='go_preview' style='border-radius:10px;padding:10px;text-align:center;margin-bottom:10px;font-size:13px;background:#f0f7f4;color:var(--F)'>Ingresa los tiempos para ver estimado</div>"
+        +"<div class='fw'><label class='lbl'>Horas encendido al día</label><input type='number' class='inp' id='go_h' min='1' max='24' step='0.5' value='"+(+(gi.hours||specDe(eq.modelo)?.horas||10))+"' oninput='_prevIntens()'/></div>"
+        +"<div id='go_preview' style='border-radius:10px;padding:10px;text-align:center;margin-bottom:10px;font-size:13px;background:#f0f7f4;color:var(--F)'>Ingresa los tiempos para ver el cálculo</div>"
         +"<div class='fw'><label class='lbl'>Notas</label><textarea class='inp' id='go_n' placeholder='Observaciones...'></textarea></div>"
         +"<div class='mb-act'><button class='btn-c' onclick='modal=null;render()'>Cancelar</button><button class='btn' style='background:#3456a0' onclick='saveGradeOnOff()'>Guardar</button></div></div></div>";
     }
@@ -2568,6 +2594,7 @@ function render(){
     +"</div>"
     +mHTML
     +(toast?"<div class='toast'>"+toast+"</div>":"");
+  if(modal&&(modal.t==="gradeChange"||modal.t==="gradeOnOff"))_prevIntens();
 }
 
 // ── SIMPLE VISIT (no equipment) ──
@@ -2588,7 +2615,7 @@ function regVisitSimple(){
 // ── INIT ──
 render();
 // ── ACTUALIZACIÓN AUTOMÁTICA DE LA APP ──
-const APP_VER="2026-11-03e";
+const APP_VER="2026-11-04b";
 async function checkUpdate(){
   try{
     const r=await fetch(location.pathname+"?_="+Date.now(),{cache:"no-store"});if(!r.ok)return;
