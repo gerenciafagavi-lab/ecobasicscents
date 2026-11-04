@@ -97,10 +97,10 @@ window.onerror=function(msg,src,line){
 // ── SUPABASE ──
 const SB_URL="https://bdyuhphgqehnzputlgiy.supabase.co";
 const SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJkeXVocGhncWVobnpwdXRsZ2l5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkxOTk0NjUsImV4cCI6MjA5NDc3NTQ2NX0.gJ8JQb2dHIbupktg1ags10uYXfepAE6ou3Da6EAra9M";
-const SB_KEYS=["vis","inv","demos","eqs","movs","eqgrades","ceq","bajas","nvm","vnd","modelos","stkseries","cartuchos","customclients","sols","rejillas","baterias","pedidos","invMovs","batMovs","eqImportVer","vndFixVer","eqEdits","perms","jasonFixVer","consumoCfg"];
+const SB_KEYS=["vis","inv","demos","eqs","movs","eqgrades","ceq","bajas","nvm","vnd","modelos","stkseries","cartuchos","customclients","sols","rejillas","baterias","pedidos","invMovs","batMovs","eqImportVer","vndFixVer","eqEdits","perms","jasonFixVer","consumoCfg","pedCli"];
 // ── SINCRONIZACIÓN (combina cambios; no pisa lo de otros teléfonos) ──
 const SB_H={"apikey":SB_KEY,"Authorization":"Bearer "+SB_KEY,"X-Client-Info":"ecobasicscents/2.0"};
-const MERGE_T={consumoCfg:"obj",vis:"arr",demos:"arr",movs:"arr",bajas:"arr",sols:"arr",invMovs:"arr",batMovs:"arr",eqEdits:"arr",vnd:"arr",
+const MERGE_T={pedCli:"arr",consumoCfg:"obj",vis:"arr",demos:"arr",movs:"arr",bajas:"arr",sols:"arr",invMovs:"arr",batMovs:"arr",eqEdits:"arr",vnd:"arr",
   inv:"num",cartuchos:"num",rejillas:"num",eqs:"num",baterias:"scalar",
   ceq:"obj",eqgrades:"obj",nvm:"obj",pedidos:"obj",customclients:"cc",modelos:"set"};
 let _syncReady=false;
@@ -184,6 +184,7 @@ function applyRemote(key,val){
   if(key==="eqEdits")eqEdits=val;
   if(key==="perms")perms=val||{};
   if(key==="consumoCfg")consumoCfg=val||{};
+  if(key==="pedCli")pedCli=Array.isArray(val)?val:[];
   if(key==="batMovs")batMovs=val;
   if(key==="baterias")baterias=val;
   if(key==="sols")solicitudes=val;
@@ -290,8 +291,8 @@ const sv=(k,v)=>{let _old=null;try{_old=localStorage.getItem("eco_"+k);}catch{} 
 let _noLog=0,_lastUI=0,_logBuf=null,_logT=null,_logSending=false;
 ["pointerdown","keydown","change","input"].forEach(ev=>document.addEventListener(ev,()=>{_lastUI=Date.now();},true));
 const LOG_SKIP=["eqImportVer","vndFixVer","jasonFixVer"];
-const LOG_LBL={vis:"Visitas",inv:"Inventario de esencias",demos:"Demos",eqs:"Stock de equipos",movs:"Movimientos de equipos",eqgrades:"Intensidades / horarios",ceq:"Equipos por cliente",bajas:"Bajas",nvm:"Niveles mínimos",vnd:"Usuarios",modelos:"Modelos",stkseries:"Series en stock",cartuchos:"Cartuchos",customclients:"Clientes",sols:"Solicitudes",rejillas:"Rejillas",baterias:"Baterías (stock)",pedidos:"Pedidos",invMovs:"Movimientos de esencias",batMovs:"Cambios de baterías",eqEdits:"Ediciones de equipos",perms:"Permisos",consumoCfg:"Config. de consumo"};
-const LOG_TAB={visit:"Registrar",hist:"Visitas",inv:"Esencias",demos:"Demos",eqs:"Equipos",clts:"Clientes",sols:"Solicitudes",usrs:"Usuarios",bajas:"Bajas",lost:"Perdidos",grades:"Intensidades",reports:"Reportes",config:"Config",log:"Bitácora"};
+const LOG_LBL={vis:"Visitas",inv:"Inventario de esencias",demos:"Demos",eqs:"Stock de equipos",movs:"Movimientos de equipos",eqgrades:"Intensidades / horarios",ceq:"Equipos por cliente",bajas:"Bajas",nvm:"Niveles mínimos",vnd:"Usuarios",modelos:"Modelos",stkseries:"Series en stock",cartuchos:"Cartuchos",customclients:"Clientes",sols:"Solicitudes",rejillas:"Rejillas",baterias:"Baterías (stock)",pedidos:"Pedidos",invMovs:"Movimientos de esencias",batMovs:"Cambios de baterías",eqEdits:"Ediciones de equipos",perms:"Permisos",consumoCfg:"Config. de consumo",pedCli:"Pedidos de vendedores"};
+const LOG_TAB={visit:"Registrar",hist:"Visitas",inv:"Esencias",demos:"Demos",eqs:"Equipos",clts:"Clientes",sols:"Solicitudes",usrs:"Usuarios",bajas:"Bajas",lost:"Perdidos",grades:"Intensidades",reports:"Reportes",config:"Config",log:"Bitácora",peds:"Pedidos"};
 function _lv(x){if(x==null||x==="")return"∅";if(typeof x==="object")return Array.isArray(x)?"["+x.length+"]":"{…}";const s=String(x);return s.length>40?s.slice(0,40)+"…":s;}
 function _ldesc(o){if(!o||typeof o!=="object")return _lv(o);const p=[];["cliente","c","nombre","name","serie","esencia","aroma","modelo","item","tipo","fecha"].forEach(f=>{if(p.length<3&&o[f]!=null&&o[f]!==""&&typeof o[f]!=="object")p.push(String(o[f]).slice(0,40));});return p.join(" · ")||(o.id?"id "+o.id:"registro");}
 function _lid(o){return o&&typeof o==="object"?(o.id||o.serie||o.name||null):null;}
@@ -496,6 +497,7 @@ let rejillas=ld("rejillas",null);if(!rejillas||!Object.keys(rejillas).length){re
 let baterias=ld("baterias",0);if(isNaN(baterias)||baterias<0)baterias=0;
 let modelos=ld("modelos",["AE301","AE701","AE801","AE3500","Radiant","AE TOWER BLACK","FMATIC Blanco","FMATIC Negro","Equipo de Goteo","AirFin Urinal"]);
 let nivMin=ld("nvm",{});
+let pedCli=ld("pedCli",[]); // pedidos de vendedores: [{id,ts,vnd,cliente,notas,lineas:[{id,tipo,item,qty,estado}]}]
 let pedidos=ld("pedidos",{}); // {esencia:[{qty,fecha,nota}]}
 let invMovs=ld("invMovs",[]); // [{id,ts,esencia,delta,tipo,ref,user}]
 let batMovs=ld("batMovs",[]);
@@ -1463,38 +1465,144 @@ function openAddModelo(){modal={t:"addModelo"};render();}
 function saveModelo(){const n=document.getElementById("mod_n").value.trim().toUpperCase();if(!n)return;if(modelos.includes(n)){showToast("Ya existe");return;}modelos=[...modelos,n];sv("modelos",modelos);modal=null;showToast("Modelo "+n+" agregado");}
 function delModelo(m){if(["AE301","AE701","AE3500","Radiant"].includes(m)){showToast("No se puede eliminar");return;}modelos=modelos.filter(x=>x!==m);sv("modelos",modelos);render();}
 function openAddEsencia(){modal={t:"addEsencia"};render();}
-function openPedido(s){modal={t:"pedido",esencia:s,qty:"",nota:""};render();}
+function openPedido(s,tipo){tipo=tipo||"esencia";const sols=_pcPend(tipo,s);const sel={};sols.forEach(x=>sel[x.l.id]=true);const tot=sols.reduce((a,x)=>a+(+x.l.qty||0),0);modal={t:"pedido",esencia:s,tipo,qty:tot?String(tot):"",nota:sols.length?"Air Essentials":"",sel};render();}
+function pedSelToggle(lid,on){if(!modal||!modal.sel)return;modal.sel[lid]=on;const sols=_pcPend(modal.tipo,modal.esencia);const tot=sols.filter(x=>modal.sel[x.l.id]).reduce((a,x)=>a+(+x.l.qty||0),0);modal.qty=tot?String(tot):modal.qty;const q=document.getElementById("ped_qty");if(q)q.value=modal.qty;}
 function savePedido(){
   if(!modal||modal.t!=="pedido")return;
-  const s=modal.esencia;
+  const s=modal.esencia,tipo=modal.tipo||"esencia",key=tipo==="equipo"?"EQ:"+s:s;
   const qty=parseInt(modal.qty)||0;
   if(qty<=0){showToast("Ingresa una cantidad válida");return;}
-  const fecha=new Date().toISOString().slice(0,10);
-  if(!pedidos[s])pedidos[s]=[];
-  pedidos[s].push({qty,fecha,nota:modal.nota||""});
+  const ts=new Date().toISOString(),fecha=ts.slice(0,10);
+  const reqs=_pcPend(tipo,s).filter(x=>modal.sel&&modal.sel[x.l.id]).map(x=>({pid:x.p.id,lid:x.l.id}));
+  if(!pedidos[key])pedidos[key]=[];
+  pedidos[key].push({qty,fecha,ts,por:sess.name,tipo,nota:modal.nota||"",reqs});
   sv("pedidos",pedidos);
+  if(reqs.length){reqs.forEach(r=>_pcSet(r.pid,r.lid,{estado:"pedido",tsPed:ts,porPed:sess.name}));sv("pedCli",pedCli);}
   modal=null;
-  showToast("Pedido registrado: "+qty+"ml de "+s);
+  showToast("Pedido registrado: "+qty+(tipo==="equipo"?" unid. de ":"ml de ")+s+(reqs.length?" · "+reqs.length+" solicitud"+(reqs.length>1?"es":"")+" pasan a pedido":""));
   render();
 }
 function recibirPedido(s,i){
   if(!pedidos[s]||!pedidos[s][i])return;
   const p=pedidos[s][i];
-  inv={...inv,[s]:(inv[s]||0)+p.qty};
-  sv("inv",inv);
-  logInvMov(s,p.qty,"entrada","Pedido recibido"+(p.nota?" · "+p.nota:""));
+  if(s.startsWith("EQ:")){const m=s.slice(3);const km=_eqKey(m);eqStk={...eqStk,[km]:(eqStk[km]||0)+p.qty};sv("eqs",eqStk);
+    movs=[{id:uid(),fecha:new Date().toISOString(),vnd:sess.name,tipo:"entrada",modelo:m,cant:p.qty,motivo:"Pedido recibido",cliente:"",notas:p.nota||""},...movs];sv("movs",movs);}
+  else{inv={...inv,[s]:(inv[s]||0)+p.qty};sv("inv",inv);logInvMov(s,p.qty,"entrada","Pedido recibido"+(p.nota?" · "+p.nota:""));}
+  if(p.reqs&&p.reqs.length){const ts=new Date().toISOString();p.reqs.forEach(r=>_pcSet(r.pid,r.lid,{estado:"recibido",tsRec:ts,porRec:sess.name}));sv("pedCli",pedCli);}
   pedidos[s].splice(i,1);
   if(pedidos[s].length===0)delete pedidos[s];
   sv("pedidos",pedidos);
-  showToast("Recibido: +"+p.qty+"ml de "+s);
+  showToast("Recibido: +"+p.qty+(s.startsWith("EQ:")?" unid. de "+s.slice(3):"ml de "+s));
   render();
 }
 function cancelPedido(s,i){
   if(!pedidos[s]||!pedidos[s][i])return;
+  const _p=pedidos[s][i];if(_p.reqs&&_p.reqs.length){_p.reqs.forEach(r=>_pcSet(r.pid,r.lid,{estado:"pendiente",tsPed:null,porPed:null}));sv("pedCli",pedCli);}
   pedidos[s].splice(i,1);
   if(pedidos[s].length===0)delete pedidos[s];
   sv("pedidos",pedidos);
   render();
+}
+// ── PEDIDOS DE VENDEDORES ──
+const _PU=s=>String(s||"").toUpperCase().trim();
+function _pcLines(f){const out=[];pedCli.forEach(p=>{if(p.anulado)return;(p.lineas||[]).forEach(l=>{if(!f||f(l,p))out.push({p,l});});});return out;}
+function _pcPend(tipo,item){return _pcLines(l=>l.estado==="pendiente"&&l.tipo===tipo&&_PU(l.item)===_PU(item));}
+function _pcSet(pid,lid,patch){pedCli=pedCli.map(p=>p.id!==pid?p:{...p,lineas:(p.lineas||[]).map(l=>l.id!==lid?l:{...l,...patch})});}
+function _fdt(ts){try{return new Date(ts).toLocaleString("es-SV",{day:"2-digit",month:"2-digit",year:"2-digit",hour:"2-digit",minute:"2-digit"});}catch{return ts||"";}}
+function _pcEst(p){if(p.anulado)return"anulado";const es=(p.lineas||[]).map(x=>x.estado);if(!es.length)return"pendiente";if(es.every(e=>e==="entregado"))return"entregado";if(es.some(e=>e==="pendiente"))return"pendiente";if(es.some(e=>e==="pedido"))return"pedido";return"recibido";}
+const PC_EST={pendiente:["Pendiente","#fff3e0","#e65100"],pedido:["Pedido al proveedor","#e3f2fd","#1565c0"],recibido:["En bodega","#e8f5e9","#2e7d32"],entregado:["Entregado","#eeeeee","#555"],anulado:["Anulado","#fce4ec","#c62828"]};
+function _pcChip(e){const c=PC_EST[e]||[e,"#eee","#555"];return"<span style='font-size:10px;font-weight:700;background:"+c[1]+";color:"+c[2]+";padding:2px 8px;border-radius:20px;white-space:nowrap'>"+c[0]+"</span>";}
+function _pcQ(tipo,q){q=+q||0;if(tipo==="equipo")return q+" ×";return q>=1000?(Math.round(q/100)/10).toLocaleString()+" L":q+" ml";}
+function _pcCli(p){return p.cliente||"Reposición de inventario";}
+function openPedCli(){modal={t:"pedCli",f:{cliente:"",notas:"",lineas:[{tipo:"esencia",item:"",qty:""}]}};render();}
+function pcAddLinea(){modal.f.lineas.push({tipo:"esencia",item:"",qty:""});render();}
+function pcDelLinea(i){modal.f.lineas.splice(i,1);if(!modal.f.lineas.length)modal.f.lineas.push({tipo:"esencia",item:"",qty:""});render();}
+function pcSetTipo(i,t){modal.f.lineas[i].tipo=t;modal.f.lineas[i].item="";render();}
+function savePedCli(){
+  const f=modal.f;const cl=(f.cliente||"").trim();
+  const ls=f.lineas.map(l=>({tipo:l.tipo,item:(l.item||"").trim(),qty:l.tipo==="equipo"?Math.round(parseFloat(l.qty)||0):Math.round((parseFloat(l.qty)||0)*1000)})).filter(l=>l.item&&l.qty>0);
+  if(!ls.length){showToast("Agrega al menos un producto con su cantidad");return;}
+  if(f.lineas.some(l=>(l.item&&!(parseFloat(l.qty)>0))||(!l.item&&parseFloat(l.qty)>0))){showToast("Hay una línea incompleta");return;}
+  const ts=new Date().toISOString();
+  pedCli=[{id:uid()+uid(),ts,vnd:sess.name,cliente:cl,notas:(f.notas||"").trim(),lineas:ls.map(l=>({id:uid(),...l,estado:"pendiente"}))},...pedCli];
+  sv("pedCli",pedCli);modal=null;tab="peds";showToast("Pedido enviado · "+_fdt(ts));
+}
+function pcEntregar(pid,lid){const ts=new Date().toISOString();const p=pedCli.find(x=>x.id===pid);if(!p)return;(p.lineas||[]).forEach(l=>{if((lid?l.id===lid:true)&&l.estado==="recibido")_pcSet(pid,l.id,{estado:"entregado",tsEnt:ts,porEnt:sess.name});});sv("pedCli",pedCli);render();}
+function pcDeBodega(pid,lid){const ts=new Date().toISOString();_pcSet(pid,lid,{estado:"recibido",tsRec:ts,porRec:sess.name,deBodega:true});sv("pedCli",pedCli);render();}
+function pcAnular(pid){const p=pedCli.find(x=>x.id===pid);if(!p)return;const isAd=sess.role==="admin"||sess.role==="atencion";
+  if(!isAd&&(p.vnd!==sess.name||(p.lineas||[]).some(l=>l.estado!=="pendiente"))){showToast("Solo se puede anular mientras está pendiente");return;}
+  if(window._pcConf!==pid){window._pcConf=pid;showToast("Toca Anular otra vez para confirmar");setTimeout(()=>{if(window._pcConf===pid)window._pcConf=null;},4000);return;}
+  window._pcConf=null;pedCli=pedCli.map(x=>x.id!==pid?x:{...x,anulado:true,tsAnul:new Date().toISOString(),porAnul:sess.name});sv("pedCli",pedCli);render();}
+function pedCliFormHTML(){
+  const f=modal.f;const isAd=sess.role==="admin"||sess.role==="atencion";
+  const cls=isAd?ALL_CLIENTS.slice().sort():(VC[sess.name]||[]).slice().sort();
+  const sc=getAllScents();const md=modelos.filter(m=>!esNoEquipo(m));
+  const opt=(arr,v)=>"<option value=''>Selecciona…</option>"+arr.map(x=>"<option"+(_PU(x)===_PU(v)?" selected":"")+">"+x+"</option>").join("");
+  const tb=(i,t,lab,cur)=>"<button type='button' onclick='pcSetTipo("+i+",\""+t+"\")' style='flex:1;padding:6px;border-radius:8px;border:1px solid var(--F);background:"+(cur===t?"var(--F)":"none")+";color:"+(cur===t?"#fff":"var(--F)")+";font-size:12px;font-weight:600;cursor:pointer'>"+lab+"</button>";
+  const rows=f.lineas.map((l,i)=>"<div style='border:1px solid #dde8e2;border-radius:10px;padding:8px;margin-bottom:8px'>"
+    +"<div style='display:flex;gap:6px;margin-bottom:6px;align-items:center'>"+tb(i,"esencia","Esencia",l.tipo)+tb(i,"equipo","Equipo",l.tipo)+"<button type='button' class='del' onclick='pcDelLinea("+i+")'>&#10005;</button></div>"
+    +"<div style='display:flex;gap:6px'><select class='inp' style='flex:2;margin:0' onchange='modal.f.lineas["+i+"].item=this.value'>"+opt(l.tipo==="equipo"?md:sc,l.item)+"</select>"
+    +"<input type='number' class='inp' style='flex:1;margin:0' min='1' step='"+(l.tipo==="equipo"?"1":"0.5")+"' placeholder='"+(l.tipo==="equipo"?"Unidades":"Litros")+"' value='"+(l.qty||"")+"' oninput='modal.f.lineas["+i+"].qty=this.value'/></div></div>").join("");
+  return"<div class='mb-bg' onclick='if(event.target===this){modal=null;render()}'><div class='mb'><div class='mb-t'>&#128722; Nuevo pedido</div>"
+    +"<div class='fw'><label class='lbl'>Cliente (opcional)</label><input class='inp' list='pc_cl' value='"+(f.cliente||"").replace(/'/g,"&#39;")+"' oninput='modal.f.cliente=this.value' placeholder='Vacío = reposición de inventario'/><datalist id='pc_cl'>"+cls.map(c=>"<option value='"+c.replace(/'/g,"&#39;")+"'>").join("")+"</datalist></div>"
+    +"<label class='lbl'>Productos * <span style='font-weight:400;color:var(--M)'>(esencias en litros, equipos en unidades)</span></label>"+rows
+    +"<button type='button' class='btn-c' style='width:100%;margin-bottom:12px' onclick='pcAddLinea()'>+ Agregar otro producto</button>"
+    +"<div class='fw'><label class='lbl'>Notas</label><textarea class='inp' oninput='modal.f.notas=this.value' placeholder='Fecha de entrega deseada, presentación, etc.'>"+(f.notas||"")+"</textarea></div>"
+    +"<div style='font-size:11px;color:var(--M);margin-bottom:10px'>&#128338; La fecha y hora del pedido se registran automáticamente al enviarlo.</div>"
+    +"<div class='mb-act'><button class='btn-c' onclick='modal=null;render()'>Cancelar</button><button class='btn' onclick='savePedCli()'>Enviar pedido</button></div></div></div>";
+}
+function pedidosCliHTML(isA){
+  const F=window._pcF||(window._pcF={est:"abiertos",v:""});
+  let l=isA?pedCli.slice():pedCli.filter(p=>p.vnd===sess.name);
+  const vnds=[...new Set(pedCli.map(p=>p.vnd))].sort();
+  if(isA&&F.v)l=l.filter(p=>p.vnd===F.v);
+  const cnt={abiertos:0,cerrados:0};l.forEach(p=>{const e=_pcEst(p);if(e==="entregado"||e==="anulado")cnt.cerrados++;else cnt.abiertos++;});
+  l=l.filter(p=>{const e=_pcEst(p);return F.est==="abiertos"?(e!=="entregado"&&e!=="anulado"):(e==="entregado"||e==="anulado");}).sort((a,b)=>a.ts<b.ts?1:-1);
+  const fb=(v,t)=>"<button onclick='window._pcF.est=\""+v+"\";render()' style='flex:1;padding:7px;border-radius:20px;border:1px solid "+(F.est===v?"var(--F)":"#dde8e2")+";background:"+(F.est===v?"var(--F)":"none")+";color:"+(F.est===v?"#fff":"var(--M)")+";font-size:12px;font-weight:600;cursor:pointer'>"+t+"</button>";
+  const pendL=_pcLines(x=>x.estado==="pendiente").length;
+  let html="<p class='pt'>Pedidos</p><p class='ps'>"+(isA?"Pedidos de los vendedores · "+pendL+" producto"+(pendL!==1?"s":"")+" por pedir":"Tus pedidos y en qué van")+"</p>"
+    +"<button class='btn-add' onclick='openPedCli()'><i class='ti ti-plus'></i> Nuevo pedido</button>"
+    +"<div style='display:flex;gap:6px;margin-bottom:10px'>"+fb("abiertos","Abiertos ("+cnt.abiertos+")")+fb("cerrados","Cerrados ("+cnt.cerrados+")")+"</div>";
+  if(isA)html+="<div style='display:flex;gap:6px;margin-bottom:10px'><select class='inp' style='flex:1;margin:0' onchange='window._pcF.v=this.value;render()'><option value=''>Todos los vendedores</option>"+vnds.map(v=>"<option"+(v===F.v?" selected":"")+">"+v+"</option>").join("")+"</select><button class='be' onclick='exportPedCliXLSX()'>&#128229; Excel</button></div>";
+  if(isA&&pendL)html+="<div style='font-size:11px;color:var(--M);background:#f3e5f5;border-radius:8px;padding:7px 10px;margin-bottom:10px'>Para pedirlos al proveedor: en <b>Esencias</b> o <b>Equipos</b>, botón &#128230; Registrar pedido. Las solicitudes pasan solas a “Pedido al proveedor”.</div>";
+  if(!l.length)html+="<div class='empty'><i class='ti ti-shopping-cart'></i>"+(F.est==="abiertos"?"Sin pedidos abiertos":"Sin pedidos cerrados")+"</div>";
+  l.forEach(p=>{const e=_pcEst(p);const pj=JSON.stringify(p.id);
+    html+="<div class='card sl' style='border-left-color:"+(PC_EST[e]||["","",""])[2]+"'>"
+      +"<div class='ch'><div><div class='ct'>"+_pcCli(p)+"</div><div class='cs'>Levantado "+_fdt(p.ts)+" &#183; "+p.vnd+"</div></div>"+_pcChip(e)+"</div>"
+      +(p.lineas||[]).map(x=>{const lj=JSON.stringify(x.id);const det=x.estado==="pedido"?"pedido "+_fdt(x.tsPed)+(x.porPed?" · "+x.porPed:""):x.estado==="recibido"?(x.deBodega?"de bodega ":"llegó ")+_fdt(x.tsRec):x.estado==="entregado"?"entregado "+_fdt(x.tsEnt)+(x.porEnt?" · "+x.porEnt:""):"";
+        return"<div style='display:flex;justify-content:space-between;align-items:center;gap:6px;padding:5px 0;border-top:1px solid #eef2ef;font-size:12px'><div><b>"+_pcQ(x.tipo,x.qty)+"</b> "+x.item+" <span style='color:var(--M);font-size:10px'>("+(x.tipo==="equipo"?"equipo":"esencia")+")</span>"+(det?"<div style='font-size:10px;color:var(--M)'>"+det+"</div>":"")+"</div>"
+          +"<div style='display:flex;gap:4px;align-items:center'>"+(p.anulado?"":_pcChip(x.estado))
+          +(!p.anulado&&isA&&x.estado==="pendiente"?"<button class='be' style='font-size:10px' onclick='pcDeBodega("+pj+","+lj+")' title='Se entrega de lo que hay en bodega'>De bodega</button>":"")
+          +(!p.anulado&&x.estado==="recibido"&&(isA||p.vnd===sess.name)?"<button class='be' style='font-size:10px;color:var(--F);font-weight:700' onclick='pcEntregar("+pj+","+lj+")'>&#10003; Entregado</button>":"")
+          +"</div></div>";}).join("")
+      +(p.notas?"<div style='font-size:11px;color:var(--M);margin-top:5px'>"+p.notas+"</div>":"")
+      +(p.anulado?"<div style='font-size:10px;color:var(--D);margin-top:4px'>Anulado "+_fdt(p.tsAnul)+" · "+(p.porAnul||"")+"</div>":"")
+      +(!p.anulado&&e!=="entregado"&&(isA||(p.vnd===sess.name&&e==="pendiente"))?"<div style='text-align:right;margin-top:6px'><button class='del' onclick='pcAnular("+pj+")'>Anular</button></div>":"")
+      +"</div>";});
+  return html;
+}
+function exportPedCliXLSX(){
+  const rows=[];pedCli.slice().sort((a,b)=>a.ts<b.ts?1:-1).forEach(p=>(p.lineas||[]).forEach(x=>rows.push({Levantado:_fdt(p.ts),Vendedor:p.vnd,Cliente:_pcCli(p),Tipo:x.tipo==="equipo"?"Equipo":"Esencia",Producto:x.item,Cantidad:x.tipo==="equipo"?x.qty:x.qty/1000,Unidad:x.tipo==="equipo"?"unid.":"litros",Estado:p.anulado?"Anulado":(PC_EST[x.estado]||[x.estado])[0],Pedido_proveedor:x.tsPed?_fdt(x.tsPed):"",Pedido_por:x.porPed||"",Recibido:x.tsRec?_fdt(x.tsRec)+(x.deBodega?" (de bodega)":""):"",Entregado:x.tsEnt?_fdt(x.tsEnt):"",Notas:p.notas||""})));
+  if(!rows.length){showToast("No hay pedidos");return;}
+  const wb=XLSX.utils.book_new();const ws=XLSX.utils.json_to_sheet(rows);ws["!cols"]=[{wch:15},{wch:12},{wch:30},{wch:8},{wch:22},{wch:9},{wch:6},{wch:18},{wch:15},{wch:12},{wch:15},{wch:15},{wch:40}];
+  XLSX.utils.book_append_sheet(wb,ws,"Pedidos");XLSX.writeFile(wb,"Pedidos_vendedores_"+today()+".xlsx");
+}
+function _solHTML(tipo,item){const sols=_pcPend(tipo,item);if(!sols.length)return"";const tot=sols.reduce((a,x)=>a+(+x.l.qty||0),0);
+  return"<div style='margin-top:6px;background:#f3e5f5;border:1px solid #ce93d8;border-radius:8px;padding:5px 8px;font-size:12px'>&#129534; <b>"+(tipo==="equipo"?tot+" unid.":_pcQ(tipo,tot))+" solicitados por vendedores</b>"
+    +sols.map(x=>"<div style='font-size:11px;color:#4a148c'>"+_pcQ(tipo,x.l.qty)+" · "+_pcCli(x.p)+" · "+x.p.vnd+" · "+_fdt(x.p.ts)+"</div>").join("")+"</div>";}
+function eqPedidosHTML(isA){
+  if(!isA)return"";
+  const ms=new Set();_pcLines(l=>l.tipo==="equipo"&&l.estado==="pendiente").forEach(x=>ms.add(_PU(x.l.item)));
+  Object.keys(pedidos).filter(k=>k.startsWith("EQ:")&&(pedidos[k]||[]).length).forEach(k=>ms.add(_PU(k.slice(3))));
+  const nombre=u=>modelos.find(m=>_PU(m)===u)||u;
+  let html="";
+  [...ms].forEach(u=>{const m=nombre(u);const mj=JSON.stringify(m);const key=Object.keys(pedidos).find(k=>k.startsWith("EQ:")&&_PU(k.slice(3))===u);const kj=JSON.stringify(key||"");
+    html+="<div class='card' style='padding:10px 12px'><div style='display:flex;justify-content:space-between;align-items:center'><b>"+m+"</b><button onclick='openPedido("+mj+",\"equipo\")' style='padding:3px 10px;background:#fff8e1;color:#e65100;border:1px solid #ffcc80;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer'>&#128230; Registrar pedido</button></div>"
+      +_solHTML("equipo",m)
+      +(key?(pedidos[key]||[]).map((p,i)=>"<div style='display:flex;align-items:center;justify-content:space-between;background:#fffbea;border:1px solid #ffe082;border-radius:8px;padding:5px 8px;margin-top:6px'><span style='font-size:12px'>&#128230; <strong>"+p.qty+" unid.</strong> pedido el "+fmtD(p.fecha)+(p.nota?" · "+p.nota:"")+"</span><div style='display:flex;gap:4px'><button onclick='recibirPedido("+kj+","+i+")' style='padding:2px 8px;background:#e8f5e9;color:#2e7d32;border:1px solid #a5d6a7;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer'>&#10003; Recibido</button><button onclick='cancelPedido("+kj+","+i+")' style='padding:2px 6px;background:#fce4ec;color:#c62828;border:1px solid #ef9a9a;border-radius:6px;font-size:11px;cursor:pointer'>&#10005;</button></div></div>").join(""):"")
+      +"</div>";});
+  const otro="<div style='display:flex;gap:6px;align-items:center;margin-bottom:8px'><select class='inp' id='eqped_m' style='flex:1;margin:0'><option value=''>Pedir un equipo al proveedor…</option>"+modelos.filter(m=>!esNoEquipo(m)).map(m=>"<option>"+m+"</option>").join("")+"</select><button class='be' onclick='const v=document.getElementById(\"eqped_m\").value;if(v)openPedido(v,\"equipo\")'>&#128230; Pedir</button></div>";
+  return"<p style='font-size:12px;color:var(--M);font-weight:700;margin:6px 0 8px'>PEDIDOS DE EQUIPOS</p>"+otro+html;
 }
 function saveEsencia(){const n=document.getElementById("es_n").value.trim().toUpperCase();const stock=parseInt(document.getElementById("es_stock").value)||0;const min=parseInt(document.getElementById("es_min").value)||500;if(!n)return;inv={...inv,[n]:stock};nivMin={...nivMin,[n]:min};sv("inv",inv);sv("nvm",nivMin);if(stock>0)logInvMov(n,stock,"entrada","Stock inicial al agregar esencia");modal=null;showToast("Esencia "+n+" agregada");}
 function delEsencia(n){if((inv[n]||0)>0){showToast("Tiene stock. Ponla en 0 primero.");return;}const ni={...inv};delete ni[n];const nm={...nivMin};delete nm[n];inv=ni;nivMin=nm;sv("inv",inv);sv("nvm",nivMin);render();}
@@ -1814,6 +1922,7 @@ function render(){
     ?[{k:"hist",i:"ti-list",l:"Visitas"},{k:"inv",i:"ti-box",l:"Esencias"},{k:"clts",i:"ti-building",l:"Clientes"},{k:"eqs",i:"ti-device-ipad",l:"Equipos"},{k:"sols",i:"ti-bell",l:"Solicitudes",badge:solicitudes.filter(s=>s.vendedor===sess?.name&&s.estado==="pendiente").length}]
     :[{k:"visit",i:"ti-clipboard-plus",l:"Registrar"},{k:"hist",i:"ti-list",l:"Mis Visitas"},{k:"inv",i:"ti-box",l:"Esencias"},{k:"demos",i:"ti-eye",l:"Demos"},{k:"eqs",i:"ti-device-ipad",l:"Equipos"},{k:"clts",i:"ti-building",l:"Clientes"},{k:"bajas",i:"ti-user-minus",l:"Bajas"},{k:"sols",i:"ti-bell",l:"Solicitudes",badge:solicitudes.filter(s=>s.vendedor===sess?.name&&s.estado==="pendiente").length}];
 
+  {const _pt={k:"peds",i:"ti-shopping-cart",l:"Pedidos",badge:isA?_pcLines(x=>x.estado==="pendiente").length:0};const _ix=tabs.findIndex(t=>t.k==="sols");tabs.splice(_ix<0?tabs.length:_ix,0,_pt);}
   let con="";
 
   // ── VISIT TAB ──
@@ -2024,7 +2133,7 @@ function render(){
       const cls=ml===0?"bd":ml<=min?"bw":"";const col=ml===0?"var(--D)":ml<=min?"var(--WN)":"var(--F)";
       const ss=JSON.stringify(s);const sid=s.replace(/[^a-z0-9]/gi,"_");
       // Pedidos pendientes para esta esencia
-      const peds=pedidos[s]||[];
+      const peds=pedidos[s]||[];const solH=isA?_solHTML("esencia",s):"";
       const pedHTML=peds.length>0?"<div style='margin-top:6px;display:flex;flex-direction:column;gap:4px'>"+peds.map((p,i)=>{
         const d=new Date(p.fecha);const dm=(d.getDate())+"/"+(d.getMonth()+1);
         return"<div style='display:flex;align-items:center;justify-content:space-between;background:#fffbea;border:1px solid #ffe082;border-radius:8px;padding:5px 8px'>"
@@ -2035,7 +2144,7 @@ function render(){
       }).join("")+"</div>":""
       // Para vendedores: solo mostrar si hay pedidos
       +(peds.length===0&&!isA?"":"");
-      return"<div class='ii'><div class='ih'><span style='font-weight:700'>"+s+"</span><span id='inv_ml_"+sid+"' style='font-weight:700;color:"+col+"'>"+ml.toLocaleString()+"ml</span></div><div class='bb'><div class='bar "+cls+"' style='width:"+pct+"%'></div></div>"+pedHTML
+      return"<div class='ii'><div class='ih'><span style='font-weight:700'>"+s+"</span><span id='inv_ml_"+sid+"' style='font-weight:700;color:"+col+"'>"+ml.toLocaleString()+"ml</span></div><div class='bb'><div class='bar "+cls+"' style='width:"+pct+"%'></div></div>"+solH+pedHTML
         +(isA?"<div style='margin-top:8px'><div style='display:flex;gap:4px;align-items:center;margin-bottom:6px'><button onclick='updStockDelta("+ss+",-100)' style='padding:2px 7px;background:#fef0f0;color:#c0392b;border:1px solid #f5c6c6;border-radius:6px;font-size:12px;cursor:pointer'>-100</button><button onclick='updStockDelta("+ss+",-10)' style='padding:2px 7px;background:#fef0f0;color:#c0392b;border:1px solid #f5c6c6;border-radius:6px;font-size:12px;cursor:pointer'>-10</button><button onclick='updStockDelta("+ss+",-1)' style='padding:2px 7px;background:#fef0f0;color:#c0392b;border:1px solid #f5c6c6;border-radius:6px;font-size:12px;cursor:pointer'>-1</button><input type='number' min='0' id='inv_inp_"+sid+"' value='"+ml+"' class='si' style='width:70px;text-align:center' onchange='updStock("+ss+",this.value)' title='Escriba cantidad directa'/><button onclick='updStockDelta("+ss+",1)' style='padding:2px 7px;background:#f0f7f4;color:var(--F);border:1px solid #c0ddd0;border-radius:6px;font-size:12px;cursor:pointer'>+1</button><button onclick='updStockDelta("+ss+",10)' style='padding:2px 7px;background:#f0f7f4;color:var(--F);border:1px solid #c0ddd0;border-radius:6px;font-size:12px;cursor:pointer'>+10</button><button onclick='updStockDelta("+ss+",100)' style='padding:2px 7px;background:#f0f7f4;color:var(--F);border:1px solid #c0ddd0;border-radius:6px;font-size:12px;cursor:pointer'>+100</button></div>"
         +"<div style='display:flex;gap:6px;align-items:center;justify-content:space-between'><div style='display:flex;gap:6px;align-items:center'><span style='font-size:11px;color:var(--WN)'>Min:</span><input type='number' min='0' value='"+(min)+"' class='si si-o' style='width:60px' onchange='updMin("+ss+",this.value)' title='Nivel minimo'/><span style='font-size:10px;color:var(--M)'>ml</span></div>"
         +"<button onclick='openPedido("+ss+")' style='padding:3px 10px;background:#fff8e1;color:#e65100;border:1px solid #ffcc80;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer'>📦 Registrar pedido</button></div></div>":"")
@@ -2133,7 +2242,7 @@ function render(){
     const filtMovs=mf==="todos"?myMovs:myMovs.filter(m=>m.tipo===mf);
     const movCards=filtMovs.slice(0,40).map(m=>{const typeColor=m.tipo==="entrada"?"var(--F)":"var(--D)";const serieBadge=m.serie?"<span class='chip' style='font-size:10px;background:#f0f7f3'>"+m.serie+"</span>":"";const cliBadge=m.cliente?"<span class='chip chip-b' style='font-size:10px'>"+m.cliente+"</span>":"";const notaDiv=m.notas?"<div style='font-size:11px;color:var(--M);margin-top:5px'>"+m.notas+"</div>":"";return"<div class='card "+(m.tipo==="entrada"?"sl":"sl-r")+"' style='margin-bottom:8px'><div class='ch'><div><div class='ct' style='font-size:13px'>"+m.modelo+" &#183; <span style='color:"+typeColor+"'>"+(m.tipo==="entrada"?"&#8595; Entrada":"&#8593; Salida")+"</span></div><div class='cs'>"+fmt(m.fecha)+" &#183; "+m.vnd+"</div></div><span class='chip "+(m.tipo==="entrada"?"":"chip-r")+"' style='font-size:13px;font-weight:700'>"+(m.tipo==="entrada"?"+":"-")+m.cant+"</span></div><div class='mr'><span class='chip chip-g' style='font-size:10px'>"+m.motivo+"</span> "+serieBadge+" "+cliBadge+"</div>"+notaDiv+"</div>";}).join("");
     const mfBtn=(v,l)=>"<button onclick='window._mf=\""+v+"\";render()' style='flex:1;padding:7px;border-radius:20px;border:1px solid "+(mf===v?"var(--F)":"#dde8e2")+";background:"+(mf===v?"var(--F)":"none")+";color:"+(mf===v?"#fff":"var(--M)")+";font-size:12px;font-weight:600;cursor:pointer'>"+l+"</button>";
-    con="<p class='pt'>Equipos en oficina</p><p class='ps'>Total: "+totEq+" unidades</p>"
+    con="<p class='pt'>Equipos en oficina</p><p class='ps'>Total: "+totEq+" unidades</p>"+eqPedidosHTML(isA)
       +"<div class='card' style='margin-bottom:14px'>"+eqCards+"</div>"
       +(isA?"<p style='font-size:12px;font-weight:700;color:var(--M);margin-bottom:10px'>MOVIMIENTOS</p><div style='display:flex;gap:6px;margin-bottom:12px'>"+mfBtn("todos","Todos")+mfBtn("entrada","Entradas")+mfBtn("salida","Salidas")+"</div>"+movCards:"");
   }
@@ -2174,6 +2283,9 @@ function render(){
 
 
   // ── SOLS TAB ──
+  else if(tab==="peds"){
+    con=pedidosCliHTML(isA);
+  }
   else if(tab==="sols"){
     const mySols=(isA||isAC)?solicitudes:solicitudes.filter(s=>s.vendedor===sess.name);
     const pend=mySols.filter(s=>s.estado==="pendiente");
@@ -2528,6 +2640,9 @@ function render(){
         +"<div class='fw'><label class='lbl'>Notas</label><textarea class='inp' id='bj_n'></textarea></div>"
         +"<div class='mb-act'><button class='btn-c' onclick='modal=null;render()'>Cancelar</button><button class='btn' style='background:var(--D)' onclick='saveBaja()'>Registrar baja</button></div></div></div>";
     }
+    else if(t==="pedCli"){
+      mHTML=pedCliFormHTML();
+    }
     else if(t==="addSolicitud"){
       const tipo=modal.tipo||"prospecto";
       const activeVnds3=vendors.filter(v=>v.active!==false&&v.role!=="admin");
@@ -2566,8 +2681,9 @@ function render(){
     }
     else if(t==="pedido"){
       mHTML="<div class='mb-bg' onclick='if(event.target===this){modal=null;render()}'><div class='mb'><div class='mb-t'>📦 Registrar pedido</div>"
-        +"<div class='fw'><label class='lbl'>Esencia</label><div class='inp' style='background:#f5f5f5;color:#666;cursor:default'>"+modal.esencia+"</div></div>"
-        +"<div class='fw'><label class='lbl'>Cantidad pedida (ml) *</label><input type='number' class='inp' id='ped_qty' placeholder='Ej: 2000' min='1' value='"+(modal.qty||"")+"' oninput='modal.qty=this.value'/></div>"
+        +"<div class='fw'><label class='lbl'>"+(modal.tipo==="equipo"?"Equipo":"Esencia")+"</label><div class='inp' style='background:#f5f5f5;color:#666;cursor:default'>"+modal.esencia+"</div></div>"
+        +(()=>{const sols=_pcPend(modal.tipo||"esencia",modal.esencia);if(!sols.length)return"";return"<div class='fw'><label class='lbl'>Solicitudes de vendedores que cubre este pedido</label>"+sols.map(x=>"<label style='display:flex;gap:8px;align-items:center;font-size:12px;padding:5px 0;border-bottom:1px solid #eef2ef'><input type='checkbox' "+(modal.sel&&modal.sel[x.l.id]?"checked":"")+" onchange='pedSelToggle(\""+x.l.id+"\",this.checked)'/><span><b>"+_pcQ(modal.tipo,x.l.qty)+"</b> · "+_pcCli(x.p)+" · "+x.p.vnd+" <span style='color:var(--M)'>("+_fdt(x.p.ts)+")</span></span></label>").join("")+"<div style='font-size:10px;color:var(--M);margin-top:4px'>Puedes pedir más de lo solicitado para tener en bodega.</div></div>";})()
+        +"<div class='fw'><label class='lbl'>Cantidad pedida ("+(modal.tipo==="equipo"?"unidades":"ml")+") *</label><input type='number' class='inp' id='ped_qty' placeholder='Ej: 2000' min='1' value='"+(modal.qty||"")+"' oninput='modal.qty=this.value'/></div>"
         +"<div class='fw'><label class='lbl'>Nota (opcional)</label><input class='inp' id='ped_nota' placeholder='Ej: Pedido a Air Essentials' value='"+(modal.nota||"")+"' oninput='modal.nota=this.value'/></div>"
         +"<div class='mb-act'><button class='btn-c' onclick='modal=null;render()'>Cancelar</button><button class='btn' onclick='savePedido()'>Registrar</button></div></div></div>";
     }
@@ -2615,7 +2731,7 @@ function regVisitSimple(){
 // ── INIT ──
 render();
 // ── ACTUALIZACIÓN AUTOMÁTICA DE LA APP ──
-const APP_VER="2026-11-04c";
+const APP_VER="2026-11-04e";
 async function checkUpdate(){
   try{
     const r=await fetch(location.pathname+"?_="+Date.now(),{cache:"no-store"});if(!r.ok)return;
