@@ -360,7 +360,7 @@ const SPEC_DEF={
   "AE701":{tipo:"grado",on:5,rate:0.00422454,apb:2500,nb:4,horas:10},
   "AE301":{tipo:"grado",on:3,rate:0.00564815,apb:9754.5,nb:2,horas:10},
   "AE3500":{tipo:"onoff",rate:0.00112608025,horas:10,on:25,off:45} /* Air Essentials, calculadora nov-2026 */,
-  "AE TOWER BLACK":{tipo:"onoff",rate:0.00110023148,horas:9,on:10,off:55},
+  "AE TOWER BLACK":{tipo:"onoff",rate:0.000930613426,horas:9,on:15,off:60} /* = AE2000 Tower, calculadora nov-2026 */,
   "AE801":{tipo:"onoff",rate:0.0012525462962963,apb:2500,nb:4,horas:10,on:10,off:90}, // Air Essentials, calculadora nov-2026
   "Radiant":{tipo:"onoff",rate:0.00141856,horas:10,on:25,off:45} // Air Essentials, calculadora nov-2026
 };
@@ -2321,7 +2321,7 @@ function render(){
       +"<label>Grado por defecto (AE701/AE301) <input type='number' min='1' max='10' style='"+inS+"' value='"+C.gradoDef+"' onchange='setCfgC(\"gradoDef\",this.value)'/></label>"
       +"<label>Avisar baterías con más de <input type='number' style='"+inS+"' value='"+C.margenBat+"' onchange='setCfgC(\"margenBat\",this.value)'/> días de vida</label></div>"
       +"<div style='overflow-x:auto'><table style='font-size:11px;border-collapse:collapse;width:100%'><tr style='color:var(--M)'><th style='text-align:left'>Modelo</th><th>ml/seg</th><th>Horas/día</th><th>On/Off seg</th><th>Baterías · activ./batería</th></tr>"+specRows+"</table></div>"
-      +"<div style='font-size:10px;color:var(--M);margin-top:6px'>AE3500, AE801 y Radiant: datos de la calculadora de Air Essentials (nov-2026). Si cambias un valor aquí, manda sobre el de fábrica.</div>"
+      +"<div style='font-size:10px;color:var(--M);margin-top:6px'>AE3500, AE801, Radiant y AE Tower Black (AE2000 Tower): datos de la calculadora de Air Essentials (nov-2026). Si cambias un valor aquí, manda sobre el de fábrica.</div>"
       +"<button class='btn' style='background:#6a1b9a;margin-top:8px' onclick='doExportProyeccionXLSX()'><i class='ti ti-calendar-time'></i> Excel: proyección de esencia y baterías</button></div>";
     con="<p class='pt'>Configuracion</p>"+bkHTML+ccHTML+dupHTML+repHTML
       +"<div class='card' style='margin-bottom:14px;border:2px solid "+(perms.vndQuitarEq?"var(--D)":"#dde8e2")+"'><p style='font-weight:700;margin-bottom:6px;color:var(--F)'>Permisos de vendedores</p>"
@@ -2615,7 +2615,7 @@ function regVisitSimple(){
 // ── INIT ──
 render();
 // ── ACTUALIZACIÓN AUTOMÁTICA DE LA APP ──
-const APP_VER="2026-11-04b";
+const APP_VER="2026-11-04c";
 async function checkUpdate(){
   try{
     const r=await fetch(location.pathname+"?_="+Date.now(),{cache:"no-store"});if(!r.ok)return;
