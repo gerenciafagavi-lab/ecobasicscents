@@ -1014,7 +1014,9 @@ function saveRenameCliente(){
   const oldName=modal.c;
   const newName=document.getElementById("rc_n").value.trim().toUpperCase();
   if(!newName){showToast("Ingresa el nombre");return;}
-  if(newName===oldName){modal=null;render();return;}
+  const curP=(window._clientPais||{})[oldName]==="GT"?"GT":"SV";const newP=modal.pais||curP;
+  if(newP!==curP){const cc=ld("customclients",{clients:[],vc:{},pais:{}});if(!cc.pais)cc.pais={};cc.pais[oldName]=newP;if(!window._clientPais)window._clientPais={};window._clientPais[oldName]=newP;sv("customclients",cc);}
+  if(newName===oldName){modal=null;showToast(newP!==curP?oldName+" movido a "+(newP==="GT"?"Guatemala":"El Salvador"):"Sin cambios");render();return;}
   if(ALL_CLIENTS.includes(newName)){showToast("Ya existe ese nombre. Usa 'Unir' si es el mismo cliente.");return;}
   renameClient(oldName,newName,false);
   modal=null;showToast("Cliente renombrado");render();
@@ -1415,6 +1417,14 @@ function getClientesVencidos(){
 // ── USUARIOS ──
 function editVnd(id){const v=window._vRefs&&window._vRefs[id];if(v){modal={t:"addVnd",v};render();}}
 function addNewVnd(){modal={t:"addVnd"};render();}
+async function exportUsuariosXLSX(){
+  try{await _loadXLSX();}catch{showToast("No se pudo cargar el generador de Excel (revisa internet)");return;}
+  if(sess?.role!=="admin"){showToast("Solo el administrador");return;}
+  const rl=v=>v.role==="admin"?"Admin":v.role==="atencion"?"Atención":v.soporte?"Soporte mantenimiento":"Vendedor";
+  const rows=vendors.slice().sort((a,b)=>rl(a).localeCompare(rl(b))||a.name.localeCompare(b.name)).map(v=>({Usuario:v.name,Rol:rl(v),PIN:String(v.pin||""),Estado:v.active===false?"Inactivo":"Activo",Clientes_asignados:(VC[v.name]||[]).length}));
+  const wb=XLSX.utils.book_new();const ws=XLSX.utils.json_to_sheet(rows);ws["!cols"]=[{wch:20},{wch:22},{wch:10},{wch:10},{wch:18}];
+  XLSX.utils.book_append_sheet(wb,ws,"Usuarios");XLSX.writeFile(wb,"Usuarios_claves_"+today()+".xlsx");
+}
 function _protAdm(v){if(sess?.role!=="admin"&&v&&v.role==="admin"){showToast("Solo el administrador puede modificar usuarios Admin");return true;}return false;}
 function toggleVnd(id){if(_protAdm(vendors.find(x=>x.id===id)))return;vendors=vendors.map(x=>x.id===id?{...x,active:!x.active}:x);sv("vnd",vendors);render();}
 function delVnd(id){if(_protAdm(vendors.find(x=>x.id===id)))return;if(vendors.length<=1){showToast("Debe haber al menos un usuario");return;}vendors=vendors.filter(v=>v.id!==id);sv("vnd",vendors);render();}
@@ -1581,7 +1591,8 @@ function pedidosCliHTML(isA){
       +"</div>";});
   return html;
 }
-function exportPedCliXLSX(){
+async function exportPedCliXLSX(){
+  try{await _loadXLSX();}catch{showToast("No se pudo cargar el generador de Excel (revisa internet)");return;}
   const rows=[];pedCli.slice().sort((a,b)=>a.ts<b.ts?1:-1).forEach(p=>(p.lineas||[]).forEach(x=>rows.push({Levantado:_fdt(p.ts),Vendedor:p.vnd,Cliente:_pcCli(p),Tipo:x.tipo==="equipo"?"Equipo":"Esencia",Producto:x.item,Cantidad:x.tipo==="equipo"?x.qty:x.qty/1000,Unidad:x.tipo==="equipo"?"unid.":"litros",Estado:p.anulado?"Anulado":(PC_EST[x.estado]||[x.estado])[0],Pedido_proveedor:x.tsPed?_fdt(x.tsPed):"",Pedido_por:x.porPed||"",Recibido:x.tsRec?_fdt(x.tsRec)+(x.deBodega?" (de bodega)":""):"",Entregado:x.tsEnt?_fdt(x.tsEnt):"",Notas:p.notas||""})));
   if(!rows.length){showToast("No hay pedidos");return;}
   const wb=XLSX.utils.book_new();const ws=XLSX.utils.json_to_sheet(rows);ws["!cols"]=[{wch:15},{wch:12},{wch:30},{wch:8},{wch:22},{wch:9},{wch:6},{wch:18},{wch:15},{wch:12},{wch:15},{wch:15},{wch:40}];
@@ -2345,6 +2356,7 @@ function render(){
     }).join("");
     con="<p class='pt'>Usuarios</p><p class='ps'>"+vendors.length+" usuarios</p>"
       +"<button class='btn-add' onclick='addNewVnd()'><i class='ti ti-plus'></i> Nuevo usuario</button>"
+      +(isAdm?"<button class='btn-c' style='width:100%;margin-bottom:12px' onclick='exportUsuariosXLSX()'>&#128229; Lista de usuarios y claves (Excel)</button>":"")
       +vCards;
   }
 
@@ -2505,7 +2517,8 @@ function render(){
         +"<div class='mb-act'><button class='btn-c' onclick='modal=null;render()'>Cancelar</button><button class='btn' onclick='saveCliente()'>Agregar</button></div></div></div>";
     }
     else if(t==="renameCliente"){
-      mHTML="<div class='mb-bg' onclick='if(event.target===this){modal=null;render()}'><div class='mb'><div class='mb-t'>Renombrar cliente</div><p class='ps'>"+modal.c+"</p><div class='fw'><label class='lbl'>Nuevo nombre *</label><input class='inp' id='rc_n' value='"+modal.c+"' style='text-transform:uppercase' oninput='this.value=this.value.toUpperCase()'/></div><div class='mb-act'><button class='btn-c' onclick='modal=null;render()'>Cancelar</button><button class='btn' onclick='saveRenameCliente()'>Guardar</button></div></div></div>";
+      mHTML="<div class='mb-bg' onclick='if(event.target===this){modal=null;render()}'><div class='mb'><div class='mb-t'>Editar cliente</div><p class='ps'>"+modal.c+"</p><div class='fw'><label class='lbl'>Nombre *</label><input class='inp' id='rc_n' value='"+modal.c+"' style='text-transform:uppercase' oninput='this.value=this.value.toUpperCase()'/></div>"
+      +(()=>{const cur=modal.pais||((window._clientPais||{})[modal.c]==="GT"?"GT":"SV");const b=(v,t)=>"<button type='button' onclick='modal.pais=\""+v+"\";render()' style='flex:1;padding:8px;border-radius:10px;border:1px solid var(--F);background:"+(cur===v?"var(--F)":"none")+";color:"+(cur===v?"#fff":"var(--F)")+";font-weight:700;cursor:pointer'>"+t+"</button>";return"<div class='fw'><label class='lbl'>País</label><div style='display:flex;gap:8px'>"+b("SV","\ud83c\uddf8\ud83c\uddfb El Salvador")+b("GT","\ud83c\uddec\ud83c\uddf9 Guatemala")+"</div></div>";})()+"<div class='mb-act'><button class='btn-c' onclick='modal=null;render()'>Cancelar</button><button class='btn' onclick='saveRenameCliente()'>Guardar</button></div></div></div>";
     }
     else if(t==="deleteCliente"){
       mHTML="<div class='mb-bg' onclick='if(event.target===this){modal=null;render()}'><div class='mb'><div class='mb-t' style='color:var(--D)'>Eliminar cliente</div><p class='ps'>&#xBF;Eliminar "+modal.c+"? Esta accion no se puede deshacer.</p><div class='mb-act'><button class='btn-c' onclick='modal=null;render()'>Cancelar</button><button class='btn' style='background:var(--D)' onclick='confirmDeleteCliente()'>Eliminar</button></div></div></div>";
@@ -2752,7 +2765,7 @@ function regVisitSimple(){
 // ── INIT ──
 render();
 // ── ACTUALIZACIÓN AUTOMÁTICA DE LA APP ──
-const APP_VER="2026-11-04f";
+const APP_VER="2026-11-05b";
 async function checkUpdate(){
   try{
     const r=await fetch(location.pathname+"?_="+Date.now(),{cache:"no-store"});if(!r.ok)return;
@@ -2823,7 +2836,8 @@ function bitacoraHTML(){
   if(!B.fin&&B.data.length)html+="<button class='btn-c' style='width:100%;margin-top:8px' onclick='cargarBitacora(true)'>"+(B.cargando?"Cargando…":"Cargar más")+"</button>";
   return html;
 }
-function exportBitacoraXLSX(){
+async function exportBitacoraXLSX(){
+  try{await _loadXLSX();}catch{showToast("No se pudo cargar el generador de Excel (revisa internet)");return;}
   const l=_bitFiltrados();const rows=[];
   l.forEach(e=>{const d=new Date(e.ts);Object.entries(e.c||{}).forEach(([k,v])=>{(v.l.length?v.l:["(cambio)"]).forEach(s=>rows.push({Fecha:d.toLocaleDateString("es-SV"),Hora:d.toLocaleTimeString("es-SV",{hour:"2-digit",minute:"2-digit"}),Usuario:e.u,Rol:e.rol,Pantalla:e.ctx||"",Automatico:e.auto?"Sí":"",Seccion:LOG_LBL[k]||k,Detalle:s}));});});
   if(!rows.length){showToast("No hay cambios para exportar");return;}
