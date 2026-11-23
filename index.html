@@ -97,10 +97,10 @@ window.onerror=function(msg,src,line){
 // ── SUPABASE ──
 const SB_URL="https://bdyuhphgqehnzputlgiy.supabase.co";
 const SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJkeXVocGhncWVobnpwdXRsZ2l5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkxOTk0NjUsImV4cCI6MjA5NDc3NTQ2NX0.gJ8JQb2dHIbupktg1ags10uYXfepAE6ou3Da6EAra9M";
-const SB_KEYS=["vis","inv","demos","eqs","movs","eqgrades","ceq","bajas","nvm","vnd","modelos","stkseries","cartuchos","customclients","sols","rejillas","baterias","pedidos","invMovs","batMovs","eqImportVer","vndFixVer","eqEdits","perms","jasonFixVer","consumoCfg","pedCli"];
+const SB_KEYS=["vis","inv","demos","eqs","movs","eqgrades","ceq","bajas","nvm","vnd","modelos","stkseries","cartuchos","customclients","sols","rejillas","baterias","pedidos","invMovs","batMovs","eqImportVer","vndFixVer","eqEdits","perms","jasonFixVer","consumoCfg","pedCli","devs"];
 // ── SINCRONIZACIÓN (combina cambios; no pisa lo de otros teléfonos) ──
 const SB_H={"apikey":SB_KEY,"Authorization":"Bearer "+SB_KEY,"X-Client-Info":"ecobasicscents/2.0"};
-const MERGE_T={pedCli:"arr",consumoCfg:"obj",vis:"arr",demos:"arr",movs:"arr",bajas:"arr",sols:"arr",invMovs:"arr",batMovs:"arr",eqEdits:"arr",vnd:"arr",
+const MERGE_T={devs:"arr",pedCli:"arr",consumoCfg:"obj",vis:"arr",demos:"arr",movs:"arr",bajas:"arr",sols:"arr",invMovs:"arr",batMovs:"arr",eqEdits:"arr",vnd:"arr",
   inv:"num",cartuchos:"num",rejillas:"num",eqs:"num",baterias:"scalar",
   ceq:"obj",eqgrades:"obj",nvm:"obj",pedidos:"obj",customclients:"cc",modelos:"set"};
 let _syncReady=false;
@@ -188,6 +188,7 @@ function applyRemote(key,val){
   if(key==="batMovs")batMovs=val;
   if(key==="baterias")baterias=val;
   if(key==="sols")solicitudes=val;
+  if(key==="devs")devs=Array.isArray(val)?val:[];
   if((key==="ceq"||key==="customclients")&&val)setTimeout(()=>{applyClientFixes();},0);
   if(key==="customclients"&&val){
     if(val.clients)val.clients.forEach(c=>{if(!ALL_CLIENTS.includes(c))ALL_CLIENTS.push(c);});
@@ -291,7 +292,7 @@ const sv=(k,v)=>{let _old=null;try{_old=localStorage.getItem("eco_"+k);}catch{} 
 let _noLog=0,_lastUI=0,_logBuf=null,_logT=null,_logSending=false;
 ["pointerdown","keydown","change","input"].forEach(ev=>document.addEventListener(ev,()=>{_lastUI=Date.now();},true));
 const LOG_SKIP=["eqImportVer","vndFixVer","jasonFixVer"];
-const LOG_LBL={vis:"Visitas",inv:"Inventario de esencias",demos:"Demos",eqs:"Stock de equipos",movs:"Movimientos de equipos",eqgrades:"Intensidades / horarios",ceq:"Equipos por cliente",bajas:"Bajas",nvm:"Niveles mínimos",vnd:"Usuarios",modelos:"Modelos",stkseries:"Series en stock",cartuchos:"Cartuchos",customclients:"Clientes",sols:"Solicitudes",rejillas:"Rejillas",baterias:"Baterías (stock)",pedidos:"Pedidos",invMovs:"Movimientos de esencias",batMovs:"Cambios de baterías",eqEdits:"Ediciones de equipos",perms:"Permisos",consumoCfg:"Config. de consumo",pedCli:"Pedidos de vendedores"};
+const LOG_LBL={vis:"Visitas",inv:"Inventario de esencias",demos:"Demos",eqs:"Stock de equipos",movs:"Movimientos de equipos",eqgrades:"Intensidades / horarios",ceq:"Equipos por cliente",bajas:"Bajas",nvm:"Niveles mínimos",vnd:"Usuarios",modelos:"Modelos",stkseries:"Series en stock",cartuchos:"Cartuchos",customclients:"Clientes",sols:"Solicitudes",rejillas:"Rejillas",baterias:"Baterías (stock)",pedidos:"Pedidos",invMovs:"Movimientos de esencias",batMovs:"Cambios de baterías",eqEdits:"Ediciones de equipos",perms:"Permisos",consumoCfg:"Config. de consumo",pedCli:"Pedidos de vendedores",devs:"Devoluciones de equipos"};
 const LOG_TAB={visit:"Registrar",hist:"Visitas",inv:"Esencias",demos:"Demos",eqs:"Equipos",clts:"Clientes",sols:"Solicitudes",usrs:"Usuarios",bajas:"Bajas",lost:"Perdidos",grades:"Intensidades",reports:"Reportes",config:"Config",log:"Bitácora",peds:"Pedidos"};
 function _lv(x){if(x==null||x==="")return"∅";if(typeof x==="object")return Array.isArray(x)?"["+x.length+"]":"{…}";const s=String(x);return s.length>40?s.slice(0,40)+"…":s;}
 function _ldesc(o){if(!o||typeof o!=="object")return _lv(o);const p=[];["cliente","c","nombre","name","serie","esencia","aroma","modelo","item","tipo","fecha"].forEach(f=>{if(p.length<3&&o[f]!=null&&o[f]!==""&&typeof o[f]!=="object")p.push(String(o[f]).slice(0,40));});return p.join(" · ")||(o.id?"id "+o.id:"registro");}
@@ -497,6 +498,7 @@ let rejillas=ld("rejillas",null);if(!rejillas||!Object.keys(rejillas).length){re
 let baterias=ld("baterias",0);if(isNaN(baterias)||baterias<0)baterias=0;
 let modelos=ld("modelos",["AE301","AE701","AE801","AE3500","Radiant","AE TOWER BLACK","FMATIC Blanco","FMATIC Negro","Equipo de Goteo","AirFin Urinal"]);
 let nivMin=ld("nvm",{});
+let devs=ld("devs",[]); // devoluciones de equipos por baja: [{id,ts,cliente,serie,modelo,area,motivo,origen,tecnico,estado}]
 let pedCli=ld("pedCli",[]); // pedidos de vendedores: [{id,ts,vnd,cliente,notas,lineas:[{id,tipo,item,qty,estado}]}]
 let pedidos=ld("pedidos",{}); // {esencia:[{qty,fecha,nota}]}
 let invMovs=ld("invMovs",[]); // [{id,ts,esencia,delta,tipo,ref,user}]
@@ -1235,8 +1237,10 @@ function openBajaEq(c,id,serie){modal={t:"bajaEq",c,id,serie};render();}
 function confirmBajaEq(){
   const m=modal;const mot=document.getElementById("be_m").value;const nota=document.getElementById("be_n").value.trim();
   if(!mot){showToast("Selecciona el motivo");return;}
-  _marcarEq(m.c,m.id,m.serie,{_baja:true,bajaMotivo:mot,bajaNota:nota,bajaPor:sess.name,bajaFecha:today()},"(BAJA: "+mot+(nota?" - "+nota:"")+")");
-  modal=null;showToast("Equipo dado de baja");
+  const tec=document.getElementById("be_t")?.value||sess.name;
+  const eq=_marcarEq(m.c,m.id,m.serie,{_baja:true,bajaMotivo:mot,bajaNota:nota,bajaPor:sess.name,bajaFecha:today(),bajaTecnico:tec},"(BAJA: "+mot+(nota?" - "+nota:"")+")");
+  const n=eq&&!DEV_SIN_RETORNO.includes(mot)?_crearDevs(m.c,[eq],mot+(nota?" · "+nota:""),"equipo",tec):0;
+  modal=null;showToast("Equipo dado de baja"+(n?" · pendiente de entregar en oficina ("+tec+")":""));
 }
 function togPermQuitar(){perms={...perms,vndQuitarEq:!perms.vndQuitarEq};sv("perms",perms);render();showToast(perms.vndQuitarEq?"Vendedores pueden depurar equipos":"Depuración de vendedores desactivada");}
 function renderClientEqs(c){
@@ -1350,14 +1354,67 @@ function updBaterias(val){const n=parseInt(val);if(isNaN(n)||n<0)return;baterias
 function updBateriasDelta(d){const n=Math.max(0,baterias+d);baterias=n;sv("baterias",baterias);render();}
 
 // ── BAJAS ──
+// ── DEVOLUCIONES DE EQUIPOS (por baja) ──
+const DEV_SIN_RETORNO=["Robado / extraviado"];
+function _tecOpts(sel){return vendors.filter(v=>v.active!==false).map(v=>v.name).sort().map(n=>"<option"+(n===sel?" selected":"")+">"+n+"</option>").join("");}
+function _crearDevs(cliente,eqsL,motivo,origen,tecnico){
+  const ts=new Date().toISOString();
+  const nuevos=eqsL.filter(e=>e&&e.serie&&!devs.some(d=>d.cliente===cliente&&d.serie===e.serie&&d.estado!=="reingresado"&&d.estado!=="descartado")).map(e=>({id:uid()+uid(),ts,cliente,serie:e.serie,modelo:e.modelo||"",area:e.area||"",aroma:e.aroma||"",motivo:motivo||"",origen,tecnico:tecnico||sess.name,creadoPor:sess.name,estado:"pendiente"}));
+  if(!nuevos.length)return 0;devs=[...nuevos,...devs];sv("devs",devs);return nuevos.length;
+}
+function devRecibido(id){const ts=new Date().toISOString();devs=devs.map(d=>d.id===id?{...d,estado:"recibido",tsRec:ts,porRec:sess.name}:d);sv("devs",devs);render();}
+function devRevisar(id,ok){
+  const d=devs.find(x=>x.id===id);if(!d)return;const ts=new Date().toISOString();
+  const nota=(document.getElementById("dvn_"+id)?.value||"").trim();
+  if(!ok&&!nota){showToast("Escribe qué daño tiene");return;}
+  if(ok){const km=_eqKey(d.modelo);eqStk={...eqStk,[km]:(eqStk[km]||0)+1};sv("eqs",eqStk);
+    movs=[{id:uid(),fecha:ts,vnd:sess.name,tipo:"entrada",modelo:d.modelo,cant:1,motivo:"Reingreso por baja (revisado OK)",cliente:d.cliente,notas:d.serie+(nota?" · "+nota:"")},...movs];sv("movs",movs);}
+  devs=devs.map(x=>x.id===id?{...x,estado:ok?"reingresado":"descartado",tsRev:ts,porRev:sess.name,notaRev:nota}:x);sv("devs",devs);
+  showToast(ok?d.serie+" reingresado al inventario":d.serie+" marcado como dañado");render();
+}
+function devCambiarTec(id,t){devs=devs.map(d=>d.id===id?{...d,tecnico:t}:d);sv("devs",devs);render();}
+function devAnular(id){if(window._devConf!==id){window._devConf=id;showToast("Toca otra vez para confirmar que no hay que recogerlo");return;}window._devConf=null;
+  devs=devs.map(d=>d.id===id?{...d,estado:"descartado",tsRev:new Date().toISOString(),porRev:sess.name,notaRev:"No se recoge (anulada)"}:d);sv("devs",devs);render();}
+function devolucionesHTML(isA){
+  const mine=d=>d.tecnico===sess.name;
+  const abiertas=devs.filter(d=>d.estado==="pendiente"||d.estado==="recibido");
+  if(!isA){const l=abiertas.filter(mine);if(!l.length)return"";
+    return"<div class='card' style='border-left:4px solid #e65100;margin-bottom:12px'><div class='ct' style='color:#e65100'>&#128230; Equipos que debes entregar en oficina ("+l.length+")</div>"
+      +l.map(d=>"<div style='font-size:12px;padding:5px 0;border-top:1px solid #eef2ef'><b>"+d.serie+"</b> · "+d.modelo+" · "+d.cliente+(d.area?" · <span style='color:var(--M)'>"+d.area+"</span>":"")+"<div style='font-size:10px;color:var(--M)'>Baja "+_fdt(d.ts)+" · "+(d.estado==="recibido"?"<span style='color:var(--F)'>ya recibido en oficina</span>":"pendiente de entregar")+"</div></div>").join("")+"</div>";}
+  const F=window._devF||(window._devF="abiertas");
+  const fb=(v,t)=>"<button onclick='window._devF=\""+v+"\";render()' style='flex:1;padding:6px;border-radius:20px;border:1px solid "+(F===v?"#e65100":"#dde8e2")+";background:"+(F===v?"#e65100":"none")+";color:"+(F===v?"#fff":"var(--M)")+";font-size:11px;font-weight:600;cursor:pointer'>"+t+"</button>";
+  const cerr=devs.filter(d=>d.estado==="reingresado"||d.estado==="descartado");
+  const l=(F==="abiertas"?abiertas:cerr).slice().sort((a,b)=>a.ts<b.ts?1:-1);
+  const pend=abiertas.filter(d=>d.estado==="pendiente").length,rec=abiertas.filter(d=>d.estado==="recibido").length;
+  let html="<div class='card' style='border-left:4px solid #e65100;margin-bottom:14px'><div class='ct' style='color:#e65100'>&#128230; Devoluciones de equipos por baja</div>"
+    +"<div style='font-size:11px;color:var(--M);margin:3px 0 8px'>"+pend+" por recoger del técnico · "+rec+" en oficina por revisar</div>"
+    +"<div style='display:flex;gap:6px;margin-bottom:8px'>"+fb("abiertas","Abiertas ("+abiertas.length+")")+fb("cerradas","Cerradas ("+cerr.length+")")+"</div>";
+  if(!l.length)html+="<div style='font-size:12px;color:var(--M);padding:6px 0'>"+(F==="abiertas"?"Sin devoluciones pendientes":"Sin devoluciones cerradas")+"</div>";
+  const porTec={};l.forEach(d=>{(porTec[d.tecnico]=porTec[d.tecnico]||[]).push(d);});
+  Object.entries(porTec).forEach(([t,arr])=>{
+    html+="<div style='font-size:11px;font-weight:700;color:var(--M);margin:10px 0 4px;text-transform:uppercase'>"+(F==="abiertas"?"Pedir a ":"")+t+" ("+arr.length+")</div>";
+    arr.forEach(d=>{const j=JSON.stringify(d.id);
+      const est={pendiente:["Por recoger","#fff3e0","#b45309"],recibido:["En oficina · revisar","#e3f2fd","#1565c0"],reingresado:["Reingresado","#e8f5e9","#2e7d32"],descartado:["Dañado / no reingresa","#fce4ec","#c62828"]}[d.estado]||[d.estado,"#eee","#555"];
+      html+="<div style='border-top:1px solid #eef2ef;padding:7px 0'>"
+        +"<div style='display:flex;justify-content:space-between;gap:6px;align-items:center'><div style='font-size:12px'><b>"+d.serie+"</b> · "+d.modelo+"<div style='font-size:11px;color:var(--M)'>"+d.cliente+(d.area?" · "+d.area:"")+"</div></div><span style='font-size:10px;font-weight:700;background:"+est[1]+";color:"+est[2]+";padding:2px 8px;border-radius:20px;white-space:nowrap'>"+est[0]+"</span></div>"
+        +"<div style='font-size:10px;color:var(--M);margin-top:2px'>Baja "+_fdt(d.ts)+" por "+(d.creadoPor||"")+(d.motivo?" · "+d.motivo:"")+(d.tsRec?" · recibido "+_fdt(d.tsRec)+" ("+d.porRec+")":"")+(d.tsRev?" · revisado "+_fdt(d.tsRev)+" ("+d.porRev+")":"")+(d.notaRev?" · "+d.notaRev:"")+"</div>";
+      if(d.estado==="pendiente")html+="<div style='display:flex;gap:6px;margin-top:6px;align-items:center'><select class='inp' style='flex:1;margin:0;padding:5px;font-size:12px' onchange='devCambiarTec("+j+",this.value)'>"+_tecOpts(d.tecnico)+"</select><button class='be' style='font-size:11px;color:var(--F);font-weight:700' onclick='devRecibido("+j+")'>&#10003; Recibido en oficina</button><button class='del' title='No hay que recogerlo' onclick='devAnular("+j+")'>&#10005;</button></div>";
+      if(d.estado==="recibido")html+="<div style='display:flex;gap:6px;margin-top:6px;align-items:center'><input class='inp' id='dvn_"+d.id+"' style='flex:1;margin:0;padding:5px;font-size:12px' placeholder='Nota de revisión (obligatoria si está dañado)'/><button class='be' style='font-size:11px;color:#2e7d32;font-weight:700' onclick='devRevisar("+j+",true)'>&#10003; Buen estado</button><button class='be' style='font-size:11px;color:var(--D);font-weight:700' onclick='devRevisar("+j+",false)'>&#10007; Dañado</button></div>";
+      html+="</div>";});
+  });
+  return html+"</div>";
+}
 function openAddBaja(){modal={t:"addBaja"};render();}
 function saveBaja(){
   const c=document.getElementById("bj_c").value.trim();
   const motivo=document.getElementById("bj_mot").value;
   const notas=document.getElementById("bj_n").value.trim();
   if(!c||!motivo){showToast("Completa cliente y motivo");return;}
-  bajas=[{id:uid(),fecha:today(),c,vnd:sess.name,motivo,notas},...bajas];
-  sv("bajas",bajas);modal=null;showToast("Baja registrada");
+  const tec=document.getElementById("bj_t")?.value||sess.name;
+  bajas=[{id:uid(),fecha:today(),c,vnd:sess.name,motivo,notas,tecnico:tec},...bajas];
+  sv("bajas",bajas);
+  const n=_crearDevs(c,getClientEqs(c).filter(e=>!e._del),"Baja de cliente: "+motivo,"cliente",tec);
+  modal=null;showToast("Baja registrada"+(n?" · "+n+" equipo"+(n>1?"s":"")+" por recoger ("+tec+")":""));
 }
 function reactivarCliente(id){
   const baja=bajas.find(b=>b.id===id);if(!baja)return;
@@ -1948,10 +2005,10 @@ function render(){
 
   // ── TABS ──
   const tabs=isA
-    ?[{k:"visit",i:"ti-clipboard-plus",l:"Registrar"},{k:"hist",i:"ti-list",l:"Visitas"},{k:"inv",i:"ti-box",l:"Esencias"},{k:"demos",i:"ti-eye",l:"Demos"},{k:"eqs",i:"ti-device-ipad",l:"Equipos"},{k:"clts",i:"ti-building",l:"Clientes"},{k:"sols",i:"ti-bell",l:"Solicitudes",badge:solicitudes.filter(s=>s.vendedor===sess?.name&&s.estado==="pendiente").length},{k:"usrs",i:"ti-users",l:"Usuarios"},{k:"bajas",i:"ti-user-minus",l:"Bajas"},{k:"lost",i:"ti-trending-down",l:"Perdidos"},{k:"grades",i:"ti-gauge",l:"Intensidad"},{k:"reports",i:"ti-file-export",l:"Reportes"},{k:"config",i:"ti-settings",l:"Config"}].concat(isAdm?[{k:"log",i:"ti-history",l:"Bitácora"}]:[])
+    ?[{k:"visit",i:"ti-clipboard-plus",l:"Registrar"},{k:"hist",i:"ti-list",l:"Visitas"},{k:"inv",i:"ti-box",l:"Esencias"},{k:"demos",i:"ti-eye",l:"Demos"},{k:"eqs",i:"ti-device-ipad",l:"Equipos"},{k:"clts",i:"ti-building",l:"Clientes"},{k:"sols",i:"ti-bell",l:"Solicitudes",badge:solicitudes.filter(s=>s.vendedor===sess?.name&&s.estado==="pendiente").length+((sess?.role==="admin"||sess?.role==="atencion")?devs.filter(d=>d.estado==="pendiente"||d.estado==="recibido").length:devs.filter(d=>d.tecnico===sess?.name&&d.estado==="pendiente").length)},{k:"usrs",i:"ti-users",l:"Usuarios"},{k:"bajas",i:"ti-user-minus",l:"Bajas"},{k:"lost",i:"ti-trending-down",l:"Perdidos"},{k:"grades",i:"ti-gauge",l:"Intensidad"},{k:"reports",i:"ti-file-export",l:"Reportes"},{k:"config",i:"ti-settings",l:"Config"}].concat(isAdm?[{k:"log",i:"ti-history",l:"Bitácora"}]:[])
     :isAC
-    ?[{k:"hist",i:"ti-list",l:"Visitas"},{k:"inv",i:"ti-box",l:"Esencias"},{k:"clts",i:"ti-building",l:"Clientes"},{k:"eqs",i:"ti-device-ipad",l:"Equipos"},{k:"sols",i:"ti-bell",l:"Solicitudes",badge:solicitudes.filter(s=>s.vendedor===sess?.name&&s.estado==="pendiente").length}]
-    :[{k:"visit",i:"ti-clipboard-plus",l:"Registrar"},{k:"hist",i:"ti-list",l:"Mis Visitas"},{k:"inv",i:"ti-box",l:"Esencias"},{k:"demos",i:"ti-eye",l:"Demos"},{k:"eqs",i:"ti-device-ipad",l:"Equipos"},{k:"clts",i:"ti-building",l:"Clientes"},{k:"bajas",i:"ti-user-minus",l:"Bajas"},{k:"sols",i:"ti-bell",l:"Solicitudes",badge:solicitudes.filter(s=>s.vendedor===sess?.name&&s.estado==="pendiente").length}];
+    ?[{k:"hist",i:"ti-list",l:"Visitas"},{k:"inv",i:"ti-box",l:"Esencias"},{k:"clts",i:"ti-building",l:"Clientes"},{k:"eqs",i:"ti-device-ipad",l:"Equipos"},{k:"sols",i:"ti-bell",l:"Solicitudes",badge:solicitudes.filter(s=>s.vendedor===sess?.name&&s.estado==="pendiente").length+((sess?.role==="admin"||sess?.role==="atencion")?devs.filter(d=>d.estado==="pendiente"||d.estado==="recibido").length:devs.filter(d=>d.tecnico===sess?.name&&d.estado==="pendiente").length)}]
+    :[{k:"visit",i:"ti-clipboard-plus",l:"Registrar"},{k:"hist",i:"ti-list",l:"Mis Visitas"},{k:"inv",i:"ti-box",l:"Esencias"},{k:"demos",i:"ti-eye",l:"Demos"},{k:"eqs",i:"ti-device-ipad",l:"Equipos"},{k:"clts",i:"ti-building",l:"Clientes"},{k:"bajas",i:"ti-user-minus",l:"Bajas"},{k:"sols",i:"ti-bell",l:"Solicitudes",badge:solicitudes.filter(s=>s.vendedor===sess?.name&&s.estado==="pendiente").length+((sess?.role==="admin"||sess?.role==="atencion")?devs.filter(d=>d.estado==="pendiente"||d.estado==="recibido").length:devs.filter(d=>d.tecnico===sess?.name&&d.estado==="pendiente").length)}];
 
   {const _pt={k:"peds",i:"ti-shopping-cart",l:"Pedidos",badge:isA?_pcLines(x=>x.estado==="pendiente").length:0};const _ix=tabs.findIndex(t=>t.k==="sols");tabs.splice(_ix<0?tabs.length:_ix,0,_pt);}
   let con="";
@@ -2324,6 +2381,7 @@ function render(){
     const vc30=isA?getClientesVencidos():[];
     let html="<p class='pt'>Solicitudes</p><p class='ps'>"+pend.length+" pendiente"+(pend.length!==1?"s":"")+"</p>";
     if(vc30.length>0&&isA){html+="<div class='card sl-r' style='margin-bottom:12px'><div class='ct' style='color:var(--D)'><i class='ti ti-clock-exclamation'></i> "+vc30.length+" cliente"+(vc30.length!==1?"s":"")+" sin visita en 30+ dias</div><div style='font-size:11px;color:var(--M);margin-top:4px'>"+vc30.slice(0,5).join(", ")+(vc30.length>5?" ...+"+( vc30.length-5)+" mas":"")+"</div></div>";}
+    html+=devolucionesHTML(isA||isAC);
     html+="<button class='btn-add' onclick='openAddSolicitud()'><i class='ti ti-plus'></i> Nueva solicitud</button>";
     if(pend.length===0)html+="<div class='empty'><i class='ti ti-checks'></i>Sin solicitudes pendientes</div>";
     pend.forEach(s=>{const sj=JSON.stringify(s.id);html+="<div class='card sl'><div class='ch'><div><div class='ct'>"+s.nombre+"</div><div class='cs'>"+s.vendedor+" &#183; "+fmtD(s.fecha)+" &#183; "+(s.tipo==="prospecto"?"Prospecto":"Cliente")+"</div></div><span class='chip chip-w'>Pendiente</span></div>"+(s.notas?"<div style='font-size:11px;color:var(--M);margin-top:5px'>"+s.notas+"</div>":"")+"<div style='display:flex;gap:6px;margin-top:8px'><button class='be' style='background:#e8f5ee;color:var(--F);font-weight:700' onclick='completarSolicitud("+sj+")'>&#10003; Completada</button>"+(isA?"<button onclick='convertirCliente("+sj+")' style='padding:4px 10px;background:#fef9e7;color:var(--G);border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer'>Convertir</button>":"")+"<button class='del' onclick='cerrarSolicitud("+sj+")'>Cerrar</button></div>"+"</div>";});
@@ -2583,6 +2641,7 @@ function render(){
       mHTML="<div class='mb-bg' onclick='if(event.target===this){modal=null;render()}'><div class='mb'><div class='mb-t' style='color:#e65100'>Dar de baja equipo</div><p class='ps'>"+modal.c+" &#183; "+modal.serie+"</p>"
         +"<div class='fw'><label class='lbl'>Motivo *</label><select class='inp' id='be_m'><option value=''>Selecciona...</option><option>Retirado por el cliente</option><option>Dañado</option><option>Reemplazado por otro equipo</option><option>Devuelto a oficina</option><option>Robado / extraviado</option><option>Otro</option></select></div>"
         +"<div class='fw'><label class='lbl'>Notas</label><input class='inp' id='be_n' placeholder='Detalle...'/></div>"
+        +"<div class='fw'><label class='lbl'>Técnico que retira el equipo</label><select class='inp' id='be_t'>"+_tecOpts(sess.name)+"</select><div style='font-size:10px;color:var(--M);margin-top:3px'>Servicio al cliente le pedirá el equipo para revisarlo y reingresarlo (salvo robado/extraviado).</div></div>"
         +"<div class='mb-act'><button class='btn-c' onclick='modal=null;render()'>Cancelar</button><button class='btn' style='background:#e65100' onclick='confirmBajaEq()'>Dar de baja</button></div></div></div>";
     }
     else if(t==="cambioAroma"){
@@ -2670,6 +2729,7 @@ function render(){
       mHTML="<div class='mb-bg' onclick='if(event.target===this){modal=null;render()}'><div class='mb'><div class='mb-t' style='color:var(--D)'>Registrar baja</div>"
         +"<div class='fw'><label class='lbl'>Cliente *</label><input class='inp' id='bj_c' list='bj_cl' placeholder='Nombre del cliente'/><datalist id='bj_cl'>"+activeClients.map(c=>"<option>"+c+"</option>").join("")+"</datalist></div>"
         +"<div class='fw'><label class='lbl'>Motivo *</label><select class='inp' id='bj_mot'><option value=''>Selecciona...</option><option>Precio</option><option>Competencia</option><option>Problemas con equipo</option><option>Cierre de negocio</option><option>Cambio de proveedor</option><option>Sin presupuesto</option><option>Otro</option></select></div>"
+        +"<div class='fw'><label class='lbl'>Técnico que retira los equipos *</label><select class='inp' id='bj_t'>"+_tecOpts(sess.name)+"</select><div style='font-size:10px;color:var(--M);margin-top:3px'>Se le pedirá a Servicio al cliente recoger sus equipos para revisarlos y reingresarlos.</div></div>"
         +"<div class='fw'><label class='lbl'>Notas</label><textarea class='inp' id='bj_n'></textarea></div>"
         +"<div class='mb-act'><button class='btn-c' onclick='modal=null;render()'>Cancelar</button><button class='btn' style='background:var(--D)' onclick='saveBaja()'>Registrar baja</button></div></div></div>";
     }
@@ -2765,7 +2825,7 @@ function regVisitSimple(){
 // ── INIT ──
 render();
 // ── ACTUALIZACIÓN AUTOMÁTICA DE LA APP ──
-const APP_VER="2026-11-05b";
+const APP_VER="2026-11-23a";
 async function checkUpdate(){
   try{
     const r=await fetch(location.pathname+"?_="+Date.now(),{cache:"no-store"});if(!r.ok)return;
