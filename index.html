@@ -754,6 +754,24 @@ function ingresosHTML(){
   if(enC.length)html+="<div style='font-size:12px;font-weight:700;margin:12px 0 4px;color:#b45309'>&#128230; Pedidos aún NO recibidos ("+enC.length+")</div>"+enC.map(p=>"<div style='display:flex;justify-content:space-between;gap:6px;padding:5px 0;border-top:1px solid #eef2ef;font-size:12px'><div><b>"+p.esencia+"</b><div style='font-size:10px;color:var(--M)'>Pedido "+fmtD(p.fecha)+(p.nota?" · "+p.nota:"")+"</div></div><span style='white-space:nowrap;text-align:right'><b>"+p.qty.toLocaleString()+" ml</b><div style='font-size:10px;color:"+(p.dias>=14?"var(--D)":"var(--M)")+"'>hace "+p.dias+" días</div></span></div>").join("");
   return html+"</div>";
 }
+function _ordenDe(n){const m=String(n||"").match(/(\d{4,7})/);return m?m[1]:"";}
+function _enCamino(){const out=[];Object.entries(pedidos||{}).forEach(([k,a])=>(a||[]).forEach((p,i)=>out.push({key:k,i,item:k.startsWith("EQ:")?k.slice(3):k,eq:k.startsWith("EQ:"),qty:p.qty,fecha:p.fecha,nota:p.nota||"",orden:_ordenDe(p.nota),dias:Math.floor(_dias(p.fecha,Date.now()))})));return out;}
+function recibirOrden(orden){const l=_enCamino().filter(x=>x.orden===orden).sort((a,b)=>b.i-a.i);if(!l.length)return;
+  if(window._roConf!==orden){window._roConf=orden;showToast("Toca otra vez para recibir los "+l.length+" productos de la orden "+orden);setTimeout(()=>{if(window._roConf===orden)window._roConf=null;},4000);return;}
+  window._roConf=null;l.forEach(x=>recibirPedido(x.key,x.i));showToast("Orden "+orden+" recibida ("+l.length+" productos)");render();}
+function enCaminoHTML(){
+  const l=_enCamino();if(!l.length)return"";
+  const g={};l.forEach(x=>{const k=x.orden||"—";(g[k]=g[k]||[]).push(x);});
+  const grupos=Object.entries(g).sort((a,b)=>Math.max(...b[1].map(x=>x.dias))-Math.max(...a[1].map(x=>x.dias)));
+  const ab=!!window._ecAb;
+  let html="<div class='card' style='border-left:4px solid #e65100;margin-bottom:12px'><div style='display:flex;justify-content:space-between;align-items:center;cursor:pointer' onclick='window._ecAb=!window._ecAb;render()'><div class='ct' style='color:#e65100'>&#128230; Pedidos en camino: "+l.length+" producto"+(l.length!==1?"s":"")+" sin recibir</div><span style='font-size:12px;color:var(--M)'>"+(ab?"&#9650;":"&#9660; ver")+"</span></div>"
+    +"<div style='font-size:11px;color:var(--M);margin-top:2px'>"+grupos.length+" orden"+(grupos.length!==1?"es":"")+" · la más antigua lleva "+Math.max(...l.map(x=>x.dias))+" días</div>";
+  if(ab)grupos.forEach(([o,arr])=>{const d=Math.max(...arr.map(x=>x.dias));const col=d>=14?"var(--D)":d>=7?"#b45309":"var(--F)";const oj=JSON.stringify(o);
+    html+="<div style='border-top:1px solid #eef2ef;margin-top:8px;padding-top:6px'><div style='display:flex;justify-content:space-between;align-items:center;gap:6px'><div><b>"+(o==="—"?"<span style='color:var(--D)'>Sin número de orden</span>":"Orden "+o)+"</b><div style='font-size:10px;color:"+col+"'>Pedido "+fmtD(arr[0].fecha)+" · hace "+d+" días"+(d>=14?" · revisar si sigue en Miami":"")+"</div></div>"
+      +(o!=="—"&&arr.length>1?"<button class='be' style='font-size:11px;color:#2e7d32;font-weight:700' onclick='recibirOrden("+oj+")'>&#10003; Recibir toda la orden</button>":"")+"</div>"
+      +arr.map(x=>"<div style='display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:3px 0 3px 8px'><span>"+x.item+(x.eq?" <span style='font-size:10px;color:var(--M)'>(equipo)</span>":"")+" · <b>"+x.qty.toLocaleString()+(x.eq?" unid.":" ml")+"</b>"+(o==="—"&&x.nota?" <span style='font-size:10px;color:var(--M)'>"+x.nota+"</span>":"")+"</span><button onclick='recibirPedido("+JSON.stringify(x.key)+","+x.i+")' style='padding:2px 8px;background:#e8f5e9;color:#2e7d32;border:1px solid #a5d6a7;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer'>&#10003; Recibido</button></div>").join("")+"</div>";});
+  return html+"</div>";
+}
 function imprimirIngresos(){
   const {F,l,enC,porEs,tot}=_ingDatos();const esc=s=>String(s??"").replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
   const html="<!doctype html><html><head><meta charset='utf-8'><title>Ingresos de esencias</title><style>body{font:12px Arial,sans-serif;margin:24px;color:#222}h1{font-size:18px;margin:0 0 4px}h2{font-size:14px;margin:18px 0 6px;color:#1b4332}.top{color:#666;margin-bottom:12px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ccc;padding:4px 6px;text-align:left}th{background:#e8f5ee}td.n{text-align:right}tr.t td{font-weight:bold;background:#f5f5f5}@media print{.np{display:none}body{margin:10mm}}</style></head><body>"
@@ -2375,7 +2393,7 @@ function render(){
         +"<button onclick='openPedido("+ss+")' style='padding:3px 10px;background:#fff8e1;color:#e65100;border:1px solid #ffcc80;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer'>📦 Registrar pedido</button></div></div>":"")
         +"</div>";
     }).join("");
-    con="<p class='pt'>Inventario</p><p class='ps'>"+Object.keys(inv).length+" esencias</p>"
+    con="<p class='pt'>Inventario</p><p class='ps'>"+Object.keys(inv).length+" esencias</p>"+(isA?enCaminoHTML():"")
       +"<div class='stats'><div class='stat'><div class='sn' id='inv_tot'>"+totML.toLocaleString()+"</div><div class='sl2'>Total ml</div></div><div class='stat'><div class='sn' style='color:var(--WN)'>"+lowC+"</div><div class='sl2'>Stock bajo</div></div><div class='stat'><div class='sn' style='color:var(--D)'>"+zeroC+"</div><div class='sl2'>Sin stock</div></div></div>"
       +"<div style='background:var(--F);border-radius:var(--R);padding:12px 14px;margin-bottom:14px;color:#fff'><div style='font-size:11px;font-weight:700;letter-spacing:1px;margin-bottom:10px;opacity:.8'>CARTUCHOS FMATIC</div><div style='display:flex;gap:8px;margin-bottom:10px'><div style='flex:1;background:rgba(255,255,255,.15);border-radius:10px;padding:10px;text-align:center'><div style='font-size:22px;font-weight:700'>"+totCart+"</div><div style='font-size:10px;opacity:.75'>Total</div></div><div style='flex:1;background:rgba(255,255,255,.15);border-radius:10px;padding:10px;text-align:center'><div style='font-size:22px;font-weight:700;color:#e8c97a'>"+zeroCart+"</div><div style='font-size:10px;opacity:.75'>Sin stock</div></div></div>"+cartRows+(isA?"<button onclick='openAddCartucho()' style='display:flex;align-items:center;gap:6px;width:100%;margin-top:10px;padding:9px;background:rgba(255,255,255,.15);border:none;border-radius:10px;color:#fff;font-size:12px;font-weight:600;cursor:pointer;justify-content:center'>+ Agregar cartucho</button>":"")+"</div>"
       +"<div style='background:#2d6a4f;border-radius:var(--R);padding:12px 14px;margin-bottom:14px;color:#fff'><div style='font-size:11px;font-weight:700;letter-spacing:1px;margin-bottom:10px;opacity:.8'>REJILLAS AIRFIN URINAL</div><div style='display:flex;gap:8px;margin-bottom:10px'><div style='flex:1;background:rgba(255,255,255,.15);border-radius:10px;padding:10px;text-align:center'><div style='font-size:22px;font-weight:700'>"+totRej+"</div><div style='font-size:10px;opacity:.75'>Total</div></div><div style='flex:1;background:rgba(255,255,255,.15);border-radius:10px;padding:10px;text-align:center'><div style='font-size:22px;font-weight:700;color:#e8c97a'>"+zeroRej+"</div><div style='font-size:10px;opacity:.75'>Sin stock</div></div></div>"+rejRows+(isA?"<button onclick='openAddRejilla()' style='display:flex;align-items:center;gap:6px;width:100%;margin-top:10px;padding:9px;background:rgba(255,255,255,.15);border:none;border-radius:10px;color:#fff;font-size:12px;font-weight:600;cursor:pointer;justify-content:center'>+ Agregar rejilla</button>":"")+"</div>"
@@ -2968,7 +2986,7 @@ function regVisitSimple(){
 // ── INIT ──
 render();
 // ── ACTUALIZACIÓN AUTOMÁTICA DE LA APP ──
-const APP_VER="2026-11-24e";
+const APP_VER="2026-11-24f";
 async function checkUpdate(){
   try{
     const r=await fetch(location.pathname+"?_="+Date.now(),{cache:"no-store"});if(!r.ok)return;
