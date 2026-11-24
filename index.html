@@ -97,10 +97,10 @@ window.onerror=function(msg,src,line){
 // ── SUPABASE ──
 const SB_URL="https://bdyuhphgqehnzputlgiy.supabase.co";
 const SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJkeXVocGhncWVobnpwdXRsZ2l5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkxOTk0NjUsImV4cCI6MjA5NDc3NTQ2NX0.gJ8JQb2dHIbupktg1ags10uYXfepAE6ou3Da6EAra9M";
-const SB_KEYS=["vis","inv","demos","eqs","movs","eqgrades","ceq","bajas","nvm","vnd","modelos","stkseries","cartuchos","customclients","sols","rejillas","baterias","pedidos","invMovs","batMovs","eqImportVer","vndFixVer","eqEdits","perms","jasonFixVer","consumoCfg","pedCli","devs"];
+const SB_KEYS=["vis","inv","demos","eqs","movs","eqgrades","ceq","bajas","nvm","vnd","modelos","stkseries","cartuchos","customclients","sols","rejillas","baterias","pedidos","invMovs","batMovs","eqImportVer","vndFixVer","eqEdits","perms","jasonFixVer","consumoCfg","pedCli","devs","bateriasC","batIng"];
 // ── SINCRONIZACIÓN (combina cambios; no pisa lo de otros teléfonos) ──
 const SB_H={"apikey":SB_KEY,"Authorization":"Bearer "+SB_KEY,"X-Client-Info":"ecobasicscents/2.0"};
-const MERGE_T={devs:"arr",pedCli:"arr",consumoCfg:"obj",vis:"arr",demos:"arr",movs:"arr",bajas:"arr",sols:"arr",invMovs:"arr",batMovs:"arr",eqEdits:"arr",vnd:"arr",
+const MERGE_T={batIng:"arr",bateriasC:"scalar",devs:"arr",pedCli:"arr",consumoCfg:"obj",vis:"arr",demos:"arr",movs:"arr",bajas:"arr",sols:"arr",invMovs:"arr",batMovs:"arr",eqEdits:"arr",vnd:"arr",
   inv:"num",cartuchos:"num",rejillas:"num",eqs:"num",baterias:"scalar",
   ceq:"obj",eqgrades:"obj",nvm:"obj",pedidos:"obj",customclients:"cc",modelos:"set"};
 let _syncReady=false;
@@ -187,6 +187,8 @@ function applyRemote(key,val){
   if(key==="pedCli")pedCli=Array.isArray(val)?val:[];
   if(key==="batMovs")batMovs=val;
   if(key==="baterias")baterias=val;
+  if(key==="bateriasC")bateriasC=+val||0;
+  if(key==="batIng")batIng=Array.isArray(val)?val:[];
   if(key==="sols")solicitudes=val;
   if(key==="devs")devs=Array.isArray(val)?val:[];
   if((key==="ceq"||key==="customclients")&&val)setTimeout(()=>{applyClientFixes();},0);
@@ -292,7 +294,7 @@ const sv=(k,v)=>{let _old=null;try{_old=localStorage.getItem("eco_"+k);}catch{} 
 let _noLog=0,_lastUI=0,_logBuf=null,_logT=null,_logSending=false;
 ["pointerdown","keydown","change","input"].forEach(ev=>document.addEventListener(ev,()=>{_lastUI=Date.now();},true));
 const LOG_SKIP=["eqImportVer","vndFixVer","jasonFixVer"];
-const LOG_LBL={vis:"Visitas",inv:"Inventario de esencias",demos:"Demos",eqs:"Stock de equipos",movs:"Movimientos de equipos",eqgrades:"Intensidades / horarios",ceq:"Equipos por cliente",bajas:"Bajas",nvm:"Niveles mínimos",vnd:"Usuarios",modelos:"Modelos",stkseries:"Series en stock",cartuchos:"Cartuchos",customclients:"Clientes",sols:"Solicitudes",rejillas:"Rejillas",baterias:"Baterías (stock)",pedidos:"Pedidos",invMovs:"Movimientos de esencias",batMovs:"Cambios de baterías",eqEdits:"Ediciones de equipos",perms:"Permisos",consumoCfg:"Config. de consumo",pedCli:"Pedidos de vendedores",devs:"Devoluciones de equipos"};
+const LOG_LBL={vis:"Visitas",inv:"Inventario de esencias",demos:"Demos",eqs:"Stock de equipos",movs:"Movimientos de equipos",eqgrades:"Intensidades / horarios",ceq:"Equipos por cliente",bajas:"Bajas",nvm:"Niveles mínimos",vnd:"Usuarios",modelos:"Modelos",stkseries:"Series en stock",cartuchos:"Cartuchos",customclients:"Clientes",sols:"Solicitudes",rejillas:"Rejillas",baterias:"Baterías D (stock)",bateriasC:"Baterías C (stock)",batIng:"Ingresos de baterías",pedidos:"Pedidos",invMovs:"Movimientos de esencias",batMovs:"Cambios de baterías",eqEdits:"Ediciones de equipos",perms:"Permisos",consumoCfg:"Config. de consumo",pedCli:"Pedidos de vendedores",devs:"Devoluciones de equipos"};
 const LOG_TAB={visit:"Registrar",hist:"Visitas",inv:"Esencias",demos:"Demos",eqs:"Equipos",clts:"Clientes",sols:"Solicitudes",usrs:"Usuarios",bajas:"Bajas",lost:"Perdidos",grades:"Intensidades",reports:"Reportes",config:"Config",log:"Bitácora",peds:"Pedidos"};
 function _lv(x){if(x==null||x==="")return"∅";if(typeof x==="object")return Array.isArray(x)?"["+x.length+"]":"{…}";const s=String(x);return s.length>40?s.slice(0,40)+"…":s;}
 function _ldesc(o){if(!o||typeof o!=="object")return _lv(o);const p=[];["cliente","c","nombre","name","serie","esencia","aroma","modelo","item","tipo","fecha"].forEach(f=>{if(p.length<3&&o[f]!=null&&o[f]!==""&&typeof o[f]!=="object")p.push(String(o[f]).slice(0,40));});return p.join(" · ")||(o.id?"id "+o.id:"registro");}
@@ -496,6 +498,8 @@ const CART_DEF={"Cartucho Sweet Lemon":0,"Cartucho Tropical Paradise":0,"Cartuch
 let cartuchos=ld("cartuchos",null);if(!cartuchos||!Object.keys(cartuchos).length){cartuchos={"Cartucho Sweet Lemon":0,"Cartucho Tropical Paradise":0,"Cartucho Mountain Breeze":0};}
 let rejillas=ld("rejillas",null);if(!rejillas||!Object.keys(rejillas).length){rejillas={"AirFin Mountain Breeze":0};}
 let baterias=ld("baterias",0);if(isNaN(baterias)||baterias<0)baterias=0;
+let bateriasC=+ld("bateriasC",0)||0;
+let batIng=ld("batIng",[]); // ingresos de baterías: [{id,fecha,ts,tipo:"D"|"C",qty,ref,user}]
 let modelos=ld("modelos",["AE301","AE701","AE801","AE3500","Radiant","AE TOWER BLACK","FMATIC Blanco","FMATIC Negro","Equipo de Goteo","AirFin Urinal"]);
 let nivMin=ld("nvm",{});
 let devs=ld("devs",[]); // devoluciones de equipos por baja: [{id,ts,cliente,serie,modelo,area,motivo,origen,tecnico,estado}]
@@ -740,7 +744,8 @@ function _ingDatos(){const F=_ingF();
   const l=invMovs.filter(m=>m.tipo==="entrada"&&m.ts.slice(0,10)>=F.desde&&m.ts.slice(0,10)<=F.hasta&&(!F.es||m.esencia===F.es)).sort((a,b)=>a.ts.localeCompare(b.ts));
   const enC=Object.entries(pedidos||{}).filter(([k])=>!k.startsWith("EQ:")&&(!F.es||k===F.es)).flatMap(([k,a])=>(a||[]).map(p=>({esencia:k,qty:p.qty,fecha:p.fecha,nota:p.nota||"",por:p.por||"",dias:Math.floor(_dias(p.fecha,Date.now()))}))).sort((a,b)=>a.fecha.localeCompare(b.fecha));
   const porEs={};l.forEach(m=>{porEs[m.esencia]=(porEs[m.esencia]||0)+m.delta;});
-  return{F,l,enC,porEs,tot:l.reduce((a,m)=>a+m.delta,0)};}
+  const bat=batIng.filter(b=>b.fecha>=F.desde&&b.fecha<=F.hasta).sort((a,b)=>a.fecha.localeCompare(b.fecha));
+  return{F,l,enC,porEs,bat,tot:l.reduce((a,m)=>a+m.delta,0)};}
 function _fdh(ts){const d=new Date(ts);return d.toLocaleDateString("es-SV",{day:"2-digit",month:"2-digit",year:"2-digit"})+" "+d.toLocaleTimeString("es-SV",{hour:"2-digit",minute:"2-digit"});}
 function ingresosHTML(){
   const {F,l,enC,porEs,tot}=_ingDatos();const sc=[...new Set(invMovs.filter(m=>m.tipo==="entrada").map(m=>m.esencia))].sort();
@@ -773,13 +778,14 @@ function enCaminoHTML(){
   return html+"</div>";
 }
 function imprimirIngresos(){
-  const {F,l,enC,porEs,tot}=_ingDatos();const esc=s=>String(s??"").replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+  const {F,l,enC,porEs,tot,bat}=_ingDatos();const esc=s=>String(s??"").replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
   const html="<!doctype html><html><head><meta charset='utf-8'><title>Ingresos de esencias</title><style>body{font:12px Arial,sans-serif;margin:24px;color:#222}h1{font-size:18px;margin:0 0 4px}h2{font-size:14px;margin:18px 0 6px;color:#1b4332}.top{color:#666;margin-bottom:12px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ccc;padding:4px 6px;text-align:left}th{background:#e8f5ee}td.n{text-align:right}tr.t td{font-weight:bold;background:#f5f5f5}@media print{.np{display:none}body{margin:10mm}}</style></head><body>"
    +"<div class='np' style='margin-bottom:12px'><button onclick='window.print()' style='padding:8px 16px;font-size:14px'>Imprimir / Guardar PDF</button></div>"
    +"<h1>EcobasicScents — Ingresos de esencias a bodega</h1><div class='top'>Del "+fmtD(F.desde)+" al "+fmtD(F.hasta)+(F.es?" · "+esc(F.es):"")+" · impreso "+new Date().toLocaleString("es-SV")+"</div>"
    +"<h2>Detalle de ingresos</h2><table><tr><th>Fecha y hora</th><th>Esencia</th><th>Cantidad (ml)</th><th>Referencia / pedido</th><th>Registró</th></tr>"
    +(l.length?l.map(m=>"<tr><td>"+_fdh(m.ts)+"</td><td><b>"+esc(m.esencia)+"</b></td><td class='n'>"+m.delta.toLocaleString()+"</td><td>"+esc(m.ref)+"</td><td>"+esc(m.user)+"</td></tr>").join("")+"<tr class='t'><td colspan='2'>Total</td><td class='n'>"+tot.toLocaleString()+"</td><td colspan='2'>"+l.length+" ingresos</td></tr>":"<tr><td colspan='5'>Sin ingresos en estas fechas</td></tr>")+"</table>"
    +(Object.keys(porEs).length>1?"<h2>Total por esencia</h2><table><tr><th>Esencia</th><th>Total (ml)</th></tr>"+Object.entries(porEs).sort((a,b)=>a[0].localeCompare(b[0])).map(([k,v])=>"<tr><td>"+esc(k)+"</td><td class='n'>"+v.toLocaleString()+"</td></tr>").join("")+"</table>":"")
+   +"<h2>Ingresos de baterías</h2><table><tr><th>Fecha ingreso</th><th>Tipo</th><th>Cantidad</th><th>Referencia</th><th>Registró</th></tr>"+(bat.length?bat.map(b=>"<tr><td>"+fmtD(b.fecha)+"</td><td>Baterías "+b.tipo+"</td><td class='n'>"+b.qty+"</td><td>"+esc(b.ref)+"</td><td>"+esc(b.user)+"</td></tr>").join(""):"<tr><td colspan='5'>Sin ingresos de baterías en estas fechas</td></tr>")+"</table>"
    +"<h2>Pedidos aún no recibidos (en tránsito o en bodega de Miami)</h2><table><tr><th>Fecha pedido</th><th>Esencia</th><th>Cantidad (ml)</th><th>Referencia</th><th>Días</th></tr>"
    +(enC.length?enC.map(p=>"<tr><td>"+fmtD(p.fecha)+"</td><td><b>"+esc(p.esencia)+"</b></td><td class='n'>"+p.qty.toLocaleString()+"</td><td>"+esc(p.nota)+"</td><td class='n'>"+p.dias+"</td></tr>").join(""):"<tr><td colspan='5'>No hay pedidos pendientes de recibir</td></tr>")+"</table></body></html>";
   const w=window.open("","_blank");
@@ -793,6 +799,7 @@ async function exportIngresosXLSX(){
   XLSX.utils.book_append_sheet(wb,a,"Ingresos");
   const b=XLSX.utils.json_to_sheet(enC.map(p=>({Fecha_pedido:p.fecha,Esencia:p.esencia,Cantidad_ml:p.qty,Referencia:p.nota,Dias:p.dias})));b["!cols"]=[{wch:12},{wch:22},{wch:12},{wch:40},{wch:6}];
   XLSX.utils.book_append_sheet(wb,b,"No recibidos");
+  const {bat}=_ingDatos();const c=XLSX.utils.json_to_sheet(bat.map(x=>({Fecha_ingreso:x.fecha,Tipo:"Baterías "+x.tipo,Cantidad:x.qty,Referencia:x.ref,Registro:x.user})));XLSX.utils.book_append_sheet(wb,c,"Baterias");
   XLSX.writeFile(wb,"Ingresos_esencias_"+F.desde+"_a_"+F.hasta+".xlsx");
 }
 function updStock(s,v){const n=parseInt(v)||0;if(isNaN(n)||n<0)return;const prev=inv[s]||0;const delta=n-prev;inv={...inv,[s]:n};sv("inv",inv);if(delta!==0)logInvMov(s,delta,"ajuste","Ajuste manual");_patchInvDOM(s,n);}
@@ -1490,6 +1497,33 @@ function updRejilla(nombre,val){const n=parseInt(val);if(isNaN(n)||n<0)return;re
 function openAddRejilla(){modal={t:"addRejilla"};render();}
 function addRejilla(){const n=document.getElementById("rej_n")?.value?.trim();if(!n)return;if(rejillas.hasOwnProperty(n)){showToast("Ya existe");return;}rejillas={...rejillas,[n]:0};sv("rejillas",rejillas);modal=null;render();showToast("Rejilla agregada");}
 function updBaterias(val){const n=parseInt(val);if(isNaN(n)||n<0)return;baterias=n;sv("baterias",baterias);render();}
+function updBateriasC(val){const n=parseInt(val);if(isNaN(n)||n<0)return;bateriasC=n;sv("bateriasC",bateriasC);render();}
+function updBateriasCDelta(d){bateriasC=Math.max(0,bateriasC+d);sv("bateriasC",bateriasC);render();}
+function openIngBat(t){modal={t:"ingBat",tipo:t||"D"};render();}
+function saveIngBat(){
+  const tipo=modal.tipo||"D";const qty=parseInt(document.getElementById("ib_q")?.value)||0;const fecha=document.getElementById("ib_f")?.value||today();const ref=(document.getElementById("ib_r")?.value||"").trim();
+  if(qty<=0){showToast("Escribe la cantidad");return;}
+  if(fecha>today()){showToast("La fecha no puede ser futura");return;}
+  if(tipo==="C"){bateriasC+=qty;sv("bateriasC",bateriasC);}else{baterias+=qty;sv("baterias",baterias);}
+  batIng=[{id:uid()+uid(),fecha,ts:new Date().toISOString(),tipo,qty,ref,user:sess.name,saldo:tipo==="C"?bateriasC:baterias},...batIng];sv("batIng",batIng);
+  modal=null;showToast("+"+qty+" baterías "+tipo+" ingresadas ("+fmtD(fecha)+")");
+}
+function delIngBat(id){const b=batIng.find(x=>x.id===id);if(!b)return;
+  if(window._ibConf!==id){window._ibConf=id;showToast("Toca otra vez para anular este ingreso (resta "+b.qty+" del stock)");return;}window._ibConf=null;
+  if(b.tipo==="C"){bateriasC=Math.max(0,bateriasC-b.qty);sv("bateriasC",bateriasC);}else{baterias=Math.max(0,baterias-b.qty);sv("baterias",baterias);}
+  batIng=batIng.filter(x=>x.id!==id);sv("batIng",batIng);render();}
+function batIngHTML(isA){
+  const l=batIng.slice().sort((a,b)=>(b.fecha+b.ts).localeCompare(a.fecha+a.ts)).slice(0,8);
+  return"<div style='background:#4e342e;border-radius:var(--R);padding:12px 14px;margin-bottom:14px;color:#fff'>"
+   +"<div style='font-size:11px;font-weight:700;letter-spacing:1px;margin-bottom:10px;opacity:.8'>BATER\xCDAS C</div>"
+   +"<div style='display:flex;gap:8px;align-items:center;justify-content:center;margin-bottom:10px'>"
+   +(isA?"<button onclick='updBateriasCDelta(-1)' style='padding:6px 12px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);border-radius:8px;color:#fff;font-size:13px;cursor:pointer'>-1</button>":"")
+   +"<div style='text-align:center;min-width:90px'><div style='font-size:28px;font-weight:700;color:"+(bateriasC===0?"#e8c97a":"#fff")+"'>"+bateriasC+"</div><div style='font-size:10px;opacity:.75'>en stock</div></div>"
+   +(isA?"<button onclick='updBateriasCDelta(1)' style='padding:6px 12px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);border-radius:8px;color:#fff;font-size:13px;cursor:pointer'>+1</button>":"")+"</div>"
+   +(isA?"<div style='display:flex;gap:6px'><button onclick='openIngBat(\"D\")' style='flex:1;padding:9px;background:rgba(255,255,255,.2);border:none;border-radius:10px;color:#fff;font-size:12px;font-weight:700;cursor:pointer'>&#128229; Ingresar baterías D</button><button onclick='openIngBat(\"C\")' style='flex:1;padding:9px;background:rgba(255,255,255,.2);border:none;border-radius:10px;color:#fff;font-size:12px;font-weight:700;cursor:pointer'>&#128229; Ingresar baterías C</button></div>":"")
+   +(l.length?"<div style='font-size:10px;font-weight:700;opacity:.75;margin:10px 0 4px'>ÚLTIMOS INGRESOS DE BATERÍAS</div>"+l.map(b=>"<div style='display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:4px 0;border-top:1px solid rgba(255,255,255,.12)'><span>"+fmtD(b.fecha)+" · <b>+"+b.qty+" tipo "+b.tipo+"</b>"+(b.ref?" · "+b.ref:"")+"<span style='opacity:.6'> · "+b.user+"</span></span>"+(isA?"<button onclick='delIngBat("+JSON.stringify(b.id)+")' style='background:none;border:none;color:#ffab91;font-size:13px;cursor:pointer'>&#10005;</button>":"")+"</div>").join(""):"")
+   +"</div>";
+}
 function updBateriasDelta(d){const n=Math.max(0,baterias+d);baterias=n;sv("baterias",baterias);render();}
 
 // ── BAJAS ──
@@ -2398,7 +2432,7 @@ function render(){
       +"<div style='background:var(--F);border-radius:var(--R);padding:12px 14px;margin-bottom:14px;color:#fff'><div style='font-size:11px;font-weight:700;letter-spacing:1px;margin-bottom:10px;opacity:.8'>CARTUCHOS FMATIC</div><div style='display:flex;gap:8px;margin-bottom:10px'><div style='flex:1;background:rgba(255,255,255,.15);border-radius:10px;padding:10px;text-align:center'><div style='font-size:22px;font-weight:700'>"+totCart+"</div><div style='font-size:10px;opacity:.75'>Total</div></div><div style='flex:1;background:rgba(255,255,255,.15);border-radius:10px;padding:10px;text-align:center'><div style='font-size:22px;font-weight:700;color:#e8c97a'>"+zeroCart+"</div><div style='font-size:10px;opacity:.75'>Sin stock</div></div></div>"+cartRows+(isA?"<button onclick='openAddCartucho()' style='display:flex;align-items:center;gap:6px;width:100%;margin-top:10px;padding:9px;background:rgba(255,255,255,.15);border:none;border-radius:10px;color:#fff;font-size:12px;font-weight:600;cursor:pointer;justify-content:center'>+ Agregar cartucho</button>":"")+"</div>"
       +"<div style='background:#2d6a4f;border-radius:var(--R);padding:12px 14px;margin-bottom:14px;color:#fff'><div style='font-size:11px;font-weight:700;letter-spacing:1px;margin-bottom:10px;opacity:.8'>REJILLAS AIRFIN URINAL</div><div style='display:flex;gap:8px;margin-bottom:10px'><div style='flex:1;background:rgba(255,255,255,.15);border-radius:10px;padding:10px;text-align:center'><div style='font-size:22px;font-weight:700'>"+totRej+"</div><div style='font-size:10px;opacity:.75'>Total</div></div><div style='flex:1;background:rgba(255,255,255,.15);border-radius:10px;padding:10px;text-align:center'><div style='font-size:22px;font-weight:700;color:#e8c97a'>"+zeroRej+"</div><div style='font-size:10px;opacity:.75'>Sin stock</div></div></div>"+rejRows+(isA?"<button onclick='openAddRejilla()' style='display:flex;align-items:center;gap:6px;width:100%;margin-top:10px;padding:9px;background:rgba(255,255,255,.15);border:none;border-radius:10px;color:#fff;font-size:12px;font-weight:600;cursor:pointer;justify-content:center'>+ Agregar rejilla</button>":"")+"</div>"
       +"<div style='background:"+(batLow?"#7b3f00":"#5d4037")+";border-radius:var(--R);padding:12px 14px;margin-bottom:14px;color:#fff'>"
-      +"<div style='font-size:11px;font-weight:700;letter-spacing:1px;margin-bottom:10px;opacity:.8'>BATER\xCDAS D &mdash; AE701 / AE801</div>"
+      +"<div style='font-size:11px;font-weight:700;letter-spacing:1px;margin-bottom:10px;opacity:.8'>BATER\xCDAS D &mdash; AE701 / AE301 / AE801</div>"
       +"<div style='display:flex;gap:8px;margin-bottom:10px'>"
       +"<div style='flex:1;background:rgba(255,255,255,.15);border-radius:10px;padding:10px;text-align:center'>"
       +"<div style='font-size:28px;font-weight:700;color:"+(baterias===0?"#e8c97a":batLow?"#ffcc80":"#fff")+"'>"+baterias+"</div>"
@@ -2413,7 +2447,7 @@ function render(){
       +"<button onclick='updBateriasDelta(1)' style='padding:6px 12px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);border-radius:8px;color:#fff;font-size:13px;cursor:pointer'>+1</button>"
       +"<button onclick='updBateriasDelta(4)' style='padding:6px 12px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);border-radius:8px;color:#fff;font-size:13px;cursor:pointer'>+4</button>"
       +"</div>":""
-      )+"</div>"
+      )+"</div>"+batIngHTML(isA)
       +"<div class='sw'><i class='ti ti-search'></i><input class='si2' placeholder='Buscar esencia...' value='"+invSq+"' oninput='invSq=this.value;render()' autocomplete='off'/>"+(invSq?"<button onclick='invSq=\"\";render()' style='background:none;border:none;cursor:pointer;color:var(--M);font-size:16px;padding:0 4px'>&#x2715;</button>":"")+"</div>"
       +(ents.length===0?"<div class='empty'><i class='ti ti-search-off'></i>Sin resultados para \""+invSq+"\"</div>":esRows)
       +(isA?"<button class='btn-add' onclick='openAddEsencia()'><i class='ti ti-plus'></i> Agregar esencia</button>":"")
@@ -2894,6 +2928,15 @@ function render(){
         +"<div class='fw'><label class='lbl'>Notas</label><textarea class='inp' id='bj_n'></textarea></div>"
         +"<div class='mb-act'><button class='btn-c' onclick='modal=null;render()'>Cancelar</button><button class='btn' style='background:var(--D)' onclick='saveBaja()'>Registrar baja</button></div></div></div>";
     }
+    else if(t==="ingBat"){
+      const tp=modal.tipo||"D";const tb=(v)=>"<button type='button' onclick='modal.tipo=\""+v+"\";render()' style='flex:1;padding:8px;border-radius:10px;border:1px solid var(--F);background:"+(tp===v?"var(--F)":"none")+";color:"+(tp===v?"#fff":"var(--F)")+";font-weight:700;cursor:pointer'>Baterías "+v+"</button>";
+      mHTML="<div class='mb-bg' onclick='if(event.target===this){modal=null;render()}'><div class='mb'><div class='mb-t'>&#128229; Ingreso de baterías</div>"
+        +"<div class='fw'><label class='lbl'>Tipo</label><div style='display:flex;gap:8px'>"+tb("D")+tb("C")+"</div><div style='font-size:11px;color:var(--M);margin-top:4px'>Stock actual: "+(tp==="C"?bateriasC:baterias)+"</div></div>"
+        +"<div class='fw'><label class='lbl'>Cantidad *</label><input type='number' min='1' class='inp' id='ib_q' placeholder='Unidades'/></div>"
+        +"<div class='fw'><label class='lbl'>Fecha de ingreso *</label><input type='date' class='inp' id='ib_f' value='"+today()+"' max='"+today()+"'/></div>"
+        +"<div class='fw'><label class='lbl'>Referencia</label><input class='inp' id='ib_r' placeholder='Orden, factura o proveedor'/></div>"
+        +"<div class='mb-act'><button class='btn-c' onclick='modal=null;render()'>Cancelar</button><button class='btn' onclick='saveIngBat()'>Ingresar</button></div></div></div>";
+    }
     else if(t==="pedCli"){
       mHTML=pedCliFormHTML();
     }
@@ -2986,7 +3029,7 @@ function regVisitSimple(){
 // ── INIT ──
 render();
 // ── ACTUALIZACIÓN AUTOMÁTICA DE LA APP ──
-const APP_VER="2026-11-24f";
+const APP_VER="2026-11-24g";
 async function checkUpdate(){
   try{
     const r=await fetch(location.pathname+"?_="+Date.now(),{cache:"no-store"});if(!r.ok)return;
