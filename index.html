@@ -742,7 +742,7 @@ function logInvMov(esencia,delta,tipo,ref){
 function _ingF(){const F=window._ingFil||(window._ingFil={desde:new Date().toISOString().slice(0,8)+"01",hasta:today(),es:""});return F;}
 function _ingDatos(){const F=_ingF();
   const l=invMovs.filter(m=>m.tipo==="entrada"&&m.ts.slice(0,10)>=F.desde&&m.ts.slice(0,10)<=F.hasta&&(!F.es||m.esencia===F.es)).sort((a,b)=>a.ts.localeCompare(b.ts));
-  const enC=Object.entries(pedidos||{}).filter(([k])=>!k.startsWith("EQ:")&&(!F.es||k===F.es)).flatMap(([k,a])=>(a||[]).map(p=>({esencia:k,qty:p.qty,fecha:p.fecha,nota:p.nota||"",por:p.por||"",dias:Math.floor(_dias(p.fecha,Date.now()))}))).sort((a,b)=>a.fecha.localeCompare(b.fecha));
+  const enC=Object.entries(pedidos||{}).filter(([k])=>!/^(EQ|CART|REJ):/.test(k)&&(!F.es||k===F.es)).flatMap(([k,a])=>(a||[]).map(p=>({esencia:k,qty:p.qty,fecha:p.fecha,nota:p.nota||"",por:p.por||"",dias:Math.floor(_dias(p.fecha,Date.now()))}))).sort((a,b)=>a.fecha.localeCompare(b.fecha));
   const porEs={};l.forEach(m=>{porEs[m.esencia]=(porEs[m.esencia]||0)+m.delta;});
   const bat=batIng.filter(b=>b.fecha>=F.desde&&b.fecha<=F.hasta).sort((a,b)=>a.fecha.localeCompare(b.fecha));
   return{F,l,enC,porEs,bat,tot:l.reduce((a,m)=>a+m.delta,0)};}
@@ -760,21 +760,52 @@ function ingresosHTML(){
   return html+"</div>";
 }
 function _ordenDe(n){const m=String(n||"").match(/(\d{4,7})/);return m?m[1]:"";}
-function _enCamino(){const out=[];Object.entries(pedidos||{}).forEach(([k,a])=>(a||[]).forEach((p,i)=>out.push({key:k,i,item:k.startsWith("EQ:")?k.slice(3):k,eq:k.startsWith("EQ:"),qty:p.qty,fecha:p.fecha,nota:p.nota||"",orden:_ordenDe(p.nota),dias:Math.floor(_dias(p.fecha,Date.now()))})));return out;}
+function _enCamino(){const out=[];Object.entries(pedidos||{}).forEach(([k,a])=>(a||[]).forEach((p,i)=>out.push({key:k,i,item:k.replace(/^(EQ|CART|REJ):/,""),eq:k.startsWith("EQ:"),un:/^(EQ|CART|REJ):/.test(k),cat:k.startsWith("EQ:")?"equipo":k.startsWith("CART:")?"cartucho":k.startsWith("REJ:")?"rejilla":"esencia",qty:p.qty,fecha:p.fecha,nota:p.nota||"",orden:_ordenDe(p.nota),dias:Math.floor(_dias(p.fecha,Date.now()))})));return out;}
 function recibirOrden(orden){const l=_enCamino().filter(x=>x.orden===orden).sort((a,b)=>b.i-a.i);if(!l.length)return;
   if(window._roConf!==orden){window._roConf=orden;showToast("Toca otra vez para recibir los "+l.length+" productos de la orden "+orden);setTimeout(()=>{if(window._roConf===orden)window._roConf=null;},4000);return;}
   window._roConf=null;l.forEach(x=>recibirPedido(x.key,x.i));showToast("Orden "+orden+" recibida ("+l.length+" productos)");render();}
+function openPedGen(){modal={t:"pedGen",cat:"cartucho",item:"",nuevo:""};render();}
+function savePedGen(){
+  const m=modal;const cat=m.cat;let item=(m.nuevo||"").trim()||m.item;
+  const qty=parseInt(document.getElementById("pg_q")?.value)||0;const fecha=document.getElementById("pg_f")?.value||today();
+  const prov=(document.getElementById("pg_p")?.value||"").trim();const orden=(document.getElementById("pg_o")?.value||"").trim();
+  if(!item){showToast("Elige el producto");return;}if(qty<=0){showToast("Escribe la cantidad");return;}
+  if(cat==="cartucho"&&!/^cartucho/i.test(item))item="Cartucho "+item;
+  if(cat==="rejilla"&&!/^airfin/i.test(item))item="AirFin "+item;
+  const key=cat==="cartucho"?"CART:"+item:cat==="rejilla"?"REJ:"+item:cat==="equipo"?"EQ:"+item:item;
+  if(cat==="cartucho"&&!(item in cartuchos)){cartuchos={...cartuchos,[item]:0};sv("cartuchos",cartuchos);}
+  if(cat==="rejilla"&&!(item in rejillas)){rejillas={...rejillas,[item]:0};sv("rejillas",rejillas);}
+  const nota=(orden?"Orden "+orden:"")+(prov?(orden?" · ":"")+prov:"");
+  pedidos={...pedidos,[key]:[...(pedidos[key]||[]),{qty,fecha,ts:new Date().toISOString(),por:sess.name,tipo:cat,nota,reqs:[]}]};sv("pedidos",pedidos);
+  modal=null;window._ecAb=true;showToast("En camino: "+qty+" "+(cat==="esencia"?"ml":"unid.")+" de "+item);
+}
+function pedGenHTML(){
+  const m=modal;const cat=m.cat;
+  const opts=cat==="cartucho"?Object.keys(cartuchos):cat==="rejilla"?Object.keys(rejillas):cat==="equipo"?modelos.filter(x=>!esNoEquipo(x)):getAllScents();
+  const tb=(v,t)=>"<button type='button' onclick='modal.cat=\""+v+"\";modal.item=\"\";render()' style='flex:1;padding:7px 4px;border-radius:10px;border:1px solid var(--F);background:"+(cat===v?"var(--F)":"none")+";color:"+(cat===v?"#fff":"var(--F)")+";font-size:11px;font-weight:700;cursor:pointer'>"+t+"</button>";
+  return"<div class='mb-bg' onclick='if(event.target===this){modal=null;render()}'><div class='mb'><div class='mb-t'>&#128230; Registrar pedido en camino</div>"
+   +"<div class='fw'><label class='lbl'>Tipo</label><div style='display:flex;gap:6px'>"+tb("cartucho","Cartucho FMatic")+tb("rejilla","AirFin")+tb("equipo","Equipo")+tb("esencia","Esencia")+"</div></div>"
+   +"<div class='fw'><label class='lbl'>Producto *</label><select class='inp' onchange='modal.item=this.value'><option value=''>Selecciona…</option>"+opts.map(o=>"<option"+(o===m.item?" selected":"")+">"+o+"</option>").join("")+"</select>"
+   +(cat==="cartucho"||cat==="rejilla"?"<input class='inp' style='margin-top:6px' placeholder='…o escribe uno nuevo (ej: "+(cat==="cartucho"?"Cartucho Ocean Breeze":"AirFin Cucumber Melon")+")' value='"+(m.nuevo||"").replace(/'/g,"&#39;")+"' oninput='modal.nuevo=this.value'/>":"")+"</div>"
+   +"<div class='fw'><label class='lbl'>Cantidad * "+(cat==="esencia"?"(ml)":"(unidades)")+"</label><input type='number' min='1' class='inp' id='pg_q'/></div>"
+   +"<div class='fw'><label class='lbl'>Fecha del pedido</label><input type='date' class='inp' id='pg_f' value='"+today()+"' max='"+today()+"'/></div>"
+   +"<div class='fw'><label class='lbl'>Proveedor</label><input class='inp' id='pg_p' value='"+(cat==="cartucho"||cat==="rejilla"?"FMatic":"")+"'/></div>"
+   +"<div class='fw'><label class='lbl'>Número de orden / factura</label><input class='inp' id='pg_o' placeholder='Ej: 4521'/></div>"
+   +"<div class='mb-act'><button class='btn-c' onclick='modal=null;render()'>Cancelar</button><button class='btn' onclick='savePedGen()'>Registrar</button></div></div></div>";
+}
 function enCaminoHTML(){
-  const l=_enCamino();if(!l.length)return"";
+  const l=_enCamino();
+  if(!l.length)return"<div style='display:flex;justify-content:flex-end;margin-bottom:10px'><button class='be' onclick='openPedGen()'>&#128230; Registrar pedido en camino</button></div>";
   const g={};l.forEach(x=>{const k=x.orden||"—";(g[k]=g[k]||[]).push(x);});
   const grupos=Object.entries(g).sort((a,b)=>Math.max(...b[1].map(x=>x.dias))-Math.max(...a[1].map(x=>x.dias)));
   const ab=!!window._ecAb;
   let html="<div class='card' style='border-left:4px solid #e65100;margin-bottom:12px'><div style='display:flex;justify-content:space-between;align-items:center;cursor:pointer' onclick='window._ecAb=!window._ecAb;render()'><div class='ct' style='color:#e65100'>&#128230; Pedidos en camino: "+l.length+" producto"+(l.length!==1?"s":"")+" sin recibir</div><span style='font-size:12px;color:var(--M)'>"+(ab?"&#9650;":"&#9660; ver")+"</span></div>"
-    +"<div style='font-size:11px;color:var(--M);margin-top:2px'>"+grupos.length+" orden"+(grupos.length!==1?"es":"")+" · la más antigua lleva "+Math.max(...l.map(x=>x.dias))+" días</div>";
+    +"<div style='font-size:11px;color:var(--M);margin-top:2px'>"+grupos.length+" orden"+(grupos.length!==1?"es":"")+" · la más antigua lleva "+Math.max(...l.map(x=>x.dias))+" días</div>"
+    +"<button class='be' style='width:100%;margin-top:8px' onclick='openPedGen()'>&#128230; Registrar pedido en camino (cartuchos FMatic, AirFin, equipos, esencias)</button>";
   if(ab)grupos.forEach(([o,arr])=>{const d=Math.max(...arr.map(x=>x.dias));const col=d>=14?"var(--D)":d>=7?"#b45309":"var(--F)";const oj=JSON.stringify(o);
     html+="<div style='border-top:1px solid #eef2ef;margin-top:8px;padding-top:6px'><div style='display:flex;justify-content:space-between;align-items:center;gap:6px'><div><b>"+(o==="—"?"<span style='color:var(--D)'>Sin número de orden</span>":"Orden "+o)+"</b><div style='font-size:10px;color:"+col+"'>Pedido "+fmtD(arr[0].fecha)+" · hace "+d+" días"+(d>=14?" · revisar si sigue en Miami":"")+"</div></div>"
       +(o!=="—"&&arr.length>1?"<button class='be' style='font-size:11px;color:#2e7d32;font-weight:700' onclick='recibirOrden("+oj+")'>&#10003; Recibir toda la orden</button>":"")+"</div>"
-      +arr.map(x=>"<div style='display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:3px 0 3px 8px'><span>"+x.item+(x.eq?" <span style='font-size:10px;color:var(--M)'>(equipo)</span>":"")+" · <b>"+x.qty.toLocaleString()+(x.eq?" unid.":" ml")+"</b>"+(o==="—"&&x.nota?" <span style='font-size:10px;color:var(--M)'>"+x.nota+"</span>":"")+"</span><button onclick='recibirPedido("+JSON.stringify(x.key)+","+x.i+")' style='padding:2px 8px;background:#e8f5e9;color:#2e7d32;border:1px solid #a5d6a7;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer'>&#10003; Recibido</button></div>").join("")+"</div>";});
+      +arr.map(x=>"<div style='display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:3px 0 3px 8px'><span>"+x.item+(x.cat!=="esencia"?" <span style='font-size:10px;color:var(--M)'>("+x.cat+")</span>":"")+" · <b>"+x.qty.toLocaleString()+(x.un?" unid.":" ml")+"</b>"+(o==="—"&&x.nota?" <span style='font-size:10px;color:var(--M)'>"+x.nota+"</span>":"")+"</span><button onclick='recibirPedido("+JSON.stringify(x.key)+","+x.i+")' style='padding:2px 8px;background:#e8f5e9;color:#2e7d32;border:1px solid #a5d6a7;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer'>&#10003; Recibido</button></div>").join("")+"</div>";});
   return html+"</div>";
 }
 function imprimirIngresos(){
@@ -1514,15 +1545,8 @@ function delIngBat(id){const b=batIng.find(x=>x.id===id);if(!b)return;
   batIng=batIng.filter(x=>x.id!==id);sv("batIng",batIng);render();}
 function batIngHTML(isA){
   const l=batIng.slice().sort((a,b)=>(b.fecha+b.ts).localeCompare(a.fecha+a.ts)).slice(0,8);
-  return"<div style='background:#4e342e;border-radius:var(--R);padding:12px 14px;margin-bottom:14px;color:#fff'>"
-   +"<div style='font-size:11px;font-weight:700;letter-spacing:1px;margin-bottom:10px;opacity:.8'>BATER\xCDAS C</div>"
-   +"<div style='display:flex;gap:8px;align-items:center;justify-content:center;margin-bottom:10px'>"
-   +(isA?"<button onclick='updBateriasCDelta(-1)' style='padding:6px 12px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);border-radius:8px;color:#fff;font-size:13px;cursor:pointer'>-1</button>":"")
-   +"<div style='text-align:center;min-width:90px'><div style='font-size:28px;font-weight:700;color:"+(bateriasC===0?"#e8c97a":"#fff")+"'>"+bateriasC+"</div><div style='font-size:10px;opacity:.75'>en stock</div></div>"
-   +(isA?"<button onclick='updBateriasCDelta(1)' style='padding:6px 12px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);border-radius:8px;color:#fff;font-size:13px;cursor:pointer'>+1</button>":"")+"</div>"
-   +(isA?"<div style='display:flex;gap:6px'><button onclick='openIngBat(\"D\")' style='flex:1;padding:9px;background:rgba(255,255,255,.2);border:none;border-radius:10px;color:#fff;font-size:12px;font-weight:700;cursor:pointer'>&#128229; Ingresar baterías D</button><button onclick='openIngBat(\"C\")' style='flex:1;padding:9px;background:rgba(255,255,255,.2);border:none;border-radius:10px;color:#fff;font-size:12px;font-weight:700;cursor:pointer'>&#128229; Ingresar baterías C</button></div>":"")
-   +(l.length?"<div style='font-size:10px;font-weight:700;opacity:.75;margin:10px 0 4px'>ÚLTIMOS INGRESOS DE BATERÍAS</div>"+l.map(b=>"<div style='display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:4px 0;border-top:1px solid rgba(255,255,255,.12)'><span>"+fmtD(b.fecha)+" · <b>+"+b.qty+" tipo "+b.tipo+"</b>"+(b.ref?" · "+b.ref:"")+"<span style='opacity:.6'> · "+b.user+"</span></span>"+(isA?"<button onclick='delIngBat("+JSON.stringify(b.id)+")' style='background:none;border:none;color:#ffab91;font-size:13px;cursor:pointer'>&#10005;</button>":"")+"</div>").join(""):"")
-   +"</div>";
+  return(isA?"<div style='display:flex;gap:6px'><button onclick='openIngBat(\"D\")' style='flex:1;padding:9px;background:rgba(255,255,255,.2);border:none;border-radius:10px;color:#fff;font-size:12px;font-weight:700;cursor:pointer'>&#128229; Ingresar baterías D</button><button onclick='openIngBat(\"C\")' style='flex:1;padding:9px;background:rgba(255,255,255,.2);border:none;border-radius:10px;color:#fff;font-size:12px;font-weight:700;cursor:pointer'>&#128229; Ingresar baterías C</button></div>":"")
+   +(l.length?"<div style='font-size:10px;font-weight:700;opacity:.75;margin:10px 0 4px'>ÚLTIMOS INGRESOS DE BATERÍAS</div>"+l.map(b=>"<div style='display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:4px 0;border-top:1px solid rgba(255,255,255,.12)'><span>"+fmtD(b.fecha)+" · <b>+"+b.qty+" tipo "+b.tipo+"</b>"+(b.ref?" · "+b.ref:"")+"<span style='opacity:.6'> · "+b.user+"</span></span>"+(isA?"<button onclick='delIngBat("+JSON.stringify(b.id)+")' style='background:none;border:none;color:#ffab91;font-size:13px;cursor:pointer'>&#10005;</button>":"")+"</div>").join(""):"");
 }
 function updBateriasDelta(d){const n=Math.max(0,baterias+d);baterias=n;sv("baterias",baterias);render();}
 
@@ -1734,7 +1758,10 @@ function savePedido(){
 function recibirPedido(s,i){
   if(!pedidos[s]||!pedidos[s][i])return;
   const p=pedidos[s][i];
-  if(s.startsWith("EQ:")){const m=s.slice(3);const km=_eqKey(m);eqStk={...eqStk,[km]:(eqStk[km]||0)+p.qty};sv("eqs",eqStk);
+  if(s.startsWith("CART:")||s.startsWith("REJ:")){const isC=s.startsWith("CART:");const n=s.slice(isC?5:4);
+    if(isC){cartuchos={...cartuchos,[n]:(cartuchos[n]||0)+p.qty};sv("cartuchos",cartuchos);}else{rejillas={...rejillas,[n]:(rejillas[n]||0)+p.qty};sv("rejillas",rejillas);}
+    logInvMov(n,p.qty,"entrada","Pedido recibido"+(p.nota?" · "+p.nota:""));}
+  else if(s.startsWith("EQ:")){const m=s.slice(3);const km=_eqKey(m);eqStk={...eqStk,[km]:(eqStk[km]||0)+p.qty};sv("eqs",eqStk);
     movs=[{id:uid(),fecha:new Date().toISOString(),vnd:sess.name,tipo:"entrada",modelo:m,cant:p.qty,motivo:"Pedido recibido",cliente:"",notas:p.nota||""},...movs];sv("movs",movs);}
   else{inv={...inv,[s]:(inv[s]||0)+p.qty};sv("inv",inv);logInvMov(s,p.qty,"entrada","Pedido recibido"+(p.nota?" · "+p.nota:""));}
   if(p.reqs&&p.reqs.length){const ts=new Date().toISOString();p.reqs.forEach(r=>_pcSet(r.pid,r.lid,{estado:"recibido",tsRec:ts,porRec:sess.name}));sv("pedCli",pedCli);}
@@ -2432,22 +2459,16 @@ function render(){
       +"<div style='background:var(--F);border-radius:var(--R);padding:12px 14px;margin-bottom:14px;color:#fff'><div style='font-size:11px;font-weight:700;letter-spacing:1px;margin-bottom:10px;opacity:.8'>CARTUCHOS FMATIC</div><div style='display:flex;gap:8px;margin-bottom:10px'><div style='flex:1;background:rgba(255,255,255,.15);border-radius:10px;padding:10px;text-align:center'><div style='font-size:22px;font-weight:700'>"+totCart+"</div><div style='font-size:10px;opacity:.75'>Total</div></div><div style='flex:1;background:rgba(255,255,255,.15);border-radius:10px;padding:10px;text-align:center'><div style='font-size:22px;font-weight:700;color:#e8c97a'>"+zeroCart+"</div><div style='font-size:10px;opacity:.75'>Sin stock</div></div></div>"+cartRows+(isA?"<button onclick='openAddCartucho()' style='display:flex;align-items:center;gap:6px;width:100%;margin-top:10px;padding:9px;background:rgba(255,255,255,.15);border:none;border-radius:10px;color:#fff;font-size:12px;font-weight:600;cursor:pointer;justify-content:center'>+ Agregar cartucho</button>":"")+"</div>"
       +"<div style='background:#2d6a4f;border-radius:var(--R);padding:12px 14px;margin-bottom:14px;color:#fff'><div style='font-size:11px;font-weight:700;letter-spacing:1px;margin-bottom:10px;opacity:.8'>REJILLAS AIRFIN URINAL</div><div style='display:flex;gap:8px;margin-bottom:10px'><div style='flex:1;background:rgba(255,255,255,.15);border-radius:10px;padding:10px;text-align:center'><div style='font-size:22px;font-weight:700'>"+totRej+"</div><div style='font-size:10px;opacity:.75'>Total</div></div><div style='flex:1;background:rgba(255,255,255,.15);border-radius:10px;padding:10px;text-align:center'><div style='font-size:22px;font-weight:700;color:#e8c97a'>"+zeroRej+"</div><div style='font-size:10px;opacity:.75'>Sin stock</div></div></div>"+rejRows+(isA?"<button onclick='openAddRejilla()' style='display:flex;align-items:center;gap:6px;width:100%;margin-top:10px;padding:9px;background:rgba(255,255,255,.15);border:none;border-radius:10px;color:#fff;font-size:12px;font-weight:600;cursor:pointer;justify-content:center'>+ Agregar rejilla</button>":"")+"</div>"
       +"<div style='background:"+(batLow?"#7b3f00":"#5d4037")+";border-radius:var(--R);padding:12px 14px;margin-bottom:14px;color:#fff'>"
-      +"<div style='font-size:11px;font-weight:700;letter-spacing:1px;margin-bottom:10px;opacity:.8'>BATER\xCDAS D &mdash; AE701 / AE301 / AE801</div>"
+      +"<div style='font-size:11px;font-weight:700;letter-spacing:1px;margin-bottom:10px;opacity:.8'>BATER\xCDAS EN STOCK</div>"
       +"<div style='display:flex;gap:8px;margin-bottom:10px'>"
-      +"<div style='flex:1;background:rgba(255,255,255,.15);border-radius:10px;padding:10px;text-align:center'>"
-      +"<div style='font-size:28px;font-weight:700;color:"+(baterias===0?"#e8c97a":batLow?"#ffcc80":"#fff")+"'>"+baterias+"</div>"
-      +"<div style='font-size:10px;opacity:.75'>Bater\xEDas en stock</div></div>"
-      +"<div style='flex:1;background:rgba(255,255,255,.15);border-radius:10px;padding:10px;text-align:center'>"
-      +"<div style='font-size:12px;font-weight:600;color:"+(baterias===0?"#e8c97a":batLow?"#ffcc80":"rgba(255,255,255,.9)")+";padding-top:4px'>"+(baterias===0?"Sin stock":batLow?"⚠ Stock bajo":"OK")+"</div>"
-      +"<div style='font-size:10px;opacity:.75;margin-top:4px'>M\xEDnimo recomendado: 4</div></div></div>"
-      +(isA?"<div style='display:flex;gap:8px;align-items:center;justify-content:center'>"
-      +"<button onclick='updBateriasDelta(-4)' style='padding:6px 12px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);border-radius:8px;color:#fff;font-size:13px;cursor:pointer'>-4</button>"
-      +"<button onclick='updBateriasDelta(-1)' style='padding:6px 12px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);border-radius:8px;color:#fff;font-size:13px;cursor:pointer'>-1</button>"
-      +"<input type='number' min='0' value='"+baterias+"' onchange='updBaterias(this.value)' style='width:60px;text-align:center;padding:6px;border:1px solid rgba(255,255,255,.3);border-radius:8px;background:rgba(255,255,255,.1);color:#fff;font-size:15px;font-weight:700'/>"
-      +"<button onclick='updBateriasDelta(1)' style='padding:6px 12px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);border-radius:8px;color:#fff;font-size:13px;cursor:pointer'>+1</button>"
-      +"<button onclick='updBateriasDelta(4)' style='padding:6px 12px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);border-radius:8px;color:#fff;font-size:13px;cursor:pointer'>+4</button>"
-      +"</div>":""
-      )+"</div>"+batIngHTML(isA)
+      +[["D","AE701 / AE301 / AE801",baterias,"updBateriasDelta"],["C","",bateriasC,"updBateriasCDelta"]].map(([t,mods,n,fn])=>{const low=n<=4;
+        return"<div style='flex:1;background:rgba(255,255,255,.15);border-radius:10px;padding:10px;text-align:center'>"
+          +"<div style='font-size:12px;font-weight:700;opacity:.85'>Tipo "+t+"</div>"
+          +"<div style='font-size:30px;font-weight:700;color:"+(n===0?"#e8c97a":low?"#ffcc80":"#fff")+"'>"+n+"</div>"
+          +"<div style='font-size:10px;opacity:.75'>"+(n===0?"Sin stock":low?"&#9888; Stock bajo":"en stock")+(mods?"<br>"+mods:"")+"</div>"
+          +(isA?"<div style='display:flex;gap:4px;justify-content:center;margin-top:6px'><button onclick='"+fn+"(-1)' style='padding:3px 10px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);border-radius:7px;color:#fff;font-size:12px;cursor:pointer'>-1</button><button onclick='"+fn+"(1)' style='padding:3px 10px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);border-radius:7px;color:#fff;font-size:12px;cursor:pointer'>+1</button></div>":"")
+          +"</div>";}).join("")
+      +"</div>"+batIngHTML(isA)+"</div>"
       +"<div class='sw'><i class='ti ti-search'></i><input class='si2' placeholder='Buscar esencia...' value='"+invSq+"' oninput='invSq=this.value;render()' autocomplete='off'/>"+(invSq?"<button onclick='invSq=\"\";render()' style='background:none;border:none;cursor:pointer;color:var(--M);font-size:16px;padding:0 4px'>&#x2715;</button>":"")+"</div>"
       +(ents.length===0?"<div class='empty'><i class='ti ti-search-off'></i>Sin resultados para \""+invSq+"\"</div>":esRows)
       +(isA?"<button class='btn-add' onclick='openAddEsencia()'><i class='ti ti-plus'></i> Agregar esencia</button>":"")
@@ -2928,6 +2949,7 @@ function render(){
         +"<div class='fw'><label class='lbl'>Notas</label><textarea class='inp' id='bj_n'></textarea></div>"
         +"<div class='mb-act'><button class='btn-c' onclick='modal=null;render()'>Cancelar</button><button class='btn' style='background:var(--D)' onclick='saveBaja()'>Registrar baja</button></div></div></div>";
     }
+    else if(t==="pedGen"){mHTML=pedGenHTML();}
     else if(t==="ingBat"){
       const tp=modal.tipo||"D";const tb=(v)=>"<button type='button' onclick='modal.tipo=\""+v+"\";render()' style='flex:1;padding:8px;border-radius:10px;border:1px solid var(--F);background:"+(tp===v?"var(--F)":"none")+";color:"+(tp===v?"#fff":"var(--F)")+";font-weight:700;cursor:pointer'>Baterías "+v+"</button>";
       mHTML="<div class='mb-bg' onclick='if(event.target===this){modal=null;render()}'><div class='mb'><div class='mb-t'>&#128229; Ingreso de baterías</div>"
@@ -3029,7 +3051,7 @@ function regVisitSimple(){
 // ── INIT ──
 render();
 // ── ACTUALIZACIÓN AUTOMÁTICA DE LA APP ──
-const APP_VER="2026-11-24g";
+const APP_VER="2026-11-24i";
 async function checkUpdate(){
   try{
     const r=await fetch(location.pathname+"?_="+Date.now(),{cache:"no-store"});if(!r.ok)return;
