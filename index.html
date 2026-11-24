@@ -710,9 +710,9 @@ function getNextSerie(modelo){
 }
 function setSelEqManual(v){selEq={modelo:document.getElementById("mmm")?.value||"",serie:v,area:"",aroma:""};}
 function togC(c){expC=expC===c?"":c;render();}
-function onCChange(v){selC=v;selEq=null;window._eqVisit={};render();}
-function logBatMov(serie,modelo,cliente,qty){
-  const mov={id:uid(),ts:new Date().toISOString(),serie,modelo,cliente:cliente||"",qty,user:sess?.name||"admin"};
+function onCChange(v){selC=v;selEq=null;window._eqFiltro="";window._eqVisit={};render();}
+function logBatMov(serie,modelo,cliente,qty,ts){
+  const mov={id:uid(),ts:ts||new Date().toISOString(),serie,modelo,cliente:cliente||"",qty,user:sess?.name||"admin"};
   batMovs=[mov,...batMovs].slice(0,2000);
   sv("batMovs",batMovs);
 }
@@ -798,6 +798,34 @@ function _og(n){const r=window._G&&window._G[n];if(r)openGradeChange(r.c,r.eq);e
 function _openGV(){const eq=selEq||(window._eqVisit&&Object.values(window._eqVisit).find(e=>e.done)?{serie:Object.values(window._eqVisit).find(e=>e.done).serie,modelo:Object.values(window._eqVisit).find(e=>e.done).modelo}:null);if(!selC){showToast("Selecciona un cliente");return;}if(!eq){showToast("Selecciona un equipo");return;}openGradeChange(selC,eq);}
 function _uev(el,serie,field){const f=field||el.name||"val";const val=el.value;if(!window._eqVisit)window._eqVisit={};if(!window._eqVisit[serie])window._eqVisit[serie]={serie,done:false};window._eqVisit[serie]={...window._eqVisit[serie],[f]:f==="ml"?parseInt(val)||0:val};}
 function _uevN(el,serie){if(!window._eqVisit)window._eqVisit={};if(!window._eqVisit[serie])window._eqVisit[serie]={serie,done:false};window._eqVisit[serie]={...window._eqVisit[serie],notas:el.value};}
+// ── REGISTRO RÁPIDO DE VISITAS ──
+function _eqFiltrados(){const f=(window._eqFiltro||"").toUpperCase().trim();const l=selC?getClientEqs(selC).filter(e=>!e._del):[];return f?l.filter(e=>((e.area||"")+" "+e.serie+" "+(e.aroma||"")+" "+e.modelo).toUpperCase().includes(f)):l;}
+function _esMlEq(m){m=(m||"").toLowerCase();return !(m.includes("fmatic")||m.includes("urinal")||m.includes("airfin"));}
+function _marcarTodos(on){if(!window._eqVisit)window._eqVisit={};
+  _eqFiltrados().forEach(eq=>{const cur=window._eqVisit[eq.serie];
+    if(on&&!(cur&&cur.done)){const _ar=_UA(eq.aroma);const _es=_ar?getAllScents().find(s=>_UA(s)===_ar)||"":"";window._eqVisit[eq.serie]={...(cur||{}),serie:eq.serie,modelo:eq.modelo,area:eq.area||"",done:true,esencia:(cur&&cur.esencia)||_es,ml:(cur&&cur.ml)||0,notas:(cur&&cur.notas)||""};}
+    if(!on&&cur)window._eqVisit[eq.serie]={...cur,done:false};});
+  render();}
+function _aplicarTodos(campo){const v=document.getElementById("qa_"+campo)?.value;if(v===""||v==null){showToast("Escribe la cantidad");return;}let n=0;
+  _eqFiltrados().forEach(eq=>{const e=(window._eqVisit||{})[eq.serie];if(!e||!e.done||!_esMlEq(eq.modelo))return;window._eqVisit[eq.serie]={...e,[campo]:campo==="ml"?parseInt(v)||0:v,tipo:e.tipo||"ml"};n++;});
+  showToast(n?"Aplicado a "+n+" equipo"+(n>1?"s":""):"Marca primero los equipos");render();}
+function _bateriasTodos(){let n=0;_eqFiltrados().forEach(eq=>{const e=(window._eqVisit||{})[eq.serie];const sp=specDe(eq.modelo);if(!e||!e.done||!sp||!sp.apb&&!sp.nb||!["AE701","AE801","AE301"].includes(eq.modelo))return;window._eqVisit[eq.serie]={...e,baterias:sp.nb||4,tipo:e.tipo||"bateria"};n++;});showToast(n?"Baterías puestas en "+n+" equipo"+(n>1?"s":""):"No hay equipos de baterías marcados");render();}
+function _setMlQ(serie,campo,val){if(!window._eqVisit)window._eqVisit={};const e=window._eqVisit[serie]||{serie};window._eqVisit[serie]={...e,[campo]:campo==="ml"?parseInt(val)||0:String(val),tipo:e.tipo||"ml"};const inp=document.querySelector("input[name='"+campo+"'][data-serie='"+serie+"']");if(inp)inp.value=val;_calcSal(serie);}
+function _fechaVisita(){const f=window._visFecha;if(!f)return new Date().toISOString();const d=new Date(f);if(isNaN(d)||d>new Date())return new Date().toISOString();return d.toISOString();}
+function _fechaHTML(){const f=window._visFecha||"";const max=new Date(Date.now()-new Date().getTimezoneOffset()*6e4).toISOString().slice(0,16);
+  return"<div style='background:#f6faf8;border:1px solid #dde8e2;border-radius:10px;padding:8px 10px;margin-bottom:10px'><label style='font-size:11px;font-weight:700;color:var(--M)'>&#128197; FECHA Y HORA DE LA VISITA</label>"
+   +"<div style='display:flex;gap:6px;align-items:center;margin-top:5px'><button type='button' onclick='window._visFecha=\"\";render()' style='padding:6px 10px;border-radius:8px;border:1px solid var(--F);background:"+(f?"none":"var(--F)")+";color:"+(f?"var(--F)":"#fff")+";font-size:12px;font-weight:600;cursor:pointer'>Ahora</button>"
+   +"<input type='datetime-local' class='inp' style='flex:1;margin:0;font-size:12px' max='"+max+"' value='"+f+"' onchange='window._visFecha=this.value;setTimeout(render,0)'/></div>"
+   +(f?"<div style='font-size:10px;color:#b45309;margin-top:4px'>Se guardará con fecha "+_fdt(_fechaVisita())+" (si la registras después de la visita).</div>":"")+"</div>";}
+function _rapidoHTML(n){
+  const f=window._eqFiltro||"";const marc=Object.values(window._eqVisit||{}).filter(e=>e.done).length;
+  return"<div style='border:1px dashed #3456a0;border-radius:10px;padding:8px 10px;margin-bottom:10px;background:#f5f8ff'>"
+   +"<div style='font-size:11px;font-weight:700;color:#3456a0;margin-bottom:6px'>&#9889; LLENADO RÁPIDO</div>"
+   +(n>6?"<input class='inp' style='margin:0 0 6px;font-size:12px' placeholder='Filtrar por área o serie (ej: Sala 16)' value='"+f.replace(/'/g,"&#39;")+"' onchange='window._eqFiltro=this.value;setTimeout(render,0)'/>":"")
+   +"<div style='display:flex;gap:6px;margin-bottom:6px'><button type='button' class='be' style='flex:1' onclick='_marcarTodos(true)'>&#10003; Marcar todos"+(f?" (filtrados)":"")+"</button><button type='button' class='be' style='flex:1' onclick='_marcarTodos(false)'>Desmarcar</button></div>"
+   +"<div style='display:flex;gap:6px;align-items:center;margin-bottom:6px'><span style='font-size:11px;flex:1'>Agregó a todos los marcados (ml)</span><input type='number' id='qa_ml' class='inp' style='width:80px;margin:0;font-size:12px' placeholder='ml'/><button type='button' class='be' onclick='_aplicarTodos(\"ml\")'>Aplicar</button></div>"
+   +"<div style='display:flex;gap:6px;align-items:center'><span style='font-size:11px;flex:1'>Cambio de baterías a todos los marcados</span><button type='button' class='be' onclick='_bateriasTodos()'>&#128267; Aplicar</button></div>"
+   +"<div style='font-size:10px;color:var(--M);margin-top:5px'>"+marc+" marcado"+(marc!==1?"s":"")+". Después solo ajusta lo que sea distinto y anota lo que <b>tenía</b> cada uno.</div></div>";}
 function toggleEqVisit(serie,modelo,area){if(!window._eqVisit)window._eqVisit={};if(window._eqVisit[serie]?.done){window._eqVisit[serie]={...window._eqVisit[serie],done:false};}else{const _eq=getClientEqs(selC).find(x=>x.serie===serie)||{};const _ar=(_eq.aroma||"").trim().toUpperCase().replace(/\s+/g,"");const _es=_ar?getAllScents().find(s=>s.toUpperCase().replace(/\s+/g,"")===_ar)||"":"";window._eqVisit[serie]={serie,modelo,area,done:true,esencia:window._eqVisit[serie]?.esencia||_es,ml:window._eqVisit[serie]?.ml||0,notas:window._eqVisit[serie]?.notas||""};}render();}
 // ── NIVELES DE ESENCIA ──
 function _num(x){if(x===null||x===undefined||x==="")return null;const n=parseFloat(x);return isNaN(n)?null:n;}
@@ -887,6 +915,8 @@ function _mlBlock(eq,ev){
    +"<div class='fw'><label class='lbl' style='font-size:11px'>Quedó</label>"
    +"<div id='sal_"+sid+"' class='inp' style='font-size:12px;background:#f0f7f4;color:var(--F);font-weight:700'>"+(_esCA(eq.serie)?a+" ml":(l===null?"—":(l+a)+" ml"))+"</div></div>"
    +"</div>"
+   +"<div style='display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;align-items:center'><span style='font-size:10px;color:var(--M)'>Agregó:</span>"+[50,100,150,200,250,300].map(q=>"<button type='button' onclick='_setMlQ(\""+eq.serie+"\",\"ml\","+q+")' style='padding:3px 7px;font-size:11px;border:1px solid #dde8e2;border-radius:12px;background:"+((ev.ml||0)===q?"var(--F)":"#fff")+";color:"+((ev.ml||0)===q?"#fff":"var(--F)")+";cursor:pointer'>"+q+"</button>").join("")
+   +"<span style='font-size:10px;color:var(--M);margin-left:6px'>Tenía:</span><button type='button' onclick='_setMlQ(\""+eq.serie+"\",\"mlLlegada\",0)' style='padding:3px 7px;font-size:11px;border:1px solid #dde8e2;border-radius:12px;background:#fff;color:#b45309;cursor:pointer'>Vacío</button></div>"
    +"<div id='alc_"+sid+"'>"+(_esCA(eq.serie)&&!(l>0)?"<div style='font-size:11px;color:#b45309;margin-top:3px'>&#127876; Cambio de aroma: no se compara el consumo en esta visita.</div>":_alcHTML(eq,l))+"</div>";
 }
 function nivelHTML(v){
@@ -935,7 +965,7 @@ function regVisitMulti(){
   if(!selC){showToast("Selecciona un cliente");return;}
   const _hayRej=Object.values(window._rejVisit||{}).some(q=>q>0);
   if(!entries.length&&!_hayRej){showToast("Marca al menos un equipo o agrega rejillas");return;}
-  const fecha=new Date().toISOString();
+  const fecha=_fechaVisita();
   const prob=!!(window._probM);
   const notasG=document.getElementById("notv_multi")?.value||"";
   const sinEs=entries.find(e=>(e.ml||0)>0&&!e.esencia);if(sinEs){showToast("Falta elegir esencia en "+sinEs.serie);return;}
@@ -956,12 +986,12 @@ function regVisitMulti(){
       else if(e.tipo==="rejilla"){v.ml=0;v.rejillas=1;if((rejillas[e.esencia]||0)>0){rejillas={...rejillas,[e.esencia]:(rejillas[e.esencia]||0)-1};}else{rejillas={...rejillas,[e.esencia]:0};v.notas=(v.notas?v.notas+" · ":"")+"Rejilla sin stock en inventario";}sv("rejillas",rejillas);}
       else{if((inv[e.esencia]||0)>=e.ml){inv={...inv,[e.esencia]:(inv[e.esencia]||0)-e.ml};logInvMov(e.esencia,-e.ml,"consumo","Visita: "+selC+" / "+e.serie);}}
     }
-    if(e.baterias>0){baterias=Math.max(0,baterias-e.baterias);logBatMov(e.serie,e.modelo,selC,e.baterias);}
+    if(e.baterias>0){baterias=Math.max(0,baterias-e.baterias);logBatMov(e.serie,e.modelo,selC,e.baterias,fecha);}
     saved++;
   });
   const _nr=_saveRejillas(fecha);
   sv("vis",visits);sv("inv",inv);sv("cartuchos",cartuchos);sv("baterias",baterias);
-  window._eqVisit={};window._probM=false;selC="";selEq=null;
+  window._eqVisit={};window._probM=false;window._visFecha="";window._eqFiltro="";selC="";selEq=null;
   showToast((saved?saved+" equipo"+(saved>1?"s":"")+" registrado"+(saved>1?"s":""):"Visita registrada")+(_nr?" · "+_nr+" rejilla"+(_nr>1?"s":""):""));
 }
 
@@ -2086,8 +2116,12 @@ function render(){
           +(isA?"":"<button onclick='openAddCEq("+JSON.stringify(selC)+")' style='margin-bottom:10px;width:100%;padding:9px;border:1px dashed var(--F);border-radius:var(--R);background:#f0f7f4;color:var(--F);font-weight:700;font-size:12px;cursor:pointer'>+ Registrar equipo del cliente</button>")
           +"<button class='btn' onclick='regVisitSimple()'>Guardar visita</button>";
       } else {
+        html+=_fechaHTML();
         html+="<div style='font-size:12px;font-weight:700;color:var(--M);margin-bottom:10px'>EQUIPOS ("+eqsC.length+") \u2014 Marca los que atendiste:</div>";
+        if(eqsC.length>=2)html+=_rapidoHTML(eqsC.length);
+        const _filt=new Set(_eqFiltrados().map(e=>e.serie));
         eqsC.forEach(eq=>{
+          if(!_filt.has(eq.serie)&&!((window._eqVisit||{})[eq.serie]||{}).done)return;
           const ev=window._eqVisit[eq.serie]||{};
           const done=ev.done||false;
           const fmatic=isFmatic(eq.modelo);
@@ -2863,7 +2897,7 @@ function regVisitSimple(){
 // ── INIT ──
 render();
 // ── ACTUALIZACIÓN AUTOMÁTICA DE LA APP ──
-const APP_VER="2026-11-24a";
+const APP_VER="2026-11-24b";
 async function checkUpdate(){
   try{
     const r=await fetch(location.pathname+"?_="+Date.now(),{cache:"no-store"});if(!r.ok)return;
