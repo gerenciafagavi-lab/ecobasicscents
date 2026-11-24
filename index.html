@@ -710,6 +710,15 @@ function getNextSerie(modelo){
 }
 function setSelEqManual(v){selEq={modelo:document.getElementById("mmm")?.value||"",serie:v,area:"",aroma:""};}
 function togC(c){expC=expC===c?"":c;render();}
+function _buscaCli(q){
+  const el=document.getElementById("cli_res");if(!el)return;
+  const n=s=>String(s||"").toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
+  const ws=n(q).split(/\s+/).filter(Boolean);
+  if(!ws.length){el.innerHTML="";return;}
+  const own=new Set(window._visOwn||[]);
+  const l=(window._visCls||[]).filter(c=>{const t=n(c);return ws.every(w=>t.includes(w));}).sort((a,b)=>(own.has(b)-own.has(a))||a.localeCompare(b)).slice(0,12);
+  el.innerHTML=l.length?"<div style='border:1px solid #dde8e2;border-radius:10px;overflow:hidden;margin-bottom:8px;background:#fff'>"+l.map(c=>"<div data-c='"+c.replace(/'/g,"&#39;")+"' onclick='onCChange(this.dataset.c)' style='padding:10px 12px;border-bottom:1px solid #eef2ef;font-size:13px;cursor:pointer'>"+c+(own.has(c)?"":" <span style='color:var(--M);font-size:11px'>&#8617; otro vendedor</span>")+"</div>").join("")+"</div>":"<div style='font-size:12px;color:var(--M);margin-bottom:8px'>Sin resultados</div>";
+}
 function onCChange(v){selC=v;selEq=null;window._eqFiltro="";window._eqVisit={};render();}
 function logBatMov(serie,modelo,cliente,qty,ts){
   const mov={id:uid(),ts:ts||new Date().toISOString(),serie,modelo,cliente:cliente||"",qty,user:sess?.name||"admin"};
@@ -2094,7 +2103,10 @@ function render(){
     const eqsC=selC?getClientEqs(selC).filter(e=>!e._del):[];
 
     let html="<p class='pt'>Registrar visita</p>";
+    window._visCls=myC;window._visOwn=myOwnC;
     html+="<div class='fw'><label class='lbl'>Cliente *</label>"
+      +"<div style='position:relative;margin-bottom:6px'><i class='ti ti-search' style='position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--M)'></i><input id='cli_q' class='inp' style='padding-left:34px;margin:0' placeholder='Buscar cliente...' autocomplete='off' oninput='_buscaCli(this.value)'/></div>"
+      +"<div id='cli_res'></div>"
       +"<select class='inp' onchange='onCChange(this.value)'><option value=''>Selecciona cliente...</option>"
       +myC.map(c=>"<option value='"+c+"'"+(c===selC?" selected":"")+">"+ c+(myOwnC.includes(c)?"":" \u21a9")+"</option>").join("")
       +"</select></div>";
@@ -2897,7 +2909,7 @@ function regVisitSimple(){
 // ── INIT ──
 render();
 // ── ACTUALIZACIÓN AUTOMÁTICA DE LA APP ──
-const APP_VER="2026-11-24b";
+const APP_VER="2026-11-24c";
 async function checkUpdate(){
   try{
     const r=await fetch(location.pathname+"?_="+Date.now(),{cache:"no-store"});if(!r.ok)return;
