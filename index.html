@@ -3234,7 +3234,7 @@ function render(){
   }).join("");
   const pendSolBadge=solicitudes.filter(s=>s.vendedor===sess?.name&&s.estado==="pendiente").length;
   root.innerHTML="<div class='app'>"
-    +"<div class='tb'><div class='tb-logo'>E<span style='color:#b8892a'>s</span></div>"
+    +"<div class='tb'><div style='display:flex;align-items:baseline;gap:6px'><div class='tb-logo'>E<span style='color:#b8892a'>s</span></div><span style='font-size:9px;color:rgba(255,255,255,.55);font-weight:400'>v"+(()=>{try{return APP_VER;}catch{return "";}})()+"</span></div>"
     +"<div class='tb-r'><span class='tb-u'>"+sess.name+"</span>"
     +(isA?"<span class='ba'>Admin</span>":"")
 +"<button class='btn-o' onclick='doSync()' title='Sincronizar'><i class='ti ti-refresh'></i></button>"
@@ -3265,7 +3265,7 @@ function regVisitSimple(){
 // ── INIT ──
 render();
 // ── ACTUALIZACIÓN AUTOMÁTICA DE LA APP ──
-const APP_VER="2026-11-25b";
+const APP_VER="2026-11-25c";
 async function checkUpdate(){
   try{
     const r=await fetch(location.pathname+"?_="+Date.now(),{cache:"no-store"});if(!r.ok)return;
