@@ -153,7 +153,7 @@ function mergeKey(k,b,l,r){
     if(t==="num"||t==="obj"){const res={...r};Object.keys(l).forEach(x=>{if(!(x in res))res[x]=l[x];});return res;}
     if(t==="set")return[...r,...l.filter(x=>!r.includes(x))];
     if(t==="scalar")return r;
-    if(t==="cc"){const add=(lo,ro)=>{const res={...(ro||{})};Object.keys(lo||{}).forEach(x=>{if(!(x in res))res[x]=lo[x];});return res;};return{...l,...r,clients:[...(r.clients||[]),...(l.clients||[]).filter(x=>!(r.clients||[]).includes(x))],vc:add(l.vc,r.vc),pais:add(l.pais,r.pais),vcOverride:add(l.vcOverride,r.vcOverride)};}
+    if(t==="cc"){const add=(lo,ro)=>{const res={...(ro||{})};Object.keys(lo||{}).forEach(x=>{if(!(x in res))res[x]=lo[x];});return res;};return{...l,...r,clients:[...(r.clients||[]),...(l.clients||[]).filter(x=>!(r.clients||[]).includes(x))],vc:add(l.vc,r.vc),pais:add(l.pais,r.pais),vcOverride:add(l.vcOverride,r.vcOverride),reg:add(l.reg,r.reg)};}
     return r;
   }
   if(t==="arr")return _mArr(b,l,r);
@@ -161,7 +161,7 @@ function mergeKey(k,b,l,r){
   if(t==="obj")return _mObj(b,l,r);
   if(t==="set")return _mSet(b,l,r);
   if(t==="scalar"){if(b==null)return r;return Math.max(0,(+r||0)+((+l||0)-(+b||0)));}
-  if(t==="cc"){b=b||null;return{...r,...l,clients:_mSet(b&&b.clients,l.clients,r.clients),vc:_mObj(b&&b.vc,l.vc,r.vc),pais:_mObj(b&&b.pais,l.pais,r.pais),vcOverride:_mObj(b&&b.vcOverride,l.vcOverride,r.vcOverride)};}
+  if(t==="cc"){b=b||null;return{...r,...l,clients:_mSet(b&&b.clients,l.clients,r.clients),vc:_mObj(b&&b.vc,l.vc,r.vc),pais:_mObj(b&&b.pais,l.pais,r.pais),vcOverride:_mObj(b&&b.vcOverride,l.vcOverride,r.vcOverride),reg:_mObj(b&&b.reg,l.reg,r.reg)};}
   return l; // valores simples: gana el último
 }
 function applyRemote(key,val){
@@ -281,7 +281,7 @@ async function _syncDownImpl(){
     // migraciones de una sola vez (usan la versión ya guardada en el teléfono)
     if(ld("eqImportVer",null)!==EQ_IMPORT_VER){applyEqImport();changed=true;}
     if(ld("vndFixVer",null)!==VND_FIX_VER){applyVendFix();changed=true;}
-    if(ld("jasonFixVer",null)!==JASON_FIX_VER){applyJasonFix();changed=true;}
+    if(ld("jasonFixVer",null)!==JASON_FIX_VER||((VC["Kevin"]||[]).length&&vendors.some(v=>v.name==="Kevin"&&v.soporte))){applyJasonFix();changed=true;} // Kevin es soporte: su cartera siempre pasa a Jason
     flushDirty();_syncBadge();
     if(changed&&!first)_softRender();
     return true;
@@ -493,8 +493,19 @@ function _cliHoja(h){const al=(factMes&&factMes.aliasH)||{};if(al[h.hoja])return
   val.forEach(e=>{const c=idx[_normS(e.serie)];if(c)vot[c]=(vot[c]||0)+1;});
   const best=Object.entries(vot).sort((a,b)=>b[1]-a[1])[0];if(best&&best[1]*2>val.length)return best[0];
   return _matchNombre(h.hoja,ALL_CLIENTS);}
-function _mapCliFact(nombre){
+function _mapCliFact(nombre,reg){
   const al=(factMes&&factMes.alias)||{};if(al[nombre])return al[nombre];
+  const RG=_regMap();reg=_nReg(reg);
+  if(reg){const cands=ALL_CLIENTS.filter(c=>RG[c]===reg);
+    const nFil=((factMes&&factMes.filas)||[]).filter(x=>_nReg(x.reg)===reg).length;
+    if(cands.length===1&&nFil<=1)return cands[0];
+    if(cands.length>1||nFil>1){const m=_matchNombre(nombre,cands);if(m)return m;}
+    if(cands.length>1&&nFil<=cands.length){
+      const ta=_TOK(nombre);let best=null,bs=0,sec=0;cands.forEach(c=>{const tb=_TOK(c);let i=0;ta.forEach(w=>{if(tb.has(w))i++;});const s=i/Math.max(ta.size,tb.size,1);if(s>bs){sec=bs;bs=s;best=c;}else if(s>sec)sec=s;});if(best&&bs>sec&&bs>=0.3)return best;}}
+  const r0=_mapCliFact0(nombre);if(r0&&reg&&RG[r0]&&RG[r0]!==reg)return null; // nunca enlazar con un cliente de otra empresa (otro NRC)
+  return r0;
+}
+function _mapCliFact0(nombre){
   const cc=ld("customclients",null)||{};const ren=cc.renames||{};
   let n=nombre;try{if(ren[n])n=_finalName(n,ren);}catch{}
   const hit=_matchNombre(n,ALL_CLIENTS);if(hit)return hit;
@@ -551,18 +562,23 @@ async function importFacturacion(inp){
       const total=tot!=null?tot:eqs.reduce((a,e)=>a+e.precio,0);
       if(eqs.length)hojas.push({hoja:sn.trim(),titulo,total:Math.round(total*100)/100,eqs});});
     if(!filas.length&&!hojas.length){showToast("No encontré la hoja PEDIDOS ni hojas con MONTO MENSUAL");return;}
+    {const al=(factMes&&factMes.alias)||{};const RG=_regMap();const nv={};filas.forEach(r=>{if(!r.reg)return;const c=al[r.excel]||ALL_CLIENTS.find(x=>_NC(x)===_NC(r.excel));if(c&&!RG[c]&&!nv[c])nv[c]=r.reg;});var _nReg0=_setRegs(nv);}
     _tokCache=null;factMes={...(factMes||{}),filas,hojas,_meta:{ts:new Date().toISOString(),user:sess.name,archivo:f.name}};delete factMes.clientes;_serIdxCache=null;sv("factMes",factMes);
-    const sinApp=filas.filter(r=>Object.keys(r.meses).length&&!_mapCliFact(r.excel)).length;
-    showToast("Importado: "+filas.length+" clientes de PEDIDOS y "+hojas.length+" hojas de equipos"+(sinApp?" · "+sinApp+" por enlazar":""));render();
+    const sinApp=filas.filter(r=>Object.keys(r.meses).length&&!_mapCliFact(r.excel,r.reg)).length;
+    showToast("Importado: "+filas.length+" clientes de PEDIDOS y "+hojas.length+" hojas de equipos"+(_nReg0?" · "+_nReg0+" NRC asignados":"")+(sinApp?" · "+sinApp+" por enlazar":""));render();
   }catch(e){showToast("Error leyendo el Excel: "+e.message);}
   inp.value="";
 }
-function enlazarFact(excel,cli){const al={...((factMes&&factMes.alias)||{})};if(cli)al[excel]=cli;else delete al[excel];factMes={...(factMes||{}),alias:al};sv("factMes",factMes);setTimeout(render,0);}
+function enlazarFact(excel,cli){const al={...((factMes&&factMes.alias)||{})};if(cli)al[excel]=cli;else delete al[excel];
+  if(cli){const r=((factMes&&factMes.filas)||[]).find(x=>x.excel===excel);if(r&&r.reg&&!_regMap()[cli])_setRegs({[cli]:r.reg});}factMes={...(factMes||{}),alias:al};sv("factMes",factMes);setTimeout(render,0);}
+function confirmarEnlaces(){const al={...((factMes&&factMes.alias)||{})};const RG=_regMap();const nv={};let n=0;
+  ((factMes&&factMes.filas)||[]).forEach(r=>{if(!Object.keys(r.meses||{}).length)return;const c=_mapCliFact(r.excel,r.reg);if(!c||_NC(c)===_NC(r.excel))return;if(!al[r.excel]){al[r.excel]=c;n++;}if(r.reg&&!RG[c]&&!nv[c])nv[c]=r.reg;});
+  factMes={...(factMes||{}),alias:al};sv("factMes",factMes);const k=_setRegs(nv);showToast(n+" enlaces confirmados · "+k+" NRC asignados");render();}
 function enlazarHoja(hoja,cli){const al={...((factMes&&factMes.aliasH)||{})};if(cli)al[hoja]=cli;else delete al[hoja];factMes={...(factMes||{}),aliasH:al};sv("factMes",factMes);setTimeout(render,0);}
 // Ingreso del mes por cliente: PEDIDOS manda; si el cliente no está en PEDIDOS, suma de MONTO MENSUAL de su hoja de equipos
 function _ingresosMes(mes){
   const out={};const enPed=new Set();
-  ((factMes&&factMes.filas)||[]).forEach(r=>{const c=_mapCliFact(r.excel)||("¿"+r.excel);enPed.add(c);const v=(r.meses||{})[mes]||0;const o=out[c]||(out[c]={ing:0,fuente:"PEDIDOS",vnd:r.vnd});o.ing+=v;if(!o.vnd)o.vnd=r.vnd;});
+  ((factMes&&factMes.filas)||[]).forEach(r=>{const c=_mapCliFact(r.excel,r.reg)||("¿"+r.excel);enPed.add(c);const v=(r.meses||{})[mes]||0;const o=out[c]||(out[c]={ing:0,fuente:"PEDIDOS",vnd:r.vnd});o.ing+=v;if(!o.vnd)o.vnd=r.vnd;});
   ((factMes&&factMes.hojas)||[]).forEach(h=>{const c=_cliHoja(h);if(!c||enPed.has(c)||!(h.total>0))return;const o=out[c]||(out[c]={ing:0,fuente:"Hoja "+h.hoja,vnd:""});o.ing+=h.total;});
   return out;
 }
@@ -623,12 +639,13 @@ function margenHTML(){_serIdxCache=null;
    +lst.map(x=>"<div style='padding:7px 0;border-top:1px solid #eef2ef'><div style='display:flex;justify-content:space-between;gap:6px;align-items:baseline'><b style='font-size:12px'>"+_esc(x.sinEnlace?x.c.slice(1)+" (sin enlazar)":x.c)+"</b><span style='white-space:nowrap;font-size:11px;color:var(--M)'>"+_mesNom(mes)+" <b style='color:"+col(x.pct)+"'>"+(x.pct==null?"sin monto":x.pct.toFixed(0)+"%")+"</b> · prom <b style='font-size:13px;color:"+col(x.pr&&x.pr.pct)+"'>"+(x.pr?x.pr.pct.toFixed(0)+"%":"—")+"</b></span></div>"
      +"<div style='font-size:11px;color:var(--M)'>Ingreso "+_$(x.ing)+(x.fuente&&x.fuente!=="PEDIDOS"?" <span style='color:#6a1b9a'>("+_esc(x.fuente)+")</span>":"")+" · costo "+_$(x.ct)+" ("+Math.round(x.ml)+" ml"+(x.bd?" · "+x.bd+" bat D":"")+(x.bc?" · "+x.bc+" bat C":"")+(x.cp?" · planilla "+_$(x.cp):"")+") · margen <b>"+_$(x.mg)+"</b>"+(x.pr?" · prom "+x.pr.n+" mes"+(x.pr.n>1?"es":"")+" "+_$(x.pr.mg/x.pr.n)+"/mes":"")+(x.vnd?" · "+_esc(x.vnd):"")+(!x.vis&&x.ing?" · <span style='color:#b45309'>sin visitas registradas</span>":"")+"</div></div>").join("")
    +(lst.length?"":"<div style='font-size:12px;color:var(--M)'>Sin datos para este mes</div>")
-   +(()=>{const fl=(factMes&&factMes.filas)||[];const al=(factMes&&factMes.alias)||{};const pend=fl.filter(r=>Object.keys(r.meses||{}).length&&!_mapCliFact(r.excel));const man=fl.filter(r=>Object.keys(r.meses||{}).length&&al[r.excel]||(_mapCliFact(r.excel)&&_NC(_mapCliFact(r.excel))!==_NC(r.excel)));if(!pend.length&&!man.length&&!hojasPend.length)return "";
+   +(()=>{const fl=(factMes&&factMes.filas)||[];const al=(factMes&&factMes.alias)||{};const pend=fl.filter(r=>Object.keys(r.meses||{}).length&&!_mapCliFact(r.excel,r.reg));const man=fl.filter(r=>Object.keys(r.meses||{}).length&&al[r.excel]||(_mapCliFact(r.excel,r.reg)&&_NC(_mapCliFact(r.excel,r.reg))!==_NC(r.excel)));if(!pend.length&&!man.length&&!hojasPend.length)return "";
      const opts=sel=>"<option value=''>— elegir cliente de la app —</option>"+[...ALL_CLIENTS].sort((a,b)=>a.localeCompare(b)).map(c=>"<option"+(c===sel?" selected":"")+">"+_esc(c)+"</option>").join("");
      const q=s=>JSON.stringify(s).replace(/'/g,"&#39;");
      return "<details style='margin-top:10px;border-top:1px solid #eef2ef;padding-top:8px'"+(pend.length?" open":"")+"><summary style='font-size:12px;font-weight:700;cursor:pointer;color:"+(pend.length?"var(--D)":"var(--M)")+"'>Enlazar nombres del Excel ("+pend.length+" pendientes"+(man.length?" · "+man.length+" con nombre distinto, revisar":"")+(hojasPend.length?" · "+hojasPend.length+" hojas sin cliente":"")+")</summary>"
-      +"<div style='font-size:10px;color:var(--M);margin:4px 0'>Elige a qué cliente de la app corresponde cada nombre. Se recuerda para las próximas importaciones.</div>"
-      +[...pend,...man].map(r=>"<div style='margin:6px 0'><div style='font-size:11px'><b>"+_esc(r.excel)+"</b> <span style='color:var(--M)'>PEDIDOS · "+(r.vnd||"")+"</span></div><select class='inp' style='margin:2px 0 0;font-size:11px;padding:5px' onchange='enlazarFact("+q(r.excel)+",this.value)'>"+opts(_mapCliFact(r.excel))+"</select></div>").join("")
+      +"<div style='font-size:10px;color:var(--M);margin:4px 0'>Elige a qué cliente de la app corresponde cada nombre. Se recuerda para las próximas importaciones y le asigna al cliente su N° de registro (NRC).</div>"
+      +(man.length?"<button class='be' style='margin:4px 0' onclick='confirmarEnlaces()'>&#10003; Los "+man.length+" con nombre distinto están bien: confirmar y asignar NRC</button>":"")
+      +[...pend,...man].map(r=>"<div style='margin:6px 0'><div style='font-size:11px'><b>"+_esc(r.excel)+"</b> <span style='color:var(--M)'>PEDIDOS · NRC "+_esc(r.reg||"—")+" · "+(r.vnd||"")+"</span></div><select class='inp' style='margin:2px 0 0;font-size:11px;padding:5px' onchange='enlazarFact("+q(r.excel)+",this.value)'>"+opts(_mapCliFact(r.excel,r.reg))+"</select></div>").join("")
       +hojasPend.map(h=>"<div style='margin:6px 0'><div style='font-size:11px'><b>"+_esc(h.titulo)+"</b> <span style='color:var(--M)'>hoja "+_esc(h.hoja)+" · "+_$(h.total)+"/mes</span></div><select class='inp' style='margin:2px 0 0;font-size:11px;padding:5px' onchange='enlazarHoja("+q(h.hoja)+",this.value)'>"+opts("")+"</select></div>").join("")+"</details>";})()
    +"</div>";
   return html;
@@ -714,6 +731,11 @@ if(_cc){
 }
 // ── NOMBRES DE CLIENTES: renombrar / unir / eliminar quedan guardados y se aplican siempre ──
 function _ccGet(){const cc=ld("customclients",{clients:[],vc:{},pais:{},vcOverride:{}});cc.clients=cc.clients||[];cc.vc=cc.vc||{};cc.pais=cc.pais||{};cc.vcOverride=cc.vcOverride||{};cc.renames=cc.renames||{};cc.deleted=cc.deleted||[];return cc;}
+// N° de registro (NRC) por cliente, el mismo de la hoja PEDIDOS. Una empresa con varias sucursales comparte NRC.
+let _rgRaw=null,_rgMap={};
+function _regMap(){const raw=localStorage.getItem("eco_customclients")||"";if(raw!==_rgRaw){_rgRaw=raw;try{_rgMap=(JSON.parse(raw||"{}").reg)||{};}catch{_rgMap={};}}return _rgMap;}
+const _nReg=s=>String(s||"").replace(/\s+/g,"").trim();
+function _setRegs(obj){const cc=_ccGet();cc.reg={...(cc.reg||{})};let n=0;Object.entries(obj).forEach(([c,r])=>{r=_nReg(r);if(r&&cc.reg[c]!==r){cc.reg[c]=r;n++;}else if(!r&&cc.reg[c]){delete cc.reg[c];n++;}});if(n)sv("customclients",cc);return n;}
 function _finalName(n,ren){let g=0;while(ren[n]&&ren[n]!==n&&g<20){n=ren[n];g++;}return n;}
 function applyClientFixes(){
   const cc=ld("customclients",null)||{};const ren=cc.renames||{};const del=new Set(cc.deleted||[]);
@@ -1367,11 +1389,14 @@ function saveRenameCliente(){
   const oldName=modal.c;
   const newName=document.getElementById("rc_n").value.trim().toUpperCase();
   if(!newName){showToast("Ingresa el nombre");return;}
+  const regEl=document.getElementById("rc_reg");const newReg=regEl?_nReg(regEl.value):null;const oldReg=_regMap()[oldName]||"";
+  if(newReg!==null&&newReg!==oldReg){_setRegs({[oldName]:newReg});}
   const curP=(window._clientPais||{})[oldName]==="GT"?"GT":"SV";const newP=modal.pais||curP;
   if(newP!==curP){const cc=ld("customclients",{clients:[],vc:{},pais:{}});if(!cc.pais)cc.pais={};cc.pais[oldName]=newP;if(!window._clientPais)window._clientPais={};window._clientPais[oldName]=newP;sv("customclients",cc);}
-  if(newName===oldName){modal=null;showToast(newP!==curP?oldName+" movido a "+(newP==="GT"?"Guatemala":"El Salvador"):"Sin cambios");render();return;}
+  if(newName===oldName){modal=null;showToast(newP!==curP?oldName+" movido a "+(newP==="GT"?"Guatemala":"El Salvador"):(newReg!==null&&newReg!==oldReg?"Registro guardado":"Sin cambios"));render();return;}
   if(ALL_CLIENTS.includes(newName)){showToast("Ya existe ese nombre. Usa 'Unir' si es el mismo cliente.");return;}
   renameClient(oldName,newName,false);
+  {const rg=_regMap()[oldName];if(rg)_setRegs({[newName]:rg,[oldName]:""});}
   modal=null;showToast("Cliente renombrado");render();
 }
 function _asignarDirecto(c,nuevoV){
@@ -2738,7 +2763,7 @@ function render(){
       const asignarSelect=isA?"<div style='display:flex;align-items:center;gap:8px;margin-bottom:10px;padding:8px;background:#fffbea;border:1px solid #ffe082;border-radius:8px'><span style='font-size:11px;font-weight:700;color:#e65100;white-space:nowrap'>Vendedor:</span><select onchange='_asignarDirecto("+cj+",this.value)' style='flex:1;padding:5px 8px;border:1px solid #dde;border-radius:6px;font-size:12px;background:#fff'><option value=''"+(vn==="Sin asignar"?" selected":"")+">Sin asignar</option>"+activeVnds4.map(v=>"<option value='"+v.name+"'"+(v.name===vn?" selected":"")+">"+v.name+"</option>").join("")+"</select></div>":"";
       const expDiv=exp?"<div style='margin-top:10px;border-top:1px solid #f0f0f0;padding-top:10px'>"+asignarSelect+renderClientEqs(c)+((isA||perms.vndQuitarEq)?"<button onclick='openAddCEq("+cj+")' style='margin-top:8px;display:flex;align-items:center;gap:5px;background:#e8f5ee;color:var(--F);border:none;padding:7px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;width:100%;justify-content:center'>+ Agregar equipo</button>":"")+"</div>":"";
       return"<div class='card'><div class='ch' onclick='togC("+cj+")' style='cursor:pointer'>"
-        +"<div><div class='ct' style='font-size:12px'>"+c+gtFlag+"</div><div class='cs'>"+vn+"</div></div>"
+        +"<div><div class='ct' style='font-size:12px'>"+c+gtFlag+"</div><div class='cs'>"+vn+(_regMap()[c]?" · NRC "+_regMap()[c]:"")+"</div></div>"
         +"<div style='display:flex;align-items:center;gap:5px'><span class='chip'>"+cv.length+"v</span><span class='chip chip-b'>"+allEq.length+"eq</span>"
         +(isA?"<button onclick='event.stopPropagation();openAsignarVendedor("+cj+")' style='padding:2px 7px;background:#fff8e1;color:#e65100;border:none;border-radius:6px;font-size:11px;cursor:pointer' title='Asignar vendedor'>&#128101;</button>":"")
         +(isA?"<button onclick='event.stopPropagation();openRenameCliente("+cj+")' style='padding:2px 7px;background:#e8f0ff;color:#3456a0;border:none;border-radius:6px;font-size:11px;cursor:pointer'>&#9999;&#65039;</button>":"")
@@ -2980,6 +3005,7 @@ function render(){
     }
     else if(t==="renameCliente"){
       mHTML="<div class='mb-bg' onclick='if(event.target===this){modal=null;render()}'><div class='mb'><div class='mb-t'>Editar cliente</div><p class='ps'>"+modal.c+"</p><div class='fw'><label class='lbl'>Nombre *</label><input class='inp' id='rc_n' value='"+modal.c+"' style='text-transform:uppercase' oninput='this.value=this.value.toUpperCase()'/></div>"
+      +"<div class='fw'><label class='lbl'>N° de registro (NRC, como en la hoja PEDIDOS)</label><input class='inp' id='rc_reg' value='"+(_regMap()[modal.c]||"")+"' placeholder='Ej. 385362-9'/></div>"
       +(()=>{const cur=modal.pais||((window._clientPais||{})[modal.c]==="GT"?"GT":"SV");const b=(v,t)=>"<button type='button' onclick='modal.pais=\""+v+"\";render()' style='flex:1;padding:8px;border-radius:10px;border:1px solid var(--F);background:"+(cur===v?"var(--F)":"none")+";color:"+(cur===v?"#fff":"var(--F)")+";font-weight:700;cursor:pointer'>"+t+"</button>";return"<div class='fw'><label class='lbl'>País</label><div style='display:flex;gap:8px'>"+b("SV","\ud83c\uddf8\ud83c\uddfb El Salvador")+b("GT","\ud83c\uddec\ud83c\uddf9 Guatemala")+"</div></div>";})()+"<div class='mb-act'><button class='btn-c' onclick='modal=null;render()'>Cancelar</button><button class='btn' onclick='saveRenameCliente()'>Guardar</button></div></div></div>";
     }
     else if(t==="deleteCliente"){
@@ -3239,7 +3265,7 @@ function regVisitSimple(){
 // ── INIT ──
 render();
 // ── ACTUALIZACIÓN AUTOMÁTICA DE LA APP ──
-const APP_VER="2026-11-24o";
+const APP_VER="2026-11-25b";
 async function checkUpdate(){
   try{
     const r=await fetch(location.pathname+"?_="+Date.now(),{cache:"no-store"});if(!r.ok)return;
