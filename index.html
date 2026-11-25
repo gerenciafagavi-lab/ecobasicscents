@@ -478,47 +478,91 @@ function _costos(){const c=consumoCfg||{};return{ml:c.costoMl!=null&&c.costoMl!=
 const _NC=s=>String(s||"").toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/\s+/g," ").trim();
 const _BASE=s=>_NC(String(s||"").split("(")[0]).replace(/[^A-Z0-9 ]/g," ").replace(/\b(SA|DE|CV|S A|LA|EL|Y)\b/g," ").replace(/\s+/g," ").trim();
 const _TOK=s=>new Set(_NC(s).replace(/[^A-Z0-9 ]/g," ").split(" ").filter(w=>w.length>2&&!["SA","CV","DE","DEL","LAS","LOS"].includes(w)));
+const _normS=s=>String(s||"").toUpperCase().replace(/[^A-Z0-9]/g,"");
+function _matchNombre(n,lista,getN){getN=getN||(x=>x);
+  const t=_NC(n);let hit=lista.find(c=>_NC(getN(c))===t);if(hit)return hit;
+  const b=_BASE(n);if(b.length>=4){const hs=lista.filter(c=>_BASE(getN(c))===b);if(hs.length===1)return hs[0];}
+  const ta=_TOK(n);if(ta.size){let best=null,bs=0,second=0;lista.forEach(c=>{const tb=_TOK(getN(c));if(!tb.size)return;let inter=0;ta.forEach(w=>{if(tb.has(w))inter++;});const s=inter/Math.max(ta.size,tb.size);if(s>bs){second=bs;bs=s;best=c;}else if(s>second)second=s;});if(best&&bs>0.7&&bs>second)return best;}
+  return null;}
+let _serIdxCache=null;
+function _serIdx(){const k=visits.length+"|"+JSON.stringify(Object.keys(ceq||{}).length);if(_serIdxCache&&_serIdxCache.k===k)return _serIdxCache.m;
+  const m={};ALL_CLIENTS.forEach(c=>{(getClientEqs(c)||[]).forEach(e=>{if(e&&!e._del&&e.serie){const s=_normS(e.serie);if(s.length>=4)m[s]=c;}});});_serIdxCache={k,m};return m;}
+function _cliHoja(h){const al=(factMes&&factMes.aliasH)||{};if(al[h.hoja])return al[h.hoja];
+  const porNom=_matchNombre(h.titulo,ALL_CLIENTS);if(porNom)return porNom;
+  const idx=_serIdx();const vot={};const val=(h.eqs||[]).filter(e=>{const s=_normS(e.serie);return s.length>=6&&s!==_normS(e.modelo);});
+  val.forEach(e=>{const c=idx[_normS(e.serie)];if(c)vot[c]=(vot[c]||0)+1;});
+  const best=Object.entries(vot).sort((a,b)=>b[1]-a[1])[0];if(best&&best[1]*2>val.length)return best[0];
+  return _matchNombre(h.hoja,ALL_CLIENTS);}
 function _mapCliFact(nombre){
   const al=(factMes&&factMes.alias)||{};if(al[nombre])return al[nombre];
   const cc=ld("customclients",null)||{};const ren=cc.renames||{};
   let n=nombre;try{if(ren[n])n=_finalName(n,ren);}catch{}
-  const t=_NC(n);let hit=ALL_CLIENTS.find(c=>_NC(c)===t);if(hit)return hit;
-  const rk=Object.keys(ren).find(k=>_NC(k)===t);if(rk){try{return _finalName(rk,ren);}catch{return ren[rk];}}
-  const b=_BASE(n);if(b.length>=4){const hs=ALL_CLIENTS.filter(c=>_BASE(c)===b);if(hs.length===1)return hs[0];}
-  const ta=_TOK(n);if(ta.size){let best=null,bs=0,second=0;ALL_CLIENTS.forEach(c=>{const tb=_TOK(c);if(!tb.size)return;let inter=0;ta.forEach(w=>{if(tb.has(w))inter++;});const s=inter/Math.max(ta.size,tb.size);if(s>bs){second=bs;bs=s;best=c;}else if(s>second)second=s;});if(best&&bs>0.7&&bs>second)return best;}
-  return null;
+  const hit=_matchNombre(n,ALL_CLIENTS);if(hit)return hit;
+  const rk=Object.keys(ren).find(k=>_NC(k)===_NC(n));if(rk){try{return _finalName(rk,ren);}catch{return ren[rk];}}
+  const hjs=(factMes&&factMes.hojas)||[];
+  const hj=_matchNombre(n,hjs,h=>h.titulo)||_hojaPorToken(n);if(hj){const c=_cliHoja(hj);if(c)return c;}
+  return _cliPorToken(n);
 }
-function _factPorCli(){const out={};((factMes&&factMes.filas)||[]).forEach(r=>{const c=_mapCliFact(r.excel)||("¿"+r.excel);const o=out[c]||(out[c]={vnd:r.vnd,excel:[],meses:{}});o.excel.push(r.excel);Object.entries(r.meses||{}).forEach(([m,v])=>{o.meses[m]=(o.meses[m]||0)+v;});});return out;}
+const _STOPW=new Set(["INVERSIONES","GRUPO","HOTEL","RESTAURANTE","RESTAURANT","REST","CLINICA","PLAZA","SALON","CENTRO","COMERCIAL","LABORATORIO","HOSPITAL","DIAGNOSTICO","CORPORACION","EMPRESAS","SERVICIOS","SALVADOR","SAN","SANTA","COLONIA","ESCALON","OFICINA","OFICINAS","TIENDA","SUCURSAL","CASA","CLUB","TORRE","MOTORS","PASEO","STUDIO","ESTUDIO","BOUTIQUE","GENERAL","VEHICULOS"]);
+let _tokCache=null;
+function _hojaPorToken(n){const hjs=(factMes&&factMes.hojas)||[];if(!hjs.length)return null;
+  if(!_tokCache||_tokCache.k!==hjs.length){const fr={};const per=hjs.map(h=>{const s=new Set([..._TOK(h.titulo),..._TOK(h.hoja.replace(/([a-z])([A-Z])/g,"$1 $2")),_NC(h.hoja).replace(/[^A-Z0-9]/g,"")]);s.forEach(w=>fr[w]=(fr[w]||0)+1);return s;});_tokCache={k:hjs.length,fr,per};}
+  const {fr,per}=_tokCache;const tn=[..._TOK(n)].filter(w=>w.length>=4&&!_STOPW.has(w)&&fr[w]===1);if(!tn.length)return null;
+  const cand=new Set();hjs.forEach((h,i)=>{if(tn.some(w=>per[i].has(w)))cand.add(i);});return cand.size===1?hjs[[...cand][0]]:null;}
+function _cliPorToken(n){const fr={};const per=ALL_CLIENTS.map(c=>{const s=_TOK(c);s.forEach(w=>fr[w]=(fr[w]||0)+1);return s;});
+  const sig=[..._TOK(n)].filter(w=>w.length>=4&&!_STOPW.has(w));const tn=sig.filter(w=>fr[w]===1);if(!tn.length)return null;
+  const cand=new Set();ALL_CLIENTS.forEach((c,i)=>{if(tn.some(w=>per[i].has(w)))cand.add(i);});if(cand.size!==1)return null;
+  const i=[...cand][0];return sig.every(w=>per[i].has(w))?ALL_CLIENTS[i]:null;}
 function _mesKey(v){if(v instanceof Date&&!isNaN(v))return v.getFullYear()+"-"+String(v.getMonth()+1).padStart(2,"0");if(typeof v==="number"&&v>30000&&v<80000){const d=new Date(Math.round((v-25569)*864e5));return d.getUTCFullYear()+"-"+String(d.getUTCMonth()+1).padStart(2,"0");}return null;}
 async function importFacturacion(inp){
   const f=inp.files&&inp.files[0];if(!f)return;
   try{await _loadXLSX();}catch{showToast("No se pudo cargar el lector de Excel (revisa internet)");return;}
   try{
     const wb=XLSX.read(await f.arrayBuffer(),{type:"array",cellDates:true});
-    const ws=wb.Sheets["PEDIDOS"];if(!ws){showToast("El Excel no tiene la hoja PEDIDOS");return;}
-    const rows=XLSX.utils.sheet_to_json(ws,{header:1,raw:true});
     const low=x=>String(x||"").trim().toLowerCase();
-    const hi=rows.findIndex(r=>r&&r.some(x=>low(x)==="cliente/mes"));if(hi<0){showToast("No encontré la fila 'Cliente/Mes' en PEDIDOS");return;}
-    const hdr=rows[hi];const ci=hdr.findIndex(x=>low(x)==="cliente/mes");const vi=hdr.findIndex(x=>low(x)==="vendedor");const ri=hdr.findIndex(x=>low(x).startsWith("registro"));
-    const cols=hdr.map((x,i)=>({i,m:_mesKey(x)})).filter(x=>x.m);
-    const filas=[];
-    for(let r=hi+1;r<rows.length;r++){const row=rows[r]||[];const nom=String(row[ci]||"").trim();if(!nom)continue;
-      if(low(nom)==="con iva"||low(nom).startsWith("costo mensual"))break;
-      if(!String(row[vi]||"").trim()&&!(ri>-1&&String(row[ri]||"").trim()))continue;
-      const meses={};cols.forEach(c=>{const v=row[c.i];if(typeof v==="number"&&v>0)meses[c.m]=Math.round(v*100)/100;});
-      if(!Object.keys(meses).length)continue;
-      filas.push({excel:nom,vnd:String(row[vi]||"").trim(),reg:ri>-1?String(row[ri]||"").trim():"",meses});}
-    factMes={...(factMes||{}),filas,_meta:{ts:new Date().toISOString(),user:sess.name,archivo:f.name}};delete factMes.clientes;sv("factMes",factMes);
-    const sinApp=filas.filter(r=>!_mapCliFact(r.excel)).length;
-    showToast("Facturación importada: "+filas.length+" clientes"+(sinApp?" · "+sinApp+" por enlazar":""));render();
+    // 1) PEDIDOS: monto mensual por cliente
+    const filas=[];const ws=wb.Sheets["PEDIDOS"];
+    if(ws){const rows=XLSX.utils.sheet_to_json(ws,{header:1,raw:true});
+      const hi=rows.findIndex(r=>r&&r.some(x=>low(x)==="cliente/mes"));
+      if(hi>-1){const hdr=rows[hi];const ci=hdr.findIndex(x=>low(x)==="cliente/mes");const vi=hdr.findIndex(x=>low(x)==="vendedor");const ri=hdr.findIndex(x=>low(x).startsWith("registro"));
+        const cols=hdr.map((x,i)=>({i,m:_mesKey(x)})).filter(x=>x.m);
+        for(let r=hi+1;r<rows.length;r++){const row=rows[r]||[];const nom=String(row[ci]||"").trim();if(!nom)continue;
+          if(low(nom)==="con iva"||low(nom).startsWith("costo mensual"))break;
+          if(!String(row[vi]||"").trim()&&!(ri>-1&&String(row[ri]||"").trim()))continue;
+          const meses={};cols.forEach(c=>{const v=row[c.i];if(typeof v==="number"&&v>0)meses[c.m]=Math.round(v*100)/100;});
+          filas.push({excel:nom,vnd:String(row[vi]||"").trim(),reg:ri>-1?String(row[ri]||"").trim():"",meses});}}}
+    // 2) Hojas de detalle por equipo (columna MONTO MENSUAL)
+    const hojas=[];
+    wb.SheetNames.forEach(sn=>{const rows=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,raw:true});
+      const hi=rows.findIndex((r,i)=>i<12&&r&&r.some(x=>low(x)==="# serie")&&r.some(x=>low(x).startsWith("monto mensual")));if(hi<0)return;
+      const hdr=rows[hi];const si=hdr.findIndex(x=>low(x)==="# serie");const mi=hdr.findIndex(x=>low(x).startsWith("monto mensual"));const ei=hdr.findIndex(x=>low(x)==="equipo");const ai=hdr.findIndex(x=>low(x).startsWith("área")||low(x).startsWith("area"));
+      const titulo=String(((rows[1]||[]).find(x=>String(x||"").trim()))||sn).trim();
+      const eqs=[];let tot=null;
+      for(let r=hi+1;r<rows.length;r++){const row=rows[r]||[];if(row.some(x=>low(x).startsWith("total")) ){const v=row[mi];if(typeof v==="number")tot=v;break;}
+        const p=row[mi];const s=String(row[si]||"").trim();if(typeof p!=="number"&&!s)continue;
+        eqs.push({serie:s,modelo:String(row[ei]||"").trim(),area:ai>-1?String(row[ai]||"").trim():"",precio:typeof p==="number"?Math.round(p*100)/100:0});}
+      const total=tot!=null?tot:eqs.reduce((a,e)=>a+e.precio,0);
+      if(eqs.length)hojas.push({hoja:sn.trim(),titulo,total:Math.round(total*100)/100,eqs});});
+    if(!filas.length&&!hojas.length){showToast("No encontré la hoja PEDIDOS ni hojas con MONTO MENSUAL");return;}
+    _tokCache=null;factMes={...(factMes||{}),filas,hojas,_meta:{ts:new Date().toISOString(),user:sess.name,archivo:f.name}};delete factMes.clientes;_serIdxCache=null;sv("factMes",factMes);
+    const sinApp=filas.filter(r=>Object.keys(r.meses).length&&!_mapCliFact(r.excel)).length;
+    showToast("Importado: "+filas.length+" clientes de PEDIDOS y "+hojas.length+" hojas de equipos"+(sinApp?" · "+sinApp+" por enlazar":""));render();
   }catch(e){showToast("Error leyendo el Excel: "+e.message);}
   inp.value="";
 }
 function enlazarFact(excel,cli){const al={...((factMes&&factMes.alias)||{})};if(cli)al[excel]=cli;else delete al[excel];factMes={...(factMes||{}),alias:al};sv("factMes",factMes);setTimeout(render,0);}
+function enlazarHoja(hoja,cli){const al={...((factMes&&factMes.aliasH)||{})};if(cli)al[hoja]=cli;else delete al[hoja];factMes={...(factMes||{}),aliasH:al};sv("factMes",factMes);setTimeout(render,0);}
+// Ingreso del mes por cliente: PEDIDOS manda; si el cliente no está en PEDIDOS, suma de MONTO MENSUAL de su hoja de equipos
+function _ingresosMes(mes){
+  const out={};const enPed=new Set();
+  ((factMes&&factMes.filas)||[]).forEach(r=>{const c=_mapCliFact(r.excel)||("¿"+r.excel);enPed.add(c);const v=(r.meses||{})[mes]||0;const o=out[c]||(out[c]={ing:0,fuente:"PEDIDOS",vnd:r.vnd});o.ing+=v;if(!o.vnd)o.vnd=r.vnd;});
+  ((factMes&&factMes.hojas)||[]).forEach(h=>{const c=_cliHoja(h);if(!c||enPed.has(c)||!(h.total>0))return;const o=out[c]||(out[c]={ing:0,fuente:"Hoja "+h.hoja,vnd:""});o.ing+=h.total;});
+  return out;
+}
 function _margenDatos(mes){
-  const C=_costos();const fc=_factPorCli();
-  const cli={};const get=c=>cli[c]||(cli[c]={c,vnd:(fc[c]&&fc[c].vnd)||"",ing:0,ml:0,bd:0,bc:0,vis:0,sinEnlace:c.startsWith("¿")});
-  Object.entries(fc).forEach(([c,o])=>{const v=o.meses&&o.meses[mes];if(v)get(c).ing=v;});
+  const C=_costos();const fc=_ingresosMes(mes);
+  const cli={};const get=c=>cli[c]||(cli[c]={c,vnd:(fc[c]&&fc[c].vnd)||"",fuente:(fc[c]&&fc[c].fuente)||"",ing:0,ml:0,bd:0,bc:0,vis:0,sinEnlace:c.startsWith("¿")});
+  Object.entries(fc).forEach(([c,o])=>{if(o.ing>0)get(c).ing=o.ing;});
   const enMes=f=>String(f||"").slice(0,7)===mes;
   const modDe=(c,s)=>((getClientEqs(c)||[]).find(e=>e.serie===s)||{}).modelo||"";
   const batKey=new Set();
@@ -528,40 +572,56 @@ function _margenDatos(mes){
   const l=Object.values(cli).map(x=>{const ce=x.ml*C.ml,cb=x.bd*C.d+x.bc*C.cc,ct=ce+cb,mg=x.ing-ct;return{...x,ce,cb,ct,mg,pct:x.ing>0?mg/x.ing*100:null};});
   return{l,C,tot:l.reduce((a,x)=>({ing:a.ing+x.ing,ct:a.ct+x.ct,ce:a.ce+x.ce,cb:a.cb+x.cb,ml:a.ml+x.ml}),{ing:0,ct:0,ce:0,cb:0,ml:0})};
 }
+function _mesesAtras(mes,n){const [y,m]=mes.split("-").map(Number);const r=[];for(let i=0;i<n;i++){const d=new Date(y,m-1-i,1);r.push(d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0"));}return r;}
+// Promedio de los últimos n meses (solo meses con ingreso), para suavizar los meses de cambio de baterías
+function _margenProm(mes,n){const acc={};let T={ing:0,ct:0};
+  _mesesAtras(mes,n).forEach(m=>{_margenDatos(m).l.forEach(x=>{if(!(x.ing>0))return;const a=acc[x.c]||(acc[x.c]={ing:0,ct:0,n:0});a.ing+=x.ing;a.ct+=x.ct;a.n++;T.ing+=x.ing;T.ct+=x.ct;});});
+  Object.values(acc).forEach(a=>{a.mg=a.ing-a.ct;a.pct=a.ing>0?a.mg/a.ing*100:null;});
+  return{acc,pctT:T.ing>0?(T.ing-T.ct)/T.ing*100:null};}
 const _esc=s=>String(s??"").replace(/[&<>'"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]));
 const _$=n=>"$"+(Math.round(n*100)/100).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
-function margenHTML(){
+const _mesNom=m=>new Date(m+"-15").toLocaleDateString("es-SV",{month:"short",year:"2-digit"});
+function margenHTML(){_serIdxCache=null;
   const meses=[...new Set([...((factMes&&factMes.filas)||[]).flatMap(o=>Object.keys(o.meses||{})),...visits.map(v=>String(v.fecha).slice(0,7))])].filter(m=>m>="2026-01"&&m<=today().slice(0,7)).sort().reverse();
-  const mes=window._mgMes||today().slice(0,7);const {l,C,tot}=_margenDatos(mes);const meta=(factMes&&factMes._meta)||null;
+  const mes=window._mgMes||today().slice(0,7);const nP=window._mgVent||6;
+  const {l,C,tot}=_margenDatos(mes);const P=_margenProm(mes,nP);const meta=(factMes&&factMes._meta)||null;
   const ord=window._mgOrd||"pct";const sinF=l.filter(x=>!x.ing&&x.ct>0).length;
-  const lst=l.filter(x=>x.ing>0||x.ct>0).sort((a,b)=>ord==="pct"?((a.pct??-1e9)-(b.pct??-1e9)):ord==="mg"?b.mg-a.mg:a.c.localeCompare(b.c));
-  const pctT=tot.ing>0?(tot.ing-tot.ct)/tot.ing*100:0;const col=p=>p==null?"var(--D)":p<50?"var(--D)":p<70?"#b45309":"#2e7d32";
+  const lst=l.filter(x=>x.ing>0||x.ct>0).map(x=>({...x,pr:P.acc[x.c]||null}));
+  const kP=x=>x.pr?x.pr.pct:x.pct;
+  lst.sort((a,b)=>ord==="pct"?((kP(a)??-1e9)-(kP(b)??-1e9)):ord==="mg"?b.mg-a.mg:a.c.localeCompare(b.c));
+  const pctT=tot.ing>0?(tot.ing-tot.ct)/tot.ing*100:null;const col=p=>p==null?"var(--D)":p<50?"var(--D)":p<70?"#b45309":"#2e7d32";const fp=p=>p==null?"—":p.toFixed(1)+"%";
+  const hojasPend=((factMes&&factMes.hojas)||[]).filter(h=>!_cliHoja(h));
   let html="<div class='card' style='margin-bottom:14px;border-left:4px solid #2e7d32'><p style='font-weight:700;color:#2e7d32;margin-bottom:4px'>&#128176; Margen por cliente</p>"
-   +"<div style='font-size:11px;color:var(--M);margin-bottom:8px'>Ingreso = facturación mensual sin IVA (hoja PEDIDOS). Costo = ml de esencia agregados en visitas × "+_$(C.ml)+" + baterías cambiadas (D "+_$(C.d)+" · C "+_$(C.cc)+"). Costos en Config.</div>"
-   +"<div style='display:flex;gap:6px;align-items:center;margin-bottom:8px'><select class='inp' style='flex:1;margin:0' onchange='window._mgMes=this.value;render()'>"+(meses.includes(mes)?meses:[mes,...meses]).map(m=>"<option value='"+m+"'"+(m===mes?" selected":"")+">"+new Date(m+"-15").toLocaleDateString("es-SV",{month:"long",year:"numeric"})+"</option>").join("")+"</select>"
+   +"<div style='font-size:11px;color:var(--M);margin-bottom:8px'>Ingreso sin IVA = monto del cliente en PEDIDOS; si no está ahí, la suma de MONTO MENSUAL de su hoja de equipos. Costo = ml agregados en visitas × "+_$(C.ml)+" + baterías cambiadas en el mes (D "+_$(C.d)+" · C "+_$(C.cc)+"). El promedio suaviza los meses de cambio de baterías.</div>"
+   +"<div style='display:flex;gap:6px;align-items:center;margin-bottom:6px'><select class='inp' style='flex:1;margin:0' onchange='window._mgMes=this.value;render()'>"+(meses.includes(mes)?meses:[mes,...meses]).map(m=>"<option value='"+m+"'"+(m===mes?" selected":"")+">"+new Date(m+"-15").toLocaleDateString("es-SV",{month:"long",year:"numeric"})+"</option>").join("")+"</select>"
    +"<label class='be' style='cursor:pointer;white-space:nowrap'>&#128229; Importar Excel<input type='file' accept='.xlsx,.xlsm,.xls' style='display:none' onchange='importFacturacion(this)'/></label></div>"
-   +(meta?"<div style='font-size:10px;color:var(--M);margin-bottom:8px'>Facturación importada "+_fdt(meta.ts)+" por "+meta.user+" ("+meta.archivo+")</div>":"<div style='font-size:12px;color:var(--D);margin-bottom:8px'>Aún no hay facturación: toca <b>Importar Excel</b> y elige EquiposInstaladosAI.xlsx.</div>")
-   +"<div class='stats' style='margin-bottom:8px'><div class='stat'><div class='sn' style='font-size:16px'>"+_$(tot.ing)+"</div><div class='sl2'>Ingreso</div></div><div class='stat'><div class='sn' style='font-size:16px'>"+_$(tot.ct)+"</div><div class='sl2'>Costo esencia+bat.</div></div><div class='stat'><div class='sn' style='font-size:16px;color:"+col(pctT)+"'>"+pctT.toFixed(1)+"%</div><div class='sl2'>Margen</div></div></div>"
-   +"<div style='font-size:11px;color:var(--M);margin-bottom:6px'>Esencia: "+Math.round(tot.ml).toLocaleString()+" ml = "+_$(tot.ce)+" · Baterías: "+_$(tot.cb)+(sinF?" · <b style='color:var(--D)'>"+sinF+" cliente(s) con costo pero sin facturación</b>":"")+"</div>"
-   +"<div style='display:flex;gap:4px;margin-bottom:6px'>"+[["pct","Menor margen"],["mg","Mayor margen $"],["c","A-Z"]].map(([v,t])=>"<button onclick='window._mgOrd=\""+v+"\";render()' style='flex:1;padding:5px;border-radius:14px;border:1px solid "+(ord===v?"var(--F)":"#dde8e2")+";background:"+(ord===v?"var(--F)":"none")+";color:"+(ord===v?"#fff":"var(--M)")+";font-size:11px;cursor:pointer'>"+t+"</button>").join("")+"<button class='be' onclick='exportMargenXLSX()'>&#128229; Excel</button></div>"
-   +lst.map(x=>"<div style='padding:7px 0;border-top:1px solid #eef2ef'><div style='display:flex;justify-content:space-between;gap:6px'><b style='font-size:12px'>"+_esc(x.sinEnlace?x.c.slice(1)+" (sin enlazar)":x.c)+"</b><b style='font-size:13px;color:"+col(x.pct)+";white-space:nowrap'>"+(x.pct==null?"sin factura":x.pct.toFixed(0)+"%")+"</b></div>"
-     +"<div style='font-size:11px;color:var(--M)'>Ingreso "+_$(x.ing)+" · costo "+_$(x.ct)+" ("+Math.round(x.ml)+" ml"+(x.bd?" · "+x.bd+" bat D":"")+(x.bc?" · "+x.bc+" bat C":"")+") · margen <b>"+_$(x.mg)+"</b>"+(x.vnd?" · "+x.vnd:"")+(!x.vis&&x.ing?" · <span style='color:#b45309'>sin visitas registradas</span>":"")+"</div></div>").join("")
+   +"<div style='display:flex;gap:4px;align-items:center;margin-bottom:8px;font-size:11px;color:var(--M)'>Promedio de "+[3,6,12].map(n=>"<button onclick='window._mgVent="+n+";render()' style='padding:3px 10px;border-radius:12px;border:1px solid "+(nP===n?"var(--F)":"#dde8e2")+";background:"+(nP===n?"var(--F)":"none")+";color:"+(nP===n?"#fff":"var(--M)")+";font-size:11px;cursor:pointer'>"+n+"</button>").join("")+" meses</div>"
+   +(meta?"<div style='font-size:10px;color:var(--M);margin-bottom:8px'>Importado "+_fdt(meta.ts)+" por "+meta.user+" ("+meta.archivo+")</div>":"<div style='font-size:12px;color:var(--D);margin-bottom:8px'>Aún no hay facturación: toca <b>Importar Excel</b> y elige EquiposInstaladosAI.xlsx.</div>")
+   +"<div class='stats' style='margin-bottom:8px'><div class='stat'><div class='sn' style='font-size:15px'>"+_$(tot.ing)+"</div><div class='sl2'>Ingreso del mes</div></div><div class='stat'><div class='sn' style='font-size:15px'>"+_$(tot.ct)+"</div><div class='sl2'>Costo esencia+bat.</div></div><div class='stat'><div class='sn' style='font-size:15px;color:"+col(pctT)+"'>"+fp(pctT)+"</div><div class='sl2'>Margen del mes</div></div><div class='stat'><div class='sn' style='font-size:15px;color:"+col(P.pctT)+"'>"+fp(P.pctT)+"</div><div class='sl2'>Promedio "+nP+"m</div></div></div>"
+   +"<div style='font-size:11px;color:var(--M);margin-bottom:6px'>Esencia: "+Math.round(tot.ml).toLocaleString()+" ml = "+_$(tot.ce)+" · Baterías: "+_$(tot.cb)+(sinF?" · <b style='color:var(--D)'>"+sinF+" cliente(s) con costo pero sin monto en PEDIDOS ni en hoja de equipos</b>":"")+"</div>"
+   +"<div style='display:flex;gap:4px;margin-bottom:6px'>"+[["pct","Menor margen prom."],["mg","Mayor margen $"],["c","A-Z"]].map(([v,t])=>"<button onclick='window._mgOrd=\""+v+"\";render()' style='flex:1;padding:5px;border-radius:14px;border:1px solid "+(ord===v?"var(--F)":"#dde8e2")+";background:"+(ord===v?"var(--F)":"none")+";color:"+(ord===v?"#fff":"var(--M)")+";font-size:11px;cursor:pointer'>"+t+"</button>").join("")+"<button class='be' onclick='exportMargenXLSX()'>&#128229; Excel</button></div>"
+   +lst.map(x=>"<div style='padding:7px 0;border-top:1px solid #eef2ef'><div style='display:flex;justify-content:space-between;gap:6px;align-items:baseline'><b style='font-size:12px'>"+_esc(x.sinEnlace?x.c.slice(1)+" (sin enlazar)":x.c)+"</b><span style='white-space:nowrap;font-size:11px;color:var(--M)'>"+_mesNom(mes)+" <b style='color:"+col(x.pct)+"'>"+(x.pct==null?"sin monto":x.pct.toFixed(0)+"%")+"</b> · prom <b style='font-size:13px;color:"+col(x.pr&&x.pr.pct)+"'>"+(x.pr?x.pr.pct.toFixed(0)+"%":"—")+"</b></span></div>"
+     +"<div style='font-size:11px;color:var(--M)'>Ingreso "+_$(x.ing)+(x.fuente&&x.fuente!=="PEDIDOS"?" <span style='color:#6a1b9a'>("+_esc(x.fuente)+")</span>":"")+" · costo "+_$(x.ct)+" ("+Math.round(x.ml)+" ml"+(x.bd?" · "+x.bd+" bat D":"")+(x.bc?" · "+x.bc+" bat C":"")+") · margen <b>"+_$(x.mg)+"</b>"+(x.pr?" · prom "+x.pr.n+" mes"+(x.pr.n>1?"es":"")+" "+_$(x.pr.mg/x.pr.n)+"/mes":"")+(x.vnd?" · "+_esc(x.vnd):"")+(!x.vis&&x.ing?" · <span style='color:#b45309'>sin visitas registradas</span>":"")+"</div></div>").join("")
    +(lst.length?"":"<div style='font-size:12px;color:var(--M)'>Sin datos para este mes</div>")
-   +(()=>{const fl=(factMes&&factMes.filas)||[];const al=(factMes&&factMes.alias)||{};const pend=fl.filter(r=>!_mapCliFact(r.excel));const man=fl.filter(r=>al[r.excel]||(_mapCliFact(r.excel)&&_NC(_mapCliFact(r.excel))!==_NC(r.excel)));if(!pend.length&&!man.length)return "";
+   +(()=>{const fl=(factMes&&factMes.filas)||[];const al=(factMes&&factMes.alias)||{};const pend=fl.filter(r=>Object.keys(r.meses||{}).length&&!_mapCliFact(r.excel));const man=fl.filter(r=>Object.keys(r.meses||{}).length&&al[r.excel]||(_mapCliFact(r.excel)&&_NC(_mapCliFact(r.excel))!==_NC(r.excel)));if(!pend.length&&!man.length&&!hojasPend.length)return "";
      const opts=sel=>"<option value=''>— elegir cliente de la app —</option>"+[...ALL_CLIENTS].sort((a,b)=>a.localeCompare(b)).map(c=>"<option"+(c===sel?" selected":"")+">"+_esc(c)+"</option>").join("");
-     return "<details style='margin-top:10px;border-top:1px solid #eef2ef;padding-top:8px'"+(pend.length?" open":"")+"><summary style='font-size:12px;font-weight:700;cursor:pointer;color:"+(pend.length?"var(--D)":"var(--M)")+"'>Enlazar nombres del Excel ("+pend.length+" pendientes"+(man.length?" · "+man.length+" con nombre distinto, revisar":"")+")</summary>"
-      +"<div style='font-size:10px;color:var(--M);margin:4px 0'>Elige a qué cliente de la app corresponde cada nombre de la hoja PEDIDOS. Se recuerda para las próximas importaciones.</div>"
-      +[...pend,...man].map(r=>"<div style='margin:6px 0'><div style='font-size:11px'><b>"+_esc(r.excel)+"</b> <span style='color:var(--M)'>"+(r.vnd||"")+"</span></div><select class='inp' style='margin:2px 0 0;font-size:11px;padding:5px' onchange='enlazarFact("+JSON.stringify(r.excel).replace(/'/g,"&#39;")+",this.value)'>"+opts(_mapCliFact(r.excel))+"</select></div>").join("")+"</details>";})()
+     const q=s=>JSON.stringify(s).replace(/'/g,"&#39;");
+     return "<details style='margin-top:10px;border-top:1px solid #eef2ef;padding-top:8px'"+(pend.length?" open":"")+"><summary style='font-size:12px;font-weight:700;cursor:pointer;color:"+(pend.length?"var(--D)":"var(--M)")+"'>Enlazar nombres del Excel ("+pend.length+" pendientes"+(man.length?" · "+man.length+" con nombre distinto, revisar":"")+(hojasPend.length?" · "+hojasPend.length+" hojas sin cliente":"")+")</summary>"
+      +"<div style='font-size:10px;color:var(--M);margin:4px 0'>Elige a qué cliente de la app corresponde cada nombre. Se recuerda para las próximas importaciones.</div>"
+      +[...pend,...man].map(r=>"<div style='margin:6px 0'><div style='font-size:11px'><b>"+_esc(r.excel)+"</b> <span style='color:var(--M)'>PEDIDOS · "+(r.vnd||"")+"</span></div><select class='inp' style='margin:2px 0 0;font-size:11px;padding:5px' onchange='enlazarFact("+q(r.excel)+",this.value)'>"+opts(_mapCliFact(r.excel))+"</select></div>").join("")
+      +hojasPend.map(h=>"<div style='margin:6px 0'><div style='font-size:11px'><b>"+_esc(h.titulo)+"</b> <span style='color:var(--M)'>hoja "+_esc(h.hoja)+" · "+_$(h.total)+"/mes</span></div><select class='inp' style='margin:2px 0 0;font-size:11px;padding:5px' onchange='enlazarHoja("+q(h.hoja)+",this.value)'>"+opts("")+"</select></div>").join("")+"</details>";})()
    +"</div>";
   return html;
 }
-async function exportMargenXLSX(){
+async function exportMargenXLSX(){_serIdxCache=null;
   try{await _loadXLSX();}catch{showToast("No se pudo cargar el generador de Excel (revisa internet)");return;}
-  const mes=window._mgMes||today().slice(0,7);const {l,C}=_margenDatos(mes);
-  const rows=l.filter(x=>x.ing>0||x.ct>0).sort((a,b)=>a.c.localeCompare(b.c)).map(x=>({Cliente:x.sinEnlace?x.c.slice(1)+" (sin enlazar)":x.c,Vendedor:x.vnd,Ingreso_sin_IVA:+x.ing.toFixed(2),Visitas:x.vis,Esencia_ml:Math.round(x.ml),Costo_esencia:+x.ce.toFixed(2),Baterias_D:x.bd,Baterias_C:x.bc,Costo_baterias:+x.cb.toFixed(2),Costo_total:+x.ct.toFixed(2),Margen:+x.mg.toFixed(2),Margen_pct:x.pct==null?"":+x.pct.toFixed(1)}));
-  const wb=XLSX.utils.book_new();const ws=XLSX.utils.json_to_sheet(rows);ws["!cols"]=[{wch:40},{wch:10},{wch:14},{wch:8},{wch:11},{wch:13},{wch:10},{wch:10},{wch:13},{wch:12},{wch:11},{wch:11}];
+  const mes=window._mgMes||today().slice(0,7);const nP=window._mgVent||6;const {l,C}=_margenDatos(mes);const P=_margenProm(mes,nP);
+  const rows=l.filter(x=>x.ing>0||x.ct>0).sort((a,b)=>a.c.localeCompare(b.c)).map(x=>{const pr=P.acc[x.c];return{Cliente:x.sinEnlace?x.c.slice(1)+" (sin enlazar)":x.c,Vendedor:x.vnd,Fuente_ingreso:x.fuente||"",Ingreso_sin_IVA:+x.ing.toFixed(2),Visitas:x.vis,Esencia_ml:Math.round(x.ml),Costo_esencia:+x.ce.toFixed(2),Baterias_D:x.bd,Baterias_C:x.bc,Costo_baterias:+x.cb.toFixed(2),Costo_total:+x.ct.toFixed(2),Margen:+x.mg.toFixed(2),Margen_pct:x.pct==null?"":+x.pct.toFixed(1),["Meses_prom"]:pr?pr.n:"",["Ingreso_"+nP+"m"]:pr?+pr.ing.toFixed(2):"",["Costo_"+nP+"m"]:pr?+pr.ct.toFixed(2):"",["Margen_prom_pct_"+nP+"m"]:pr&&pr.pct!=null?+pr.pct.toFixed(1):""};});
+  const wb=XLSX.utils.book_new();const ws=XLSX.utils.json_to_sheet(rows);ws["!cols"]=[{wch:40},{wch:10},{wch:16},{wch:14},{wch:8},{wch:11},{wch:13},{wch:10},{wch:10},{wch:13},{wch:12},{wch:11},{wch:11},{wch:10},{wch:12},{wch:12},{wch:16}];
   XLSX.utils.book_append_sheet(wb,ws,"Margen "+mes);
-  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet([{Concepto:"Costo por ml de esencia",Valor:C.ml},{Concepto:"Costo batería D",Valor:C.d},{Concepto:"Costo batería C",Valor:C.cc},{Concepto:"Modelos con batería C",Valor:C.modC.join(", ")||"ninguno"}]),"Supuestos");
+  const ms=_mesesAtras(mes,12).reverse();const hist={};ms.forEach(m=>_margenDatos(m).l.forEach(x=>{if(!(x.ing>0||x.ct>0))return;const k=x.sinEnlace?x.c.slice(1)+" (sin enlazar)":x.c;const o=hist[k]||(hist[k]={Cliente:k});o[m]=x.pct==null?"sin monto":+x.pct.toFixed(1);}));
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(Object.values(hist).sort((a,b)=>a.Cliente.localeCompare(b.Cliente)),{header:["Cliente",...ms]}),"Margen % 12 meses");
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet([{Concepto:"Costo por ml de esencia",Valor:C.ml},{Concepto:"Costo batería D",Valor:C.d},{Concepto:"Costo batería C",Valor:C.cc},{Concepto:"Modelos con batería C",Valor:C.modC.join(", ")||"ninguno"},{Concepto:"Ingreso",Valor:"PEDIDOS; si el cliente no está ahí, MONTO MENSUAL de su hoja de equipos"},{Concepto:"Promedio",Valor:"Últimos "+nP+" meses con ingreso: (ingreso − costo) / ingreso"}]),"Supuestos");
   XLSX.writeFile(wb,"Margen_por_cliente_"+mes+".xlsx");
 }
 function setCfgC(campo,val){const c={...(consumoCfg||{})};c[campo]=+val;consumoCfg=c;sv("consumoCfg",consumoCfg);}
@@ -3152,7 +3212,7 @@ function regVisitSimple(){
 // ── INIT ──
 render();
 // ── ACTUALIZACIÓN AUTOMÁTICA DE LA APP ──
-const APP_VER="2026-11-24l";
+const APP_VER="2026-11-24m";
 async function checkUpdate(){
   try{
     const r=await fetch(location.pathname+"?_="+Date.now(),{cache:"no-store"});if(!r.ok)return;
