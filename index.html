@@ -97,10 +97,10 @@ window.onerror=function(msg,src,line){
 // ── SUPABASE ──
 const SB_URL="https://bdyuhphgqehnzputlgiy.supabase.co";
 const SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJkeXVocGhncWVobnpwdXRsZ2l5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkxOTk0NjUsImV4cCI6MjA5NDc3NTQ2NX0.gJ8JQb2dHIbupktg1ags10uYXfepAE6ou3Da6EAra9M";
-const SB_KEYS=["vis","inv","demos","eqs","movs","eqgrades","ceq","bajas","nvm","vnd","modelos","stkseries","cartuchos","customclients","sols","rejillas","baterias","pedidos","invMovs","batMovs","eqImportVer","vndFixVer","eqEdits","perms","jasonFixVer","consumoCfg","pedCli","devs","bateriasC","batIng"];
+const SB_KEYS=["vis","inv","demos","eqs","movs","eqgrades","ceq","bajas","nvm","vnd","modelos","stkseries","cartuchos","customclients","sols","rejillas","baterias","pedidos","invMovs","batMovs","eqImportVer","vndFixVer","eqEdits","perms","jasonFixVer","consumoCfg","pedCli","devs","bateriasC","batIng","factMes"];
 // ── SINCRONIZACIÓN (combina cambios; no pisa lo de otros teléfonos) ──
 const SB_H={"apikey":SB_KEY,"Authorization":"Bearer "+SB_KEY,"X-Client-Info":"ecobasicscents/2.0"};
-const MERGE_T={batIng:"arr",bateriasC:"scalar",devs:"arr",pedCli:"arr",consumoCfg:"obj",vis:"arr",demos:"arr",movs:"arr",bajas:"arr",sols:"arr",invMovs:"arr",batMovs:"arr",eqEdits:"arr",vnd:"arr",
+const MERGE_T={factMes:"obj",batIng:"arr",bateriasC:"scalar",devs:"arr",pedCli:"arr",consumoCfg:"obj",vis:"arr",demos:"arr",movs:"arr",bajas:"arr",sols:"arr",invMovs:"arr",batMovs:"arr",eqEdits:"arr",vnd:"arr",
   inv:"num",cartuchos:"num",rejillas:"num",eqs:"num",baterias:"scalar",
   ceq:"obj",eqgrades:"obj",nvm:"obj",pedidos:"obj",customclients:"cc",modelos:"set"};
 let _syncReady=false;
@@ -184,6 +184,7 @@ function applyRemote(key,val){
   if(key==="eqEdits")eqEdits=val;
   if(key==="perms")perms=val||{};
   if(key==="consumoCfg")consumoCfg=val||{};
+  if(key==="factMes")factMes=val||{};
   if(key==="pedCli")pedCli=Array.isArray(val)?val:[];
   if(key==="batMovs")batMovs=val;
   if(key==="baterias")baterias=val;
@@ -294,7 +295,7 @@ const sv=(k,v)=>{let _old=null;try{_old=localStorage.getItem("eco_"+k);}catch{} 
 let _noLog=0,_lastUI=0,_logBuf=null,_logT=null,_logSending=false;
 ["pointerdown","keydown","change","input"].forEach(ev=>document.addEventListener(ev,()=>{_lastUI=Date.now();},true));
 const LOG_SKIP=["eqImportVer","vndFixVer","jasonFixVer"];
-const LOG_LBL={vis:"Visitas",inv:"Inventario de esencias",demos:"Demos",eqs:"Stock de equipos",movs:"Movimientos de equipos",eqgrades:"Intensidades / horarios",ceq:"Equipos por cliente",bajas:"Bajas",nvm:"Niveles mínimos",vnd:"Usuarios",modelos:"Modelos",stkseries:"Series en stock",cartuchos:"Cartuchos",customclients:"Clientes",sols:"Solicitudes",rejillas:"Rejillas",baterias:"Baterías D (stock)",bateriasC:"Baterías C (stock)",batIng:"Ingresos de baterías",pedidos:"Pedidos",invMovs:"Movimientos de esencias",batMovs:"Cambios de baterías",eqEdits:"Ediciones de equipos",perms:"Permisos",consumoCfg:"Config. de consumo",pedCli:"Pedidos de vendedores",devs:"Devoluciones de equipos"};
+const LOG_LBL={vis:"Visitas",inv:"Inventario de esencias",demos:"Demos",eqs:"Stock de equipos",movs:"Movimientos de equipos",eqgrades:"Intensidades / horarios",ceq:"Equipos por cliente",bajas:"Bajas",nvm:"Niveles mínimos",vnd:"Usuarios",modelos:"Modelos",stkseries:"Series en stock",cartuchos:"Cartuchos",customclients:"Clientes",sols:"Solicitudes",rejillas:"Rejillas",baterias:"Baterías D (stock)",bateriasC:"Baterías C (stock)",batIng:"Ingresos de baterías",factMes:"Facturación mensual",pedidos:"Pedidos",invMovs:"Movimientos de esencias",batMovs:"Cambios de baterías",eqEdits:"Ediciones de equipos",perms:"Permisos",consumoCfg:"Config. de consumo",pedCli:"Pedidos de vendedores",devs:"Devoluciones de equipos"};
 const LOG_TAB={visit:"Registrar",hist:"Visitas",inv:"Inventario",demos:"Demos",eqs:"Equipos",clts:"Clientes",sols:"Solicitudes",usrs:"Usuarios",bajas:"Bajas",lost:"Perdidos",grades:"Intensidades",reports:"Reportes",config:"Config",log:"Bitácora",peds:"Pedidos"};
 function _lv(x){if(x==null||x==="")return"∅";if(typeof x==="object")return Array.isArray(x)?"["+x.length+"]":"{…}";const s=String(x);return s.length>40?s.slice(0,40)+"…":s;}
 function _ldesc(o){if(!o||typeof o!=="object")return _lv(o);const p=[];["cliente","c","nombre","name","serie","esencia","aroma","modelo","item","tipo","fecha"].forEach(f=>{if(p.length<3&&o[f]!=null&&o[f]!==""&&typeof o[f]!=="object")p.push(String(o[f]).slice(0,40));});return p.join(" · ")||(o.id?"id "+o.id:"registro");}
@@ -471,6 +472,98 @@ async function doExportProyeccionXLSX(){
   mk(rows,"Proyección por equipo");mk(al,"Alertas de esencia");mk(ab,"Baterías anticipadas");mk(tabla,"Tabla por modelo");
   XLSX.writeFile(wb,"Proyeccion_servicios_"+today()+".xlsx");
 }
+function setCfgCS(campo,val){const c={...(consumoCfg||{})};c[campo]=val;consumoCfg=c;sv("consumoCfg",consumoCfg);}
+function _costos(){const c=consumoCfg||{};return{ml:c.costoMl!=null&&c.costoMl!==""?+c.costoMl:0.10,d:c.costoBatD!=null&&c.costoBatD!==""?+c.costoBatD:1.7136,cc:c.costoBatC!=null&&c.costoBatC!==""?+c.costoBatC:1.4279,modC:Array.isArray(c.modelosBatC)?c.modelosBatC:[]};}
+// ── MARGEN POR CLIENTE ──
+const _NC=s=>String(s||"").toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/\s+/g," ").trim();
+const _BASE=s=>_NC(String(s||"").split("(")[0]).replace(/[^A-Z0-9 ]/g," ").replace(/\b(SA|DE|CV|S A|LA|EL|Y)\b/g," ").replace(/\s+/g," ").trim();
+const _TOK=s=>new Set(_NC(s).replace(/[^A-Z0-9 ]/g," ").split(" ").filter(w=>w.length>2&&!["SA","CV","DE","DEL","LAS","LOS"].includes(w)));
+function _mapCliFact(nombre){
+  const al=(factMes&&factMes.alias)||{};if(al[nombre])return al[nombre];
+  const cc=ld("customclients",null)||{};const ren=cc.renames||{};
+  let n=nombre;try{if(ren[n])n=_finalName(n,ren);}catch{}
+  const t=_NC(n);let hit=ALL_CLIENTS.find(c=>_NC(c)===t);if(hit)return hit;
+  const rk=Object.keys(ren).find(k=>_NC(k)===t);if(rk){try{return _finalName(rk,ren);}catch{return ren[rk];}}
+  const b=_BASE(n);if(b.length>=4){const hs=ALL_CLIENTS.filter(c=>_BASE(c)===b);if(hs.length===1)return hs[0];}
+  const ta=_TOK(n);if(ta.size){let best=null,bs=0,second=0;ALL_CLIENTS.forEach(c=>{const tb=_TOK(c);if(!tb.size)return;let inter=0;ta.forEach(w=>{if(tb.has(w))inter++;});const s=inter/Math.max(ta.size,tb.size);if(s>bs){second=bs;bs=s;best=c;}else if(s>second)second=s;});if(best&&bs>0.7&&bs>second)return best;}
+  return null;
+}
+function _factPorCli(){const out={};((factMes&&factMes.filas)||[]).forEach(r=>{const c=_mapCliFact(r.excel)||("¿"+r.excel);const o=out[c]||(out[c]={vnd:r.vnd,excel:[],meses:{}});o.excel.push(r.excel);Object.entries(r.meses||{}).forEach(([m,v])=>{o.meses[m]=(o.meses[m]||0)+v;});});return out;}
+function _mesKey(v){if(v instanceof Date&&!isNaN(v))return v.getFullYear()+"-"+String(v.getMonth()+1).padStart(2,"0");if(typeof v==="number"&&v>30000&&v<80000){const d=new Date(Math.round((v-25569)*864e5));return d.getUTCFullYear()+"-"+String(d.getUTCMonth()+1).padStart(2,"0");}return null;}
+async function importFacturacion(inp){
+  const f=inp.files&&inp.files[0];if(!f)return;
+  try{await _loadXLSX();}catch{showToast("No se pudo cargar el lector de Excel (revisa internet)");return;}
+  try{
+    const wb=XLSX.read(await f.arrayBuffer(),{type:"array",cellDates:true});
+    const ws=wb.Sheets["PEDIDOS"];if(!ws){showToast("El Excel no tiene la hoja PEDIDOS");return;}
+    const rows=XLSX.utils.sheet_to_json(ws,{header:1,raw:true});
+    const low=x=>String(x||"").trim().toLowerCase();
+    const hi=rows.findIndex(r=>r&&r.some(x=>low(x)==="cliente/mes"));if(hi<0){showToast("No encontré la fila 'Cliente/Mes' en PEDIDOS");return;}
+    const hdr=rows[hi];const ci=hdr.findIndex(x=>low(x)==="cliente/mes");const vi=hdr.findIndex(x=>low(x)==="vendedor");const ri=hdr.findIndex(x=>low(x).startsWith("registro"));
+    const cols=hdr.map((x,i)=>({i,m:_mesKey(x)})).filter(x=>x.m);
+    const filas=[];
+    for(let r=hi+1;r<rows.length;r++){const row=rows[r]||[];const nom=String(row[ci]||"").trim();if(!nom)continue;
+      if(low(nom)==="con iva"||low(nom).startsWith("costo mensual"))break;
+      if(!String(row[vi]||"").trim()&&!(ri>-1&&String(row[ri]||"").trim()))continue;
+      const meses={};cols.forEach(c=>{const v=row[c.i];if(typeof v==="number"&&v>0)meses[c.m]=Math.round(v*100)/100;});
+      if(!Object.keys(meses).length)continue;
+      filas.push({excel:nom,vnd:String(row[vi]||"").trim(),reg:ri>-1?String(row[ri]||"").trim():"",meses});}
+    factMes={...(factMes||{}),filas,_meta:{ts:new Date().toISOString(),user:sess.name,archivo:f.name}};delete factMes.clientes;sv("factMes",factMes);
+    const sinApp=filas.filter(r=>!_mapCliFact(r.excel)).length;
+    showToast("Facturación importada: "+filas.length+" clientes"+(sinApp?" · "+sinApp+" por enlazar":""));render();
+  }catch(e){showToast("Error leyendo el Excel: "+e.message);}
+  inp.value="";
+}
+function enlazarFact(excel,cli){const al={...((factMes&&factMes.alias)||{})};if(cli)al[excel]=cli;else delete al[excel];factMes={...(factMes||{}),alias:al};sv("factMes",factMes);setTimeout(render,0);}
+function _margenDatos(mes){
+  const C=_costos();const fc=_factPorCli();
+  const cli={};const get=c=>cli[c]||(cli[c]={c,vnd:(fc[c]&&fc[c].vnd)||"",ing:0,ml:0,bd:0,bc:0,vis:0,sinEnlace:c.startsWith("¿")});
+  Object.entries(fc).forEach(([c,o])=>{const v=o.meses&&o.meses[mes];if(v)get(c).ing=v;});
+  const enMes=f=>String(f||"").slice(0,7)===mes;
+  const modDe=(c,s)=>((getClientEqs(c)||[]).find(e=>e.serie===s)||{}).modelo||"";
+  const batKey=new Set();
+  batMovs.forEach(b=>{if(!enMes(b.ts))return;const x=get(b.cliente);const m=b.modelo||modDe(b.cliente,b.serie);if(C.modC.includes(m))x.bc+=+b.qty||0;else x.bd+=+b.qty||0;batKey.add(b.cliente+"|"+b.serie+"|"+String(b.ts).slice(0,10));});
+  visits.forEach(v=>{if(!enMes(v.fecha)||v.gradeCambio)return;const x=get(v.cliente);x.vis++;x.ml+=+v.ml||0;
+    if(v.baterias>0&&!batKey.has(v.cliente+"|"+v.serie+"|"+String(v.fecha).slice(0,10))){const m=v.modelo||modDe(v.cliente,v.serie);if(C.modC.includes(m))x.bc+=+v.baterias;else x.bd+=+v.baterias;}});
+  const l=Object.values(cli).map(x=>{const ce=x.ml*C.ml,cb=x.bd*C.d+x.bc*C.cc,ct=ce+cb,mg=x.ing-ct;return{...x,ce,cb,ct,mg,pct:x.ing>0?mg/x.ing*100:null};});
+  return{l,C,tot:l.reduce((a,x)=>({ing:a.ing+x.ing,ct:a.ct+x.ct,ce:a.ce+x.ce,cb:a.cb+x.cb,ml:a.ml+x.ml}),{ing:0,ct:0,ce:0,cb:0,ml:0})};
+}
+const _esc=s=>String(s??"").replace(/[&<>'"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]));
+const _$=n=>"$"+(Math.round(n*100)/100).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
+function margenHTML(){
+  const meses=[...new Set([...((factMes&&factMes.filas)||[]).flatMap(o=>Object.keys(o.meses||{})),...visits.map(v=>String(v.fecha).slice(0,7))])].filter(m=>m>="2026-01"&&m<=today().slice(0,7)).sort().reverse();
+  const mes=window._mgMes||today().slice(0,7);const {l,C,tot}=_margenDatos(mes);const meta=(factMes&&factMes._meta)||null;
+  const ord=window._mgOrd||"pct";const sinF=l.filter(x=>!x.ing&&x.ct>0).length;
+  const lst=l.filter(x=>x.ing>0||x.ct>0).sort((a,b)=>ord==="pct"?((a.pct??-1e9)-(b.pct??-1e9)):ord==="mg"?b.mg-a.mg:a.c.localeCompare(b.c));
+  const pctT=tot.ing>0?(tot.ing-tot.ct)/tot.ing*100:0;const col=p=>p==null?"var(--D)":p<50?"var(--D)":p<70?"#b45309":"#2e7d32";
+  let html="<div class='card' style='margin-bottom:14px;border-left:4px solid #2e7d32'><p style='font-weight:700;color:#2e7d32;margin-bottom:4px'>&#128176; Margen por cliente</p>"
+   +"<div style='font-size:11px;color:var(--M);margin-bottom:8px'>Ingreso = facturación mensual sin IVA (hoja PEDIDOS). Costo = ml de esencia agregados en visitas × "+_$(C.ml)+" + baterías cambiadas (D "+_$(C.d)+" · C "+_$(C.cc)+"). Costos en Config.</div>"
+   +"<div style='display:flex;gap:6px;align-items:center;margin-bottom:8px'><select class='inp' style='flex:1;margin:0' onchange='window._mgMes=this.value;render()'>"+(meses.includes(mes)?meses:[mes,...meses]).map(m=>"<option value='"+m+"'"+(m===mes?" selected":"")+">"+new Date(m+"-15").toLocaleDateString("es-SV",{month:"long",year:"numeric"})+"</option>").join("")+"</select>"
+   +"<label class='be' style='cursor:pointer;white-space:nowrap'>&#128229; Importar Excel<input type='file' accept='.xlsx,.xlsm,.xls' style='display:none' onchange='importFacturacion(this)'/></label></div>"
+   +(meta?"<div style='font-size:10px;color:var(--M);margin-bottom:8px'>Facturación importada "+_fdt(meta.ts)+" por "+meta.user+" ("+meta.archivo+")</div>":"<div style='font-size:12px;color:var(--D);margin-bottom:8px'>Aún no hay facturación: toca <b>Importar Excel</b> y elige EquiposInstaladosAI.xlsx.</div>")
+   +"<div class='stats' style='margin-bottom:8px'><div class='stat'><div class='sn' style='font-size:16px'>"+_$(tot.ing)+"</div><div class='sl2'>Ingreso</div></div><div class='stat'><div class='sn' style='font-size:16px'>"+_$(tot.ct)+"</div><div class='sl2'>Costo esencia+bat.</div></div><div class='stat'><div class='sn' style='font-size:16px;color:"+col(pctT)+"'>"+pctT.toFixed(1)+"%</div><div class='sl2'>Margen</div></div></div>"
+   +"<div style='font-size:11px;color:var(--M);margin-bottom:6px'>Esencia: "+Math.round(tot.ml).toLocaleString()+" ml = "+_$(tot.ce)+" · Baterías: "+_$(tot.cb)+(sinF?" · <b style='color:var(--D)'>"+sinF+" cliente(s) con costo pero sin facturación</b>":"")+"</div>"
+   +"<div style='display:flex;gap:4px;margin-bottom:6px'>"+[["pct","Menor margen"],["mg","Mayor margen $"],["c","A-Z"]].map(([v,t])=>"<button onclick='window._mgOrd=\""+v+"\";render()' style='flex:1;padding:5px;border-radius:14px;border:1px solid "+(ord===v?"var(--F)":"#dde8e2")+";background:"+(ord===v?"var(--F)":"none")+";color:"+(ord===v?"#fff":"var(--M)")+";font-size:11px;cursor:pointer'>"+t+"</button>").join("")+"<button class='be' onclick='exportMargenXLSX()'>&#128229; Excel</button></div>"
+   +lst.map(x=>"<div style='padding:7px 0;border-top:1px solid #eef2ef'><div style='display:flex;justify-content:space-between;gap:6px'><b style='font-size:12px'>"+_esc(x.sinEnlace?x.c.slice(1)+" (sin enlazar)":x.c)+"</b><b style='font-size:13px;color:"+col(x.pct)+";white-space:nowrap'>"+(x.pct==null?"sin factura":x.pct.toFixed(0)+"%")+"</b></div>"
+     +"<div style='font-size:11px;color:var(--M)'>Ingreso "+_$(x.ing)+" · costo "+_$(x.ct)+" ("+Math.round(x.ml)+" ml"+(x.bd?" · "+x.bd+" bat D":"")+(x.bc?" · "+x.bc+" bat C":"")+") · margen <b>"+_$(x.mg)+"</b>"+(x.vnd?" · "+x.vnd:"")+(!x.vis&&x.ing?" · <span style='color:#b45309'>sin visitas registradas</span>":"")+"</div></div>").join("")
+   +(lst.length?"":"<div style='font-size:12px;color:var(--M)'>Sin datos para este mes</div>")
+   +(()=>{const fl=(factMes&&factMes.filas)||[];const al=(factMes&&factMes.alias)||{};const pend=fl.filter(r=>!_mapCliFact(r.excel));const man=fl.filter(r=>al[r.excel]||(_mapCliFact(r.excel)&&_NC(_mapCliFact(r.excel))!==_NC(r.excel)));if(!pend.length&&!man.length)return "";
+     const opts=sel=>"<option value=''>— elegir cliente de la app —</option>"+[...ALL_CLIENTS].sort((a,b)=>a.localeCompare(b)).map(c=>"<option"+(c===sel?" selected":"")+">"+_esc(c)+"</option>").join("");
+     return "<details style='margin-top:10px;border-top:1px solid #eef2ef;padding-top:8px'"+(pend.length?" open":"")+"><summary style='font-size:12px;font-weight:700;cursor:pointer;color:"+(pend.length?"var(--D)":"var(--M)")+"'>Enlazar nombres del Excel ("+pend.length+" pendientes"+(man.length?" · "+man.length+" con nombre distinto, revisar":"")+")</summary>"
+      +"<div style='font-size:10px;color:var(--M);margin:4px 0'>Elige a qué cliente de la app corresponde cada nombre de la hoja PEDIDOS. Se recuerda para las próximas importaciones.</div>"
+      +[...pend,...man].map(r=>"<div style='margin:6px 0'><div style='font-size:11px'><b>"+_esc(r.excel)+"</b> <span style='color:var(--M)'>"+(r.vnd||"")+"</span></div><select class='inp' style='margin:2px 0 0;font-size:11px;padding:5px' onchange='enlazarFact("+JSON.stringify(r.excel).replace(/'/g,"&#39;")+",this.value)'>"+opts(_mapCliFact(r.excel))+"</select></div>").join("")+"</details>";})()
+   +"</div>";
+  return html;
+}
+async function exportMargenXLSX(){
+  try{await _loadXLSX();}catch{showToast("No se pudo cargar el generador de Excel (revisa internet)");return;}
+  const mes=window._mgMes||today().slice(0,7);const {l,C}=_margenDatos(mes);
+  const rows=l.filter(x=>x.ing>0||x.ct>0).sort((a,b)=>a.c.localeCompare(b.c)).map(x=>({Cliente:x.sinEnlace?x.c.slice(1)+" (sin enlazar)":x.c,Vendedor:x.vnd,Ingreso_sin_IVA:+x.ing.toFixed(2),Visitas:x.vis,Esencia_ml:Math.round(x.ml),Costo_esencia:+x.ce.toFixed(2),Baterias_D:x.bd,Baterias_C:x.bc,Costo_baterias:+x.cb.toFixed(2),Costo_total:+x.ct.toFixed(2),Margen:+x.mg.toFixed(2),Margen_pct:x.pct==null?"":+x.pct.toFixed(1)}));
+  const wb=XLSX.utils.book_new();const ws=XLSX.utils.json_to_sheet(rows);ws["!cols"]=[{wch:40},{wch:10},{wch:14},{wch:8},{wch:11},{wch:13},{wch:10},{wch:10},{wch:13},{wch:12},{wch:11},{wch:11}];
+  XLSX.utils.book_append_sheet(wb,ws,"Margen "+mes);
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet([{Concepto:"Costo por ml de esencia",Valor:C.ml},{Concepto:"Costo batería D",Valor:C.d},{Concepto:"Costo batería C",Valor:C.cc},{Concepto:"Modelos con batería C",Valor:C.modC.join(", ")||"ninguno"}]),"Supuestos");
+  XLSX.writeFile(wb,"Margen_por_cliente_"+mes+".xlsx");
+}
 function setCfgC(campo,val){const c={...(consumoCfg||{})};c[campo]=+val;consumoCfg=c;sv("consumoCfg",consumoCfg);}
 function setSpecC(modelo,campo,val){const c={...(consumoCfg||{})};const s={...(c.spec||{})};s[modelo]={...(s[modelo]||{}),[campo]:val===""?"":+val};c.spec=s;consumoCfg=c;sv("consumoCfg",consumoCfg);}
 function calcAE3500(on,off){if(!on||!off||on<=0||off<=0)return null;return Math.round((on/(on+off))*10*3600*0.00099537*31*10)/10;}
@@ -499,6 +592,7 @@ let cartuchos=ld("cartuchos",null);if(!cartuchos||!Object.keys(cartuchos).length
 let rejillas=ld("rejillas",null);if(!rejillas||!Object.keys(rejillas).length){rejillas={"AirFin Mountain Breeze":0};}
 let baterias=ld("baterias",0);if(isNaN(baterias)||baterias<0)baterias=0;
 let bateriasC=+ld("bateriasC",0)||0;
+let factMes=ld("factMes",{}); // facturación mensual sin IVA: {clientes:{cliente:{vnd,meses:{"AAAA-MM":monto}}},_meta:{ts,user,archivo}}
 let batIng=ld("batIng",[]); // ingresos de baterías: [{id,fecha,ts,tipo:"D"|"C",qty,ref,user}]
 let modelos=ld("modelos",["AE301","AE701","AE801","AE3500","Radiant","AE TOWER BLACK","FMATIC Blanco","FMATIC Negro","Equipo de Goteo","AirFin Urinal"]);
 let nivMin=ld("nvm",{});
@@ -2677,7 +2771,7 @@ function render(){
     const rFrom=window._rFrom||"";const rTo=window._rTo||"";const rType=window._rType||"visitas";const rPais=window._rPais||"todos";
     const pfBtnR=(v,l)=>"<button onclick='window._rPais=\""+v+"\";render()' style='flex:1;padding:7px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid "+(rPais===v?"var(--F)":"#dde8e2")+";background:"+(rPais===v?"var(--F)":"none")+";color:"+(rPais===v?"#fff":"var(--M)")+"'>"+l+"</button>";
     const typBtnR=(v,l)=>"<button onclick='window._rType=\""+v+"\";render()' style='flex:1;padding:7px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid "+(rType===v?"var(--F)":"#dde8e2")+";background:"+(rType===v?"var(--F)":"none")+";color:"+(rType===v?"#fff":"var(--M)")+"'>"+l+"</button>";
-    con="<p class='pt'>Reportes</p>"
+    con="<p class='pt'>Reportes</p>"+margenHTML()
       +"<div class='card' style='margin-bottom:14px'>"
       +"<div class='fw'><label class='lbl'>Fecha inicio</label><input type='date' class='inp' value='"+(rFrom||"")+"' onchange='window._rFrom=this.value;render()'/></div>"
       +"<div class='fw'><label class='lbl'>Fecha fin</label><input type='date' class='inp' value='"+(rTo||"")+"' onchange='window._rTo=this.value;render()'/></div>"
@@ -2732,7 +2826,14 @@ function render(){
     const C=cfgC();const inS="width:64px;padding:4px;border:1px solid #dde8e2;border-radius:6px;font-size:12px;text-align:right";
     const specRows=Object.keys(SPEC_DEF).map(m=>{const sp=specDe(m);const mj=JSON.stringify(m).replace(/'/g,"&#39;");const f=(k,step)=>"<input type='number' step='"+step+"' style='"+inS+(k==="rate"?";width:92px":"")+"' value='"+(sp[k]??"")+"' placeholder='—' onchange='setSpecC("+mj+",\""+k+"\",this.value)'/>";
       return"<tr><td style='padding:4px;font-weight:700;font-size:11px'>"+m+"</td><td>"+f("rate","0.00000001")+"</td><td>"+f("horas","1")+"</td><td>"+(sp.tipo==="grado"?"<span style='font-size:11px'>"+sp.on+"s</span>":f("on","1")+f("off","1"))+"</td><td>"+(m==="AE3500"||m==="AE TOWER BLACK"||m==="Radiant"?"<span style='font-size:10px;color:var(--M)'>eléctrico</span>":f("nb","1")+f("apb","1"))+"</td></tr>";}).join("");
-    const ccHTML="<div class='card' style='margin-bottom:14px'><p style='font-weight:700;margin-bottom:6px;color:#6a1b9a'>Consumo de esencia y baterías</p>"
+    const _C=_costos();const _bm=["AE701","AE301","AE801"];
+    const costHTML="<div class='card' style='margin-bottom:14px'><p style='font-weight:700;margin-bottom:6px;color:#2e7d32'>&#128176; Costos para margen por cliente</p>"
+      +"<div style='display:flex;gap:10px;flex-wrap:wrap;font-size:12px;margin-bottom:8px'>"
+      +"<label>Costo por ml de esencia $<input type='number' step='0.0001' style='"+inS+";width:80px' value='"+_C.ml+"' onchange='setCfgC(\"costoMl\",this.value)'/></label>"
+      +"<label>Batería D $<input type='number' step='0.0001' style='"+inS+";width:80px' value='"+_C.d+"' onchange='setCfgC(\"costoBatD\",this.value)'/></label>"
+      +"<label>Batería C $<input type='number' step='0.0001' style='"+inS+";width:80px' value='"+_C.cc+"' onchange='setCfgC(\"costoBatC\",this.value)'/></label></div>"
+      +"<div style='font-size:12px'>Equipos que usan batería <b>C</b>: "+_bm.map(m=>"<label style='margin-right:10px'><input type='checkbox' "+(_C.modC.includes(m)?"checked":"")+" onchange='setCfgCS(\"modelosBatC\","+JSON.stringify(_C.modC.filter(x=>x!==m))+".concat(this.checked?["+JSON.stringify(m)+"]:[]))'/> "+m+"</label>").join("")+"<div style='font-size:10px;color:var(--M)'>Los no marcados se cuentan como batería D.</div></div></div>";
+    const ccHTML=costHTML+"<div class='card' style='margin-bottom:14px'><p style='font-weight:700;margin-bottom:6px;color:#6a1b9a'>Consumo de esencia y baterías</p>"
       +"<div style='font-size:11px;color:var(--M);margin-bottom:8px'>Fórmulas de la hoja \"Oil & Battery Consumptions\". Se usa la intensidad registrada de cada equipo; si no tiene, la de abajo (marcado con *).</div>"
       +"<div style='display:flex;gap:10px;flex-wrap:wrap;font-size:12px;margin-bottom:8px'>"
       +"<label>Aviso si la esencia varía más de <input type='number' style='"+inS+"' value='"+C.umbral+"' onchange='setCfgC(\"umbral\",this.value)'/> %</label>"
@@ -3051,7 +3152,7 @@ function regVisitSimple(){
 // ── INIT ──
 render();
 // ── ACTUALIZACIÓN AUTOMÁTICA DE LA APP ──
-const APP_VER="2026-11-24j";
+const APP_VER="2026-11-24l";
 async function checkUpdate(){
   try{
     const r=await fetch(location.pathname+"?_="+Date.now(),{cache:"no-store"});if(!r.ok)return;
