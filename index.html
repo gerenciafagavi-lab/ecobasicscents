@@ -294,7 +294,7 @@ const sv=(k,v)=>{let _old=null;try{_old=localStorage.getItem("eco_"+k);}catch{} 
 // ── BITÁCORA: quién cambió qué ──
 let _noLog=0,_lastUI=0,_logBuf=null,_logT=null,_logSending=false;
 ["pointerdown","keydown","change","input"].forEach(ev=>document.addEventListener(ev,()=>{_lastUI=Date.now();},true));
-const LOG_SKIP=["eqImportVer","vndFixVer","jasonFixVer"];
+const LOG_SKIP=["factMes","eqImportVer","vndFixVer","jasonFixVer"];
 const LOG_LBL={vis:"Visitas",inv:"Inventario de esencias",demos:"Demos",eqs:"Stock de equipos",movs:"Movimientos de equipos",eqgrades:"Intensidades / horarios",ceq:"Equipos por cliente",bajas:"Bajas",nvm:"Niveles mínimos",vnd:"Usuarios",modelos:"Modelos",stkseries:"Series en stock",cartuchos:"Cartuchos",customclients:"Clientes",sols:"Solicitudes",rejillas:"Rejillas",baterias:"Baterías D (stock)",bateriasC:"Baterías C (stock)",batIng:"Ingresos de baterías",factMes:"Facturación mensual",pedidos:"Pedidos",invMovs:"Movimientos de esencias",batMovs:"Cambios de baterías",eqEdits:"Ediciones de equipos",perms:"Permisos",consumoCfg:"Config. de consumo",pedCli:"Pedidos de vendedores",devs:"Devoluciones de equipos"};
 const LOG_TAB={visit:"Registrar",hist:"Visitas",inv:"Inventario",demos:"Demos",eqs:"Equipos",clts:"Clientes",sols:"Solicitudes",usrs:"Usuarios",bajas:"Bajas",lost:"Perdidos",grades:"Intensidades",reports:"Reportes",config:"Config",log:"Bitácora",peds:"Pedidos"};
 function _lv(x){if(x==null||x==="")return"∅";if(typeof x==="object")return Array.isArray(x)?"["+x.length+"]":"{…}";const s=String(x);return s.length>40?s.slice(0,40)+"…":s;}
@@ -515,7 +515,7 @@ function _cliPorToken(n){const fr={};const per=ALL_CLIENTS.map(c=>{const s=_TOK(
   const i=[...cand][0];return sig.every(w=>per[i].has(w))?ALL_CLIENTS[i]:null;}
 function _mesKey(v){if(v instanceof Date&&!isNaN(v))return v.getFullYear()+"-"+String(v.getMonth()+1).padStart(2,"0");if(typeof v==="number"&&v>30000&&v<80000){const d=new Date(Math.round((v-25569)*864e5));return d.getUTCFullYear()+"-"+String(d.getUTCMonth()+1).padStart(2,"0");}return null;}
 async function importFacturacion(inp){
-  const f=inp.files&&inp.files[0];if(!f)return;
+  if(!_verMargen())return;const f=inp.files&&inp.files[0];if(!f)return;
   try{await _loadXLSX();}catch{showToast("No se pudo cargar el lector de Excel (revisa internet)");return;}
   try{
     const wb=XLSX.read(await f.arrayBuffer(),{type:"array",cellDates:true});
@@ -530,7 +530,14 @@ async function importFacturacion(inp){
           if(low(nom)==="con iva"||low(nom).startsWith("costo mensual"))break;
           if(!String(row[vi]||"").trim()&&!(ri>-1&&String(row[ri]||"").trim()))continue;
           const meses={};cols.forEach(c=>{const v=row[c.i];if(typeof v==="number"&&v>0)meses[c.m]=Math.round(v*100)/100;});
-          filas.push({excel:nom,vnd:String(row[vi]||"").trim(),reg:ri>-1?String(row[ri]||"").trim():"",meses});}}}
+          filas.push({excel:nom,vnd:String(row[vi]||"").trim(),reg:ri>-1?String(row[ri]||"").trim():"",meses});}
+        // Planilla directa (bloque "Costo Mensual Recurso Humano"): solo si aún no está configurada en la app
+        if(!((factMes&&factMes.planilla)||[]).length){const pi=rows.findIndex(r=>r&&low(r[ci]).startsWith("costo mensual recurso"));
+          if(pi>-1){const mesHoy=today().slice(0,7);const cH=cols.find(c=>c.m===mesHoy);const pl=[];
+            for(let r=pi+1;r<rows.length;r++){const row=rows[r]||[];const nom=String(row[ci]||"").trim();if(!nom||/^(gasolina|pago|amortiza|contabilidad|electricidad|viaticos|varios|indirect)/i.test(nom))break;
+              let v=cH?row[cH.i]:null;if(typeof v!=="number"){const nums=cols.map(c=>row[c.i]).filter(x=>typeof x==="number"&&x>0);v=nums.length?nums[nums.length-1]:0;}
+              pl.push({id:uid(),n:nom,m:Math.round((+v||0)*100)/100});}
+            if(pl.length)factMes={...(factMes||{}),planilla:pl};}}}}
     // 2) Hojas de detalle por equipo (columna MONTO MENSUAL)
     const hojas=[];
     wb.SheetNames.forEach(sn=>{const rows=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,raw:true});
@@ -569,9 +576,20 @@ function _margenDatos(mes){
   batMovs.forEach(b=>{if(!enMes(b.ts))return;const x=get(b.cliente);const m=b.modelo||modDe(b.cliente,b.serie);if(C.modC.includes(m))x.bc+=+b.qty||0;else x.bd+=+b.qty||0;batKey.add(b.cliente+"|"+b.serie+"|"+String(b.ts).slice(0,10));});
   visits.forEach(v=>{if(!enMes(v.fecha)||v.gradeCambio)return;const x=get(v.cliente);x.vis++;x.ml+=+v.ml||0;
     if(v.baterias>0&&!batKey.has(v.cliente+"|"+v.serie+"|"+String(v.fecha).slice(0,10))){const m=v.modelo||modDe(v.cliente,v.serie);if(C.modC.includes(m))x.bc+=+v.baterias;else x.bd+=+v.baterias;}});
-  const l=Object.values(cli).map(x=>{const ce=x.ml*C.ml,cb=x.bd*C.d+x.bc*C.cc,ct=ce+cb,mg=x.ing-ct;return{...x,ce,cb,ct,mg,pct:x.ing>0?mg/x.ing*100:null};});
-  return{l,C,tot:l.reduce((a,x)=>({ing:a.ing+x.ing,ct:a.ct+x.ct,ce:a.ce+x.ce,cb:a.cb+x.cb,ml:a.ml+x.ml}),{ing:0,ct:0,ce:0,cb:0,ml:0})};
+  // Planilla directa: se reparte entre los clientes con ingreso del mes
+  const PL=_plTotal();const rep=(factMes&&factMes.repPl)||"eq";const fac=Object.values(cli).filter(x=>x.ing>0);
+  const nEq=c=>c.startsWith("¿")?0:(getClientEqs(c)||[]).filter(e=>e&&!e._del).length;
+  let w=fac.map(x=>rep==="vis"?x.vis:rep==="ing"?x.ing:nEq(x.c));let sw=w.reduce((a,b)=>a+b,0);if(!(sw>0)){w=fac.map(x=>x.ing);sw=w.reduce((a,b)=>a+b,0);}
+  const cpOf={};fac.forEach((x,i)=>{cpOf[x.c]=sw>0?PL*w[i]/sw:0;});
+  const l=Object.values(cli).map(x=>{const ce=x.ml*C.ml,cb=x.bd*C.d+x.bc*C.cc,cp=cpOf[x.c]||0,ct=ce+cb+cp,mg=x.ing-ct;return{...x,ce,cb,cp,ct,mg,pct:x.ing>0?mg/x.ing*100:null,mgB:x.ing-ce-cb};});
+  return{l,C,PL,rep,tot:l.reduce((a,x)=>({ing:a.ing+x.ing,ct:a.ct+x.ct,ce:a.ce+x.ce,cb:a.cb+x.cb,cp:a.cp+x.cp,ml:a.ml+x.ml}),{ing:0,ct:0,ce:0,cb:0,cp:0,ml:0})};
 }
+function _plTotal(){return ((factMes&&factMes.planilla)||[]).reduce((a,x)=>a+(+x.m||0),0);}
+function _plSave(arr){factMes={...(factMes||{}),planilla:arr};sv("factMes",factMes);}
+function setPl(id,campo,val){_plSave(((factMes&&factMes.planilla)||[]).map(x=>x.id===id?{...x,[campo]:campo==="m"?(+val||0):String(val).trim()}:x));setTimeout(render,0);}
+function addPl(){_plSave([...((factMes&&factMes.planilla)||[]),{id:uid(),n:"",m:0}]);render();}
+function delPl(id){_plSave(((factMes&&factMes.planilla)||[]).filter(x=>x.id!==id));render();}
+function setRepPl(v){factMes={...(factMes||{}),repPl:v};sv("factMes",factMes);setTimeout(render,0);}
 function _mesesAtras(mes,n){const [y,m]=mes.split("-").map(Number);const r=[];for(let i=0;i<n;i++){const d=new Date(y,m-1-i,1);r.push(d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0"));}return r;}
 // Promedio de los últimos n meses (solo meses con ingreso), para suavizar los meses de cambio de baterías
 function _margenProm(mes,n){const acc={};let T={ing:0,ct:0};
@@ -581,10 +599,12 @@ function _margenProm(mes,n){const acc={};let T={ing:0,ct:0};
 const _esc=s=>String(s??"").replace(/[&<>'"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]));
 const _$=n=>"$"+(Math.round(n*100)/100).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
 const _mesNom=m=>new Date(m+"-15").toLocaleDateString("es-SV",{month:"short",year:"2-digit"});
+// Margen y costos: solo Francisco y Gerardo (rol admin)
+function _verMargen(){return !!(sess&&sess.role==="admin"&&["FRANCISCO","GERARDO","ADMIN"].includes(_NC(sess.name)));}
 function margenHTML(){_serIdxCache=null;
   const meses=[...new Set([...((factMes&&factMes.filas)||[]).flatMap(o=>Object.keys(o.meses||{})),...visits.map(v=>String(v.fecha).slice(0,7))])].filter(m=>m>="2026-01"&&m<=today().slice(0,7)).sort().reverse();
   const mes=window._mgMes||today().slice(0,7);const nP=window._mgVent||6;
-  const {l,C,tot}=_margenDatos(mes);const P=_margenProm(mes,nP);const meta=(factMes&&factMes._meta)||null;
+  const {l,C,tot,PL:PLt,rep:repPl}=_margenDatos(mes);const P=_margenProm(mes,nP);const meta=(factMes&&factMes._meta)||null;
   const ord=window._mgOrd||"pct";const sinF=l.filter(x=>!x.ing&&x.ct>0).length;
   const lst=l.filter(x=>x.ing>0||x.ct>0).map(x=>({...x,pr:P.acc[x.c]||null}));
   const kP=x=>x.pr?x.pr.pct:x.pct;
@@ -592,16 +612,16 @@ function margenHTML(){_serIdxCache=null;
   const pctT=tot.ing>0?(tot.ing-tot.ct)/tot.ing*100:null;const col=p=>p==null?"var(--D)":p<50?"var(--D)":p<70?"#b45309":"#2e7d32";const fp=p=>p==null?"—":p.toFixed(1)+"%";
   const hojasPend=((factMes&&factMes.hojas)||[]).filter(h=>!_cliHoja(h));
   let html="<div class='card' style='margin-bottom:14px;border-left:4px solid #2e7d32'><p style='font-weight:700;color:#2e7d32;margin-bottom:4px'>&#128176; Margen por cliente</p>"
-   +"<div style='font-size:11px;color:var(--M);margin-bottom:8px'>Ingreso sin IVA = monto del cliente en PEDIDOS; si no está ahí, la suma de MONTO MENSUAL de su hoja de equipos. Costo = ml agregados en visitas × "+_$(C.ml)+" + baterías cambiadas en el mes (D "+_$(C.d)+" · C "+_$(C.cc)+"). El promedio suaviza los meses de cambio de baterías.</div>"
+   +"<div style='font-size:11px;color:var(--M);margin-bottom:8px'>Ingreso sin IVA = monto del cliente en PEDIDOS; si no está ahí, la suma de MONTO MENSUAL de su hoja de equipos. Costo directo = ml agregados en visitas × "+_$(C.ml)+" + baterías cambiadas en el mes (D "+_$(C.d)+" · C "+_$(C.cc)+") + planilla directa repartida. El promedio suaviza los meses de cambio de baterías.</div>"
    +"<div style='display:flex;gap:6px;align-items:center;margin-bottom:6px'><select class='inp' style='flex:1;margin:0' onchange='window._mgMes=this.value;render()'>"+(meses.includes(mes)?meses:[mes,...meses]).map(m=>"<option value='"+m+"'"+(m===mes?" selected":"")+">"+new Date(m+"-15").toLocaleDateString("es-SV",{month:"long",year:"numeric"})+"</option>").join("")+"</select>"
    +"<label class='be' style='cursor:pointer;white-space:nowrap'>&#128229; Importar Excel<input type='file' accept='.xlsx,.xlsm,.xls' style='display:none' onchange='importFacturacion(this)'/></label></div>"
    +"<div style='display:flex;gap:4px;align-items:center;margin-bottom:8px;font-size:11px;color:var(--M)'>Promedio de "+[3,6,12].map(n=>"<button onclick='window._mgVent="+n+";render()' style='padding:3px 10px;border-radius:12px;border:1px solid "+(nP===n?"var(--F)":"#dde8e2")+";background:"+(nP===n?"var(--F)":"none")+";color:"+(nP===n?"#fff":"var(--M)")+";font-size:11px;cursor:pointer'>"+n+"</button>").join("")+" meses</div>"
    +(meta?"<div style='font-size:10px;color:var(--M);margin-bottom:8px'>Importado "+_fdt(meta.ts)+" por "+meta.user+" ("+meta.archivo+")</div>":"<div style='font-size:12px;color:var(--D);margin-bottom:8px'>Aún no hay facturación: toca <b>Importar Excel</b> y elige EquiposInstaladosAI.xlsx.</div>")
-   +"<div class='stats' style='margin-bottom:8px'><div class='stat'><div class='sn' style='font-size:15px'>"+_$(tot.ing)+"</div><div class='sl2'>Ingreso del mes</div></div><div class='stat'><div class='sn' style='font-size:15px'>"+_$(tot.ct)+"</div><div class='sl2'>Costo esencia+bat.</div></div><div class='stat'><div class='sn' style='font-size:15px;color:"+col(pctT)+"'>"+fp(pctT)+"</div><div class='sl2'>Margen del mes</div></div><div class='stat'><div class='sn' style='font-size:15px;color:"+col(P.pctT)+"'>"+fp(P.pctT)+"</div><div class='sl2'>Promedio "+nP+"m</div></div></div>"
-   +"<div style='font-size:11px;color:var(--M);margin-bottom:6px'>Esencia: "+Math.round(tot.ml).toLocaleString()+" ml = "+_$(tot.ce)+" · Baterías: "+_$(tot.cb)+(sinF?" · <b style='color:var(--D)'>"+sinF+" cliente(s) con costo pero sin monto en PEDIDOS ni en hoja de equipos</b>":"")+"</div>"
+   +"<div class='stats' style='margin-bottom:8px'><div class='stat'><div class='sn' style='font-size:15px'>"+_$(tot.ing)+"</div><div class='sl2'>Ingreso del mes</div></div><div class='stat'><div class='sn' style='font-size:15px'>"+_$(tot.ct)+"</div><div class='sl2'>Costo directo</div></div><div class='stat'><div class='sn' style='font-size:15px;color:"+col(pctT)+"'>"+fp(pctT)+"</div><div class='sl2'>Margen del mes</div></div><div class='stat'><div class='sn' style='font-size:15px;color:"+col(P.pctT)+"'>"+fp(P.pctT)+"</div><div class='sl2'>Promedio "+nP+"m</div></div></div>"
+   +"<div style='font-size:11px;color:var(--M);margin-bottom:6px'>Esencia: "+Math.round(tot.ml).toLocaleString()+" ml = "+_$(tot.ce)+" · Baterías: "+_$(tot.cb)+" · Planilla: "+_$(tot.cp)+(PLt>0?" (repartida por "+({eq:"equipos instalados",vis:"visitas del mes",ing:"ingreso"}[repPl]||"equipos")+")":" <span style='color:#b45309'>(sin planilla: agrégala en Config)</span>")+" · Margen antes de planilla: "+fp(tot.ing>0?(tot.ing-tot.ce-tot.cb)/tot.ing*100:null)+(sinF?" · <b style='color:var(--D)'>"+sinF+" cliente(s) con costo pero sin monto en PEDIDOS ni en hoja de equipos</b>":"")+"</div>"
    +"<div style='display:flex;gap:4px;margin-bottom:6px'>"+[["pct","Menor margen prom."],["mg","Mayor margen $"],["c","A-Z"]].map(([v,t])=>"<button onclick='window._mgOrd=\""+v+"\";render()' style='flex:1;padding:5px;border-radius:14px;border:1px solid "+(ord===v?"var(--F)":"#dde8e2")+";background:"+(ord===v?"var(--F)":"none")+";color:"+(ord===v?"#fff":"var(--M)")+";font-size:11px;cursor:pointer'>"+t+"</button>").join("")+"<button class='be' onclick='exportMargenXLSX()'>&#128229; Excel</button></div>"
    +lst.map(x=>"<div style='padding:7px 0;border-top:1px solid #eef2ef'><div style='display:flex;justify-content:space-between;gap:6px;align-items:baseline'><b style='font-size:12px'>"+_esc(x.sinEnlace?x.c.slice(1)+" (sin enlazar)":x.c)+"</b><span style='white-space:nowrap;font-size:11px;color:var(--M)'>"+_mesNom(mes)+" <b style='color:"+col(x.pct)+"'>"+(x.pct==null?"sin monto":x.pct.toFixed(0)+"%")+"</b> · prom <b style='font-size:13px;color:"+col(x.pr&&x.pr.pct)+"'>"+(x.pr?x.pr.pct.toFixed(0)+"%":"—")+"</b></span></div>"
-     +"<div style='font-size:11px;color:var(--M)'>Ingreso "+_$(x.ing)+(x.fuente&&x.fuente!=="PEDIDOS"?" <span style='color:#6a1b9a'>("+_esc(x.fuente)+")</span>":"")+" · costo "+_$(x.ct)+" ("+Math.round(x.ml)+" ml"+(x.bd?" · "+x.bd+" bat D":"")+(x.bc?" · "+x.bc+" bat C":"")+") · margen <b>"+_$(x.mg)+"</b>"+(x.pr?" · prom "+x.pr.n+" mes"+(x.pr.n>1?"es":"")+" "+_$(x.pr.mg/x.pr.n)+"/mes":"")+(x.vnd?" · "+_esc(x.vnd):"")+(!x.vis&&x.ing?" · <span style='color:#b45309'>sin visitas registradas</span>":"")+"</div></div>").join("")
+     +"<div style='font-size:11px;color:var(--M)'>Ingreso "+_$(x.ing)+(x.fuente&&x.fuente!=="PEDIDOS"?" <span style='color:#6a1b9a'>("+_esc(x.fuente)+")</span>":"")+" · costo "+_$(x.ct)+" ("+Math.round(x.ml)+" ml"+(x.bd?" · "+x.bd+" bat D":"")+(x.bc?" · "+x.bc+" bat C":"")+(x.cp?" · planilla "+_$(x.cp):"")+") · margen <b>"+_$(x.mg)+"</b>"+(x.pr?" · prom "+x.pr.n+" mes"+(x.pr.n>1?"es":"")+" "+_$(x.pr.mg/x.pr.n)+"/mes":"")+(x.vnd?" · "+_esc(x.vnd):"")+(!x.vis&&x.ing?" · <span style='color:#b45309'>sin visitas registradas</span>":"")+"</div></div>").join("")
    +(lst.length?"":"<div style='font-size:12px;color:var(--M)'>Sin datos para este mes</div>")
    +(()=>{const fl=(factMes&&factMes.filas)||[];const al=(factMes&&factMes.alias)||{};const pend=fl.filter(r=>Object.keys(r.meses||{}).length&&!_mapCliFact(r.excel));const man=fl.filter(r=>Object.keys(r.meses||{}).length&&al[r.excel]||(_mapCliFact(r.excel)&&_NC(_mapCliFact(r.excel))!==_NC(r.excel)));if(!pend.length&&!man.length&&!hojasPend.length)return "";
      const opts=sel=>"<option value=''>— elegir cliente de la app —</option>"+[...ALL_CLIENTS].sort((a,b)=>a.localeCompare(b)).map(c=>"<option"+(c===sel?" selected":"")+">"+_esc(c)+"</option>").join("");
@@ -613,15 +633,15 @@ function margenHTML(){_serIdxCache=null;
    +"</div>";
   return html;
 }
-async function exportMargenXLSX(){_serIdxCache=null;
+async function exportMargenXLSX(){if(!_verMargen())return;_serIdxCache=null;
   try{await _loadXLSX();}catch{showToast("No se pudo cargar el generador de Excel (revisa internet)");return;}
   const mes=window._mgMes||today().slice(0,7);const nP=window._mgVent||6;const {l,C}=_margenDatos(mes);const P=_margenProm(mes,nP);
-  const rows=l.filter(x=>x.ing>0||x.ct>0).sort((a,b)=>a.c.localeCompare(b.c)).map(x=>{const pr=P.acc[x.c];return{Cliente:x.sinEnlace?x.c.slice(1)+" (sin enlazar)":x.c,Vendedor:x.vnd,Fuente_ingreso:x.fuente||"",Ingreso_sin_IVA:+x.ing.toFixed(2),Visitas:x.vis,Esencia_ml:Math.round(x.ml),Costo_esencia:+x.ce.toFixed(2),Baterias_D:x.bd,Baterias_C:x.bc,Costo_baterias:+x.cb.toFixed(2),Costo_total:+x.ct.toFixed(2),Margen:+x.mg.toFixed(2),Margen_pct:x.pct==null?"":+x.pct.toFixed(1),["Meses_prom"]:pr?pr.n:"",["Ingreso_"+nP+"m"]:pr?+pr.ing.toFixed(2):"",["Costo_"+nP+"m"]:pr?+pr.ct.toFixed(2):"",["Margen_prom_pct_"+nP+"m"]:pr&&pr.pct!=null?+pr.pct.toFixed(1):""};});
+  const rows=l.filter(x=>x.ing>0||x.ct>0).sort((a,b)=>a.c.localeCompare(b.c)).map(x=>{const pr=P.acc[x.c];return{Cliente:x.sinEnlace?x.c.slice(1)+" (sin enlazar)":x.c,Vendedor:x.vnd,Fuente_ingreso:x.fuente||"",Ingreso_sin_IVA:+x.ing.toFixed(2),Visitas:x.vis,Esencia_ml:Math.round(x.ml),Costo_esencia:+x.ce.toFixed(2),Baterias_D:x.bd,Baterias_C:x.bc,Costo_baterias:+x.cb.toFixed(2),Costo_planilla:+x.cp.toFixed(2),Costo_total:+x.ct.toFixed(2),Margen:+x.mg.toFixed(2),Margen_pct:x.pct==null?"":+x.pct.toFixed(1),["Meses_prom"]:pr?pr.n:"",["Ingreso_"+nP+"m"]:pr?+pr.ing.toFixed(2):"",["Costo_"+nP+"m"]:pr?+pr.ct.toFixed(2):"",["Margen_prom_pct_"+nP+"m"]:pr&&pr.pct!=null?+pr.pct.toFixed(1):""};});
   const wb=XLSX.utils.book_new();const ws=XLSX.utils.json_to_sheet(rows);ws["!cols"]=[{wch:40},{wch:10},{wch:16},{wch:14},{wch:8},{wch:11},{wch:13},{wch:10},{wch:10},{wch:13},{wch:12},{wch:11},{wch:11},{wch:10},{wch:12},{wch:12},{wch:16}];
   XLSX.utils.book_append_sheet(wb,ws,"Margen "+mes);
   const ms=_mesesAtras(mes,12).reverse();const hist={};ms.forEach(m=>_margenDatos(m).l.forEach(x=>{if(!(x.ing>0||x.ct>0))return;const k=x.sinEnlace?x.c.slice(1)+" (sin enlazar)":x.c;const o=hist[k]||(hist[k]={Cliente:k});o[m]=x.pct==null?"sin monto":+x.pct.toFixed(1);}));
   XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(Object.values(hist).sort((a,b)=>a.Cliente.localeCompare(b.Cliente)),{header:["Cliente",...ms]}),"Margen % 12 meses");
-  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet([{Concepto:"Costo por ml de esencia",Valor:C.ml},{Concepto:"Costo batería D",Valor:C.d},{Concepto:"Costo batería C",Valor:C.cc},{Concepto:"Modelos con batería C",Valor:C.modC.join(", ")||"ninguno"},{Concepto:"Ingreso",Valor:"PEDIDOS; si el cliente no está ahí, MONTO MENSUAL de su hoja de equipos"},{Concepto:"Promedio",Valor:"Últimos "+nP+" meses con ingreso: (ingreso − costo) / ingreso"}]),"Supuestos");
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet([{Concepto:"Costo por ml de esencia",Valor:C.ml},{Concepto:"Costo batería D",Valor:C.d},{Concepto:"Costo batería C",Valor:C.cc},{Concepto:"Modelos con batería C",Valor:C.modC.join(", ")||"ninguno"},{Concepto:"Ingreso",Valor:"PEDIDOS; si el cliente no está ahí, MONTO MENSUAL de su hoja de equipos"},{Concepto:"Planilla directa mensual",Valor:+_plTotal().toFixed(2)},{Concepto:"Reparto de planilla",Valor:({eq:"por equipos instalados",vis:"por visitas del mes",ing:"por ingreso"}[(factMes&&factMes.repPl)||"eq"])},{Concepto:"Promedio",Valor:"Últimos "+nP+" meses con ingreso: (ingreso − costo) / ingreso"}]),"Supuestos");
   XLSX.writeFile(wb,"Margen_por_cliente_"+mes+".xlsx");
 }
 function setCfgC(campo,val){const c={...(consumoCfg||{})};c[campo]=+val;consumoCfg=c;sv("consumoCfg",consumoCfg);}
@@ -2831,7 +2851,7 @@ function render(){
     const rFrom=window._rFrom||"";const rTo=window._rTo||"";const rType=window._rType||"visitas";const rPais=window._rPais||"todos";
     const pfBtnR=(v,l)=>"<button onclick='window._rPais=\""+v+"\";render()' style='flex:1;padding:7px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid "+(rPais===v?"var(--F)":"#dde8e2")+";background:"+(rPais===v?"var(--F)":"none")+";color:"+(rPais===v?"#fff":"var(--M)")+"'>"+l+"</button>";
     const typBtnR=(v,l)=>"<button onclick='window._rType=\""+v+"\";render()' style='flex:1;padding:7px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid "+(rType===v?"var(--F)":"#dde8e2")+";background:"+(rType===v?"var(--F)":"none")+";color:"+(rType===v?"#fff":"var(--M)")+"'>"+l+"</button>";
-    con="<p class='pt'>Reportes</p>"+margenHTML()
+    con="<p class='pt'>Reportes</p>"+(_verMargen()?margenHTML():"")
       +"<div class='card' style='margin-bottom:14px'>"
       +"<div class='fw'><label class='lbl'>Fecha inicio</label><input type='date' class='inp' value='"+(rFrom||"")+"' onchange='window._rFrom=this.value;render()'/></div>"
       +"<div class='fw'><label class='lbl'>Fecha fin</label><input type='date' class='inp' value='"+(rTo||"")+"' onchange='window._rTo=this.value;render()'/></div>"
@@ -2892,8 +2912,15 @@ function render(){
       +"<label>Costo por ml de esencia $<input type='number' step='0.0001' style='"+inS+";width:80px' value='"+_C.ml+"' onchange='setCfgC(\"costoMl\",this.value)'/></label>"
       +"<label>Batería D $<input type='number' step='0.0001' style='"+inS+";width:80px' value='"+_C.d+"' onchange='setCfgC(\"costoBatD\",this.value)'/></label>"
       +"<label>Batería C $<input type='number' step='0.0001' style='"+inS+";width:80px' value='"+_C.cc+"' onchange='setCfgC(\"costoBatC\",this.value)'/></label></div>"
-      +"<div style='font-size:12px'>Equipos que usan batería <b>C</b>: "+_bm.map(m=>"<label style='margin-right:10px'><input type='checkbox' "+(_C.modC.includes(m)?"checked":"")+" onchange='setCfgCS(\"modelosBatC\","+JSON.stringify(_C.modC.filter(x=>x!==m))+".concat(this.checked?["+JSON.stringify(m)+"]:[]))'/> "+m+"</label>").join("")+"<div style='font-size:10px;color:var(--M)'>Los no marcados se cuentan como batería D.</div></div></div>";
-    const ccHTML=costHTML+"<div class='card' style='margin-bottom:14px'><p style='font-weight:700;margin-bottom:6px;color:#6a1b9a'>Consumo de esencia y baterías</p>"
+      +"<div style='font-size:12px'>Equipos que usan batería <b>C</b>: "+_bm.map(m=>"<label style='margin-right:10px'><input type='checkbox' "+(_C.modC.includes(m)?"checked":"")+" onchange='setCfgCS(\"modelosBatC\","+JSON.stringify(_C.modC.filter(x=>x!==m))+".concat(this.checked?["+JSON.stringify(m)+"]:[]))'/> "+m+"</label>").join("")+"<div style='font-size:10px;color:var(--M)'>Los no marcados se cuentan como batería D.</div></div>"
+      +(()=>{const pl=(factMes&&factMes.planilla)||[];const rp=(factMes&&factMes.repPl)||"eq";const tot=_plTotal();
+        return "<div style='border-top:1px solid #eef2ef;margin-top:10px;padding-top:8px'><p style='font-weight:700;font-size:13px;margin-bottom:4px'>Planilla directa EcobasicScents (mensual)</p>"
+         +(pl.length?"":"<div style='font-size:11px;color:var(--M);margin-bottom:6px'>Al importar el Excel en Reportes se toma del bloque \"Costo Mensual Recurso Humano\" de PEDIDOS, o agrégala aquí.</div>")
+         +pl.map(x=>"<div style='display:flex;gap:6px;align-items:center;margin-bottom:4px'><input class='inp' style='flex:1;margin:0;padding:6px;font-size:12px' value='"+_esc(x.n)+"' placeholder='Nombre / concepto' onchange='setPl(\""+x.id+"\",\"n\",this.value)'/><span style='font-size:12px'>$</span><input type='number' step='0.01' class='inp' style='width:95px;margin:0;padding:6px;font-size:12px' value='"+(x.m||0)+"' onchange='setPl(\""+x.id+"\",\"m\",this.value)'/><button class='be' style='color:var(--D)' onclick='delPl(\""+x.id+"\")'>&#10005;</button></div>").join("")
+         +"<div style='display:flex;justify-content:space-between;align-items:center;margin:6px 0'><button class='be' onclick='addPl()'>+ Agregar</button><b style='font-size:13px'>Total "+_$(tot)+"/mes</b></div>"
+         +"<div style='font-size:12px'>Repartir entre clientes por: <select class='inp' style='width:auto;display:inline-block;margin:0;padding:5px;font-size:12px' onchange='setRepPl(this.value)'>"+[["eq","Equipos instalados"],["vis","Visitas del mes"],["ing","Ingreso (facturación)"]].map(([v,t])=>"<option value='"+v+"'"+(rp===v?" selected":"")+">"+t+"</option>").join("")+"</select></div></div>";})()
+      +"</div>";
+    const ccHTML=(_verMargen()?costHTML:"")+"<div class='card' style='margin-bottom:14px'><p style='font-weight:700;margin-bottom:6px;color:#6a1b9a'>Consumo de esencia y baterías</p>"
       +"<div style='font-size:11px;color:var(--M);margin-bottom:8px'>Fórmulas de la hoja \"Oil & Battery Consumptions\". Se usa la intensidad registrada de cada equipo; si no tiene, la de abajo (marcado con *).</div>"
       +"<div style='display:flex;gap:10px;flex-wrap:wrap;font-size:12px;margin-bottom:8px'>"
       +"<label>Aviso si la esencia varía más de <input type='number' style='"+inS+"' value='"+C.umbral+"' onchange='setCfgC(\"umbral\",this.value)'/> %</label>"
@@ -3212,7 +3239,7 @@ function regVisitSimple(){
 // ── INIT ──
 render();
 // ── ACTUALIZACIÓN AUTOMÁTICA DE LA APP ──
-const APP_VER="2026-11-24m";
+const APP_VER="2026-11-24o";
 async function checkUpdate(){
   try{
     const r=await fetch(location.pathname+"?_="+Date.now(),{cache:"no-store"});if(!r.ok)return;
