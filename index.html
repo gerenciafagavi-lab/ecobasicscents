@@ -383,12 +383,16 @@ function cicloEq(eq){
   const sp=specDe(eq.modelo);if(!sp)return null;
   const gi=eqGrades[eq.serie]||{};const C=cfgC();
   const horas=+(eq.horas||gi.hours||sp.horas||10);
-  if(sp.tipo==="grado"){const g=gi.grade||C.gradoDef;return{on:sp.on,off:offDeGrado(g),horas,grado:g,estimado:!gi.grade,sp};}
+  const dias=Math.min(7,Math.max(1,+(gi.dias||7))); // días por semana que funciona el servicio (fines de semana apagado)
+  if(sp.tipo==="grado"){const g=gi.grade||C.gradoDef;return{on:sp.on,off:offDeGrado(g),horas,dias,grado:g,estimado:!gi.grade,sp};}
   const on=+(gi.onSec||sp.on||10),off=+(gi.offSec||sp.off||120);
-  return{on,off,horas,estimado:!(gi.onSec&&gi.offSec),sp};
+  return{on,off,horas,dias,estimado:!(gi.onSec&&gi.offSec),sp};
 }
-function mlDiaEq(eq){const c=cicloEq(eq);if(!c||!c.sp.rate)return null;return c.on/(c.on+c.off)*c.horas*3600*c.sp.rate;}
-function vidaBatEq(eq,nb){const c=cicloEq(eq);if(!c||!c.sp.apb)return null;const n=+(nb||c.sp.nb||1);return(c.sp.apb*n)/((c.horas*3600)/(c.on+c.off));}
+function mlDiaEq(eq){const c=cicloEq(eq);if(!c||!c.sp.rate)return null;return c.on/(c.on+c.off)*c.horas*3600*c.sp.rate*(c.dias||7)/7;}
+function vidaBatEq(eq,nb){const c=cicloEq(eq);if(!c||!c.sp.apb)return null;const n=+(nb||c.sp.nb||1);return(c.sp.apb*n)/((c.horas*3600)/(c.on+c.off))/((c.dias||7)/7);}
+function _diasCli(c){const e=(getClientEqs(c)||[]).filter(x=>x&&!x._del);if(!e.length)return 7;const cnt={};e.forEach(x=>{const d=+((eqGrades[x.serie]||{}).dias||7);cnt[d]=(cnt[d]||0)+1;});return +Object.entries(cnt).sort((a,b)=>b[1]-a[1])[0][0];}
+function _setDiasCli(c,d){d=+d||7;const e=(getClientEqs(c)||[]).filter(x=>x&&!x._del&&x.serie);if(!e.length)return 0;const g={...eqGrades};let n=0;e.forEach(x=>{const cur=+((g[x.serie]||{}).dias||7);if(cur!==d){g[x.serie]={...(g[x.serie]||{}),dias:d,diasPor:sess.name,diasTs:new Date().toISOString()};n++;}});if(n){eqGrades=g;sv("eqgrades",eqGrades);}return n;}
+const _DIAS_TXT={7:"Todos los días",6:"Lunes a sábado",5:"Lunes a viernes"};
 function ultimoCambioBat(cliente,serie){
   let best=null;
   batMovs.forEach(b=>{if(b.cliente===cliente&&b.serie===serie&&(!best||b.ts>best.ts))best={ts:b.ts,qty:b.qty};});
@@ -615,6 +619,60 @@ function _margenProm(mes,n){const acc={};let T={ing:0,ct:0};
 const _esc=s=>String(s??"").replace(/[&<>'"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[c]));
 const _$=n=>"$"+(Math.round(n*100)/100).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
 const _mesNom=m=>new Date(m+"-15").toLocaleDateString("es-SV",{month:"short",year:"2-digit"});
+// ── DESEMPEÑO POR TÉCNICO: se mide por los clientes asignados, no por quién escribió en la app ──
+function _verDesemp(){return !!(sess&&(sess.role==="admin"||sess.role==="atencion"));}
+const _visReal=v=>!v.gradeCambio;
+function _desempDatos(mes){
+  const hoyMes=today().slice(0,7);const actual=mes===hoyMes;const bajasC=new Set((bajas||[]).map(b=>b.c));
+  const fin=actual?Date.now():new Date(+mes.slice(0,4),+mes.slice(5,7),0,23,59).getTime();
+  const tecs=vendors.filter(v=>v.active!==false&&v.role==="vendor"&&!v.soporte&&(VC[v.name]||[]).length).map(v=>v.name);
+  const vMes=visits.filter(v=>_visReal(v)&&String(v.fecha).slice(0,7)===mes);
+  const recMes=(solicitudes||[]).filter(s=>s.tipo==="reclamo"&&String(s.ts||s.fecha).slice(0,7)===mes);
+  return tecs.map(n=>{
+    const cl=(VC[n]||[]).filter(c=>!bajasC.has(c));
+    const det=cl.map(c=>{const vs=vMes.filter(v=>v.cliente===c);const ult=visits.filter(v=>_visReal(v)&&v.cliente===c&&new Date(v.fecha).getTime()<=fin).map(v=>v.fecha).sort().pop()||null;
+      const eqs=(getClientEqs(c)||[]).filter(e=>e&&!e._del);let ok=0,sd=0,venc=0;
+      if(actual)eqs.forEach(e=>{try{const p=proyEq(c,e);if(!p.relleno)sd++;else if(p.relleno.restan<0)venc++;else ok++;}catch{sd++;}});
+      const rec=recMes.filter(s=>s.clienteExist===c||s.nombre===c);
+      return{c,vis:new Set(vs.map(v=>String(v.fecha).slice(0,10))).size,reg:vs.length,conNivel:vs.filter(v=>v.mlSalida!=null&&v.mlSalida!==""&&!isNaN(+v.mlSalida)).length,ult,dias:ult?Math.floor((fin-new Date(ult))/864e5):null,eq:eqs.length,ok,sd,venc,rec:rec.length,recs:rec,quien:[...new Set(vs.map(v=>v.vnd))]};});
+    const conVis=det.filter(d=>d.vis>0).length;const reg=det.reduce((a,d)=>a+d.reg,0),cn=det.reduce((a,d)=>a+d.conNivel,0);
+    const eq=det.reduce((a,d)=>a+d.eq,0),ok=det.reduce((a,d)=>a+d.ok,0),rec=det.reduce((a,d)=>a+d.rec,0);
+    const cob=cl.length?conVis/cl.length*100:0;const cal=reg?cn/reg*100:null;const ald=actual&&eq?ok/eq*100:null;const rs=Math.max(0,100-25*rec);
+    // Puntaje: seguimiento 40 · equipos al día 20 · calidad del registro 20 · reclamos 20 (sin dato de un componente, se reparte su peso)
+    const parts=[[cob,40],[ald,20],[cal,20],[rs,20]].filter(x=>x[0]!=null);const W=parts.reduce((a,x)=>a+x[1],0);
+    const score=W?parts.reduce((a,x)=>a+x[0]*x[1],0)/W:0;
+    return{n,cl:cl.length,conVis,cob,cal,ald,eq,ok,sd:det.reduce((a,d)=>a+d.sd,0),venc:det.reduce((a,d)=>a+d.venc,0),rec,score,det,actual,porOtros:det.reduce((a,d)=>a+(d.quien.some(q=>q!==n)?1:0),0)};
+  }).sort((a,b)=>b.score-a.score);
+}
+function desempHTML(){
+  const mes=window._dsMes||today().slice(0,7);const L=_desempDatos(mes);const act=mes===today().slice(0,7);
+  const meses=[...new Set(visits.map(v=>String(v.fecha).slice(0,7)))].filter(m=>m>="2026-10"&&m<=today().slice(0,7)).sort().reverse();
+  const col=s=>s>=85?"#2e7d32":s>=65?"#b45309":"var(--D)";const fp=x=>x==null?"—":Math.round(x)+"%";const op=window._dsOpen||"";
+  return "<div class='card' style='margin-bottom:14px;border-left:4px solid #3456a0'><p style='font-weight:700;color:#3456a0;margin-bottom:4px'>&#127942; Desempeño por técnico</p>"
+   +"<div style='font-size:11px;color:var(--M);margin-bottom:8px'>Se mide por los <b>clientes asignados</b> a cada técnico: cuenta la visita aunque la haya registrado un compañero. Puntaje: seguimiento (clientes visitados en el mes) 40% · equipos al día 20% · registro completo (con nivel de salida) 20% · sin reclamos 20% (cada reclamo resta 25).</div>"
+   +"<div style='display:flex;gap:6px;margin-bottom:10px'><select class='inp' style='flex:1;margin:0' onchange='window._dsMes=this.value;render()'>"+(meses.includes(mes)?meses:[mes,...meses]).map(m=>"<option value='"+m+"'"+(m===mes?" selected":"")+">"+new Date(m+"-15").toLocaleDateString("es-SV",{month:"long",year:"numeric"})+"</option>").join("")+"</select><button class='be' onclick='exportDesempXLSX()'>&#128229; Excel</button></div>"
+   +(act?"":"<div style='font-size:10px;color:var(--M);margin-bottom:6px'>Mes cerrado: \"equipos al día\" solo se mide en el mes en curso.</div>")
+   +L.map(x=>"<div style='padding:9px 0;border-top:1px solid #eef2ef'><div style='display:flex;justify-content:space-between;align-items:center;cursor:pointer' onclick='window._dsOpen=window._dsOpen===\""+x.n+"\"?\"\":\""+x.n+"\";render()'><b style='font-size:14px'>"+x.n+"</b><b style='font-size:22px;color:"+col(x.score)+"'>"+Math.round(x.score)+"<span style='font-size:11px;color:var(--M)'>/100</span></b></div>"
+     +"<div style='display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:4px;font-size:11px;text-align:center'>"
+     +"<div style='background:#f4f7f5;border-radius:8px;padding:5px'><b style='font-size:13px'>"+x.conVis+"/"+x.cl+"</b><br>clientes visitados</div>"
+     +"<div style='background:#f4f7f5;border-radius:8px;padding:5px'><b style='font-size:13px'>"+fp(x.ald)+"</b><br>equipos al día"+(x.ald!=null?"<br><span style='color:var(--M)'>"+x.sd+" sin dato · "+x.venc+" vencidos</span>":"")+"</div>"
+     +"<div style='background:#f4f7f5;border-radius:8px;padding:5px'><b style='font-size:13px'>"+fp(x.cal)+"</b><br>con nivel de salida</div>"
+     +"<div style='background:"+(x.rec?"#fdecea":"#f4f7f5")+";border-radius:8px;padding:5px'><b style='font-size:13px;color:"+(x.rec?"var(--D)":"inherit")+"'>"+x.rec+"</b><br>reclamos</div></div>"
+     +(op===x.n?"<div style='margin-top:8px;font-size:11px'>"+x.det.slice().sort((a,b)=>(a.vis-b.vis)||((b.dias??999)-(a.dias??999))).map(d=>"<div style='display:flex;justify-content:space-between;gap:6px;padding:3px 0;border-bottom:1px dashed #eef2ef'><span>"+(d.vis?"&#9989; ":"<span style='color:var(--D)'>&#9888;</span> ")+_esc(d.c)+(d.rec?" <b style='color:var(--D)'>· "+d.rec+" reclamo"+(d.rec>1?"s":"")+"</b>":"")+"</span><span style='white-space:nowrap;color:var(--M)'>"+(d.vis?d.vis+" visita"+(d.vis>1?"s":""):(d.ult?"hace "+d.dias+" d":"nunca"))+(act&&d.eq?" · "+d.ok+"/"+d.eq+" al día":"")+"</span></div>").join("")+"</div>":"")
+     +"</div>").join("")
+   +(L.length?"":"<div style='font-size:12px;color:var(--M)'>Sin técnicos con clientes asignados</div>")
+   +"<div style='font-size:10px;color:var(--M);margin-top:8px'>Toca un técnico para ver sus clientes. Los reclamos se registran en Solicitudes → Nueva solicitud → Reclamo (Atención al cliente o administración).</div></div>";
+}
+async function exportDesempXLSX(){
+  try{await _loadXLSX();}catch{showToast("No se pudo cargar el generador de Excel (revisa internet)");return;}
+  const mes=window._dsMes||today().slice(0,7);const L=_desempDatos(mes);const r1=x=>x==null?"":Math.round(x);
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(L.map(x=>({Tecnico:x.n,Puntaje:r1(x.score),Clientes_asignados:x.cl,Clientes_visitados:x.conVis,Seguimiento_pct:r1(x.cob),Equipos:x.eq,Equipos_al_dia_pct:r1(x.ald),Equipos_sin_dato:x.ald==null?"":x.sd,Equipos_vencidos:x.ald==null?"":x.venc,Registro_con_nivel_pct:r1(x.cal),Reclamos:x.rec}))),"Resumen "+mes);
+  const det=[];L.forEach(x=>x.det.forEach(d=>det.push({Tecnico:x.n,Cliente:d.c,Visitas_en_el_mes:d.vis,Registros:d.reg,Con_nivel_salida:d.conNivel,Ultima_visita:d.ult?String(d.ult).slice(0,10):"nunca",Dias_desde_ultima:d.dias??"",Registro_lo_hizo:d.quien.join(", "),Equipos:d.eq,Equipos_al_dia:x.actual?d.ok:"",Sin_dato:x.actual?d.sd:"",Vencidos:x.actual?d.venc:"",Reclamos:d.rec,Motivos:d.recs.map(s=>s.motivo||s.notas).join(" | ")})));
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(det),"Por cliente");
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet([{Componente:"Seguimiento: clientes asignados con al menos una visita en el mes",Peso:"40%"},{Componente:"Equipos al día: con nivel registrado y sin refill vencido (solo mes en curso)",Peso:"20%"},{Componente:"Registro completo: visitas con nivel de salida",Peso:"20%"},{Componente:"Reclamos: 100 menos 25 por reclamo",Peso:"20%"},{Componente:"La visita cuenta para el técnico asignado al cliente, sin importar quién la registró",Peso:""}]),"Cómo se calcula");
+  XLSX.writeFile(wb,"Desempeno_tecnicos_"+mes+".xlsx");
+}
 // Margen y costos: solo Francisco y Gerardo (rol admin)
 function _verMargen(){return !!(sess&&sess.role==="admin"&&["FRANCISCO","GERARDO","ADMIN"].includes(_NC(sess.name)));}
 function margenHTML(){_serIdxCache=null;
@@ -1389,6 +1447,7 @@ function saveRenameCliente(){
   const oldName=modal.c;
   const newName=document.getElementById("rc_n").value.trim().toUpperCase();
   if(!newName){showToast("Ingresa el nombre");return;}
+  {const de=document.getElementById("rc_dias");if(de&&+de.value!==_diasCli(oldName)){const n=_setDiasCli(oldName,de.value);if(n)showToast("Días de servicio: "+_DIAS_TXT[+de.value]);}}
   const regEl=document.getElementById("rc_reg");const newReg=regEl?_nReg(regEl.value):null;const oldReg=_regMap()[oldName]||"";
   if(newReg!==null&&newReg!==oldReg){_setRegs({[oldName]:newReg});}
   const curP=(window._clientPais||{})[oldName]==="GT"?"GT":"SV";const newP=modal.pais||curP;
@@ -1828,7 +1887,15 @@ function delBaja(id){bajas=bajas.filter(b=>b.id!==id);sv("bajas",bajas);render()
 // ── SOLICITUDES ──
 function openAddSolicitud(){modal={t:"addSolicitud",tipo:"prospecto"};render();}
 function setSolTipo(t){modal={...modal,tipo:t};render();}
+const _MOT_REC=["Se acabó la esencia","El equipo no funciona","Aroma muy débil o muy fuerte","No llegaron a la visita","Baterías descargadas","Mala atención","Otro"];
+function _puedeReclamo(){return !!(sess&&(sess.role==="admin"||sess.role==="atencion"));}
+function _tecDe(c){return Object.keys(VC).find(v=>vendors.some(x=>x.name===v&&x.active!==false&&!x.soporte)&&(VC[v]||[]).includes(c))||"";}
+function _recVnd(c){const t=_tecDe(c);const s=document.getElementById("sol_v");if(s&&t)s.value=t;}
 function saveSolicitud(){
+  if(modal.tipo==="reclamo"){const c=document.getElementById("sol_rc").value;const mot=document.getElementById("sol_mot").value;const vendedor=document.getElementById("sol_v").value;const notas=document.getElementById("sol_notas").value.trim();
+    if(!c||!vendedor){showToast("Elige el cliente");return;}
+    solicitudes=[{id:uid(),nombre:c,vendedor,notas:mot+(notas?": "+notas:""),motivo:mot,fecha:today(),ts:new Date().toISOString(),estado:"pendiente",tipo:"reclamo",clienteExist:c,creadoPor:sess.name},...solicitudes];
+    sv("sols",solicitudes);modal=null;showToast("Reclamo registrado y enviado a "+vendedor);render();return;}
   const nombre=document.getElementById("sol_n").value.trim();
   const vendedor=document.getElementById("sol_v").value;
   const notas=document.getElementById("sol_notas").value.trim();
@@ -1842,7 +1909,7 @@ function solSeguimiento(id){const el=document.getElementById("sg_"+id);const t=(
   solicitudes=solicitudes.map(s=>s.id===id?{...s,seg:[...(s.seg||[]),{ts:new Date().toISOString(),u:sess.name,t}]}:s);sv("sols",solicitudes);render();}
 function _solDias(s){const f=s.ts||s.fecha;return f?Math.floor(_dias(f,Date.now())):0;}
 function _solCard(s,isA,isAC){const sj=JSON.stringify(s.id);const d=_solDias(s);const tarde=d>=3;
-  return"<div class='card sl' style='border-left-color:"+(tarde?"var(--D)":"var(--F)")+"'><div class='ch'><div><div class='ct'>"+s.nombre+"</div><div class='cs'>Para <b>"+s.vendedor+"</b> &#183; "+(s.ts?_fdt(s.ts):fmtD(s.fecha))+(s.creadoPor?" &#183; pidió "+s.creadoPor:"")+" &#183; "+(s.tipo==="prospecto"?"Prospecto":"Cliente")+"</div></div><span class='chip "+(tarde?"":"chip-w")+"' style='"+(tarde?"background:#fdecea;color:var(--D)":"")+"'>"+(d<=0?"Hoy":d===1?"1 día":d+" días")+"</span></div>"
+  return"<div class='card sl' style='border-left-color:"+(tarde?"var(--D)":"var(--F)")+"'><div class='ch'><div><div class='ct'>"+s.nombre+"</div><div class='cs'>Para <b>"+s.vendedor+"</b> &#183; "+(s.ts?_fdt(s.ts):fmtD(s.fecha))+(s.creadoPor?" &#183; pidió "+s.creadoPor:"")+" &#183; "+(s.tipo==="prospecto"?"Prospecto":s.tipo==="reclamo"?"<b style='color:var(--D)'>RECLAMO</b>":"Cliente")+"</div></div><span class='chip "+(tarde?"":"chip-w")+"' style='"+(tarde?"background:#fdecea;color:var(--D)":"")+"'>"+(d<=0?"Hoy":d===1?"1 día":d+" días")+"</span></div>"
    +(s.notas?"<div style='font-size:11px;color:var(--M);margin-top:5px'>"+s.notas+"</div>":"")
    +((s.seg||[]).length?"<div style='margin-top:6px;border-top:1px solid #eef2ef;padding-top:4px'>"+s.seg.map(x=>"<div style='font-size:11px;padding:2px 0'><span style='color:var(--M)'>"+_fdt(x.ts)+" · "+x.u+":</span> "+x.t.replace(/</g,"&lt;")+"</div>").join("")+"</div>":"")
    +"<div style='display:flex;gap:6px;margin-top:6px'><input class='inp' id='sg_"+s.id+"' style='flex:1;margin:0;padding:6px;font-size:12px' placeholder='"+((isA||isAC)?"Seguimiento (ej: llamé al técnico, va el jueves)":"Avance o comentario")+"'/><button class='be' style='font-size:11px' onclick='solSeguimiento("+sj+")'>Anotar</button></div>"
@@ -2763,7 +2830,7 @@ function render(){
       const asignarSelect=isA?"<div style='display:flex;align-items:center;gap:8px;margin-bottom:10px;padding:8px;background:#fffbea;border:1px solid #ffe082;border-radius:8px'><span style='font-size:11px;font-weight:700;color:#e65100;white-space:nowrap'>Vendedor:</span><select onchange='_asignarDirecto("+cj+",this.value)' style='flex:1;padding:5px 8px;border:1px solid #dde;border-radius:6px;font-size:12px;background:#fff'><option value=''"+(vn==="Sin asignar"?" selected":"")+">Sin asignar</option>"+activeVnds4.map(v=>"<option value='"+v.name+"'"+(v.name===vn?" selected":"")+">"+v.name+"</option>").join("")+"</select></div>":"";
       const expDiv=exp?"<div style='margin-top:10px;border-top:1px solid #f0f0f0;padding-top:10px'>"+asignarSelect+renderClientEqs(c)+((isA||perms.vndQuitarEq)?"<button onclick='openAddCEq("+cj+")' style='margin-top:8px;display:flex;align-items:center;gap:5px;background:#e8f5ee;color:var(--F);border:none;padding:7px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;width:100%;justify-content:center'>+ Agregar equipo</button>":"")+"</div>":"";
       return"<div class='card'><div class='ch' onclick='togC("+cj+")' style='cursor:pointer'>"
-        +"<div><div class='ct' style='font-size:12px'>"+c+gtFlag+"</div><div class='cs'>"+vn+(_regMap()[c]?" · NRC "+_regMap()[c]:"")+"</div></div>"
+        +"<div><div class='ct' style='font-size:12px'>"+c+gtFlag+"</div><div class='cs'>"+vn+(_regMap()[c]?" · NRC "+_regMap()[c]:"")+(_diasCli(c)<7?" · "+(_diasCli(c)===5?"L-V":"L-S"):"")+"</div></div>"
         +"<div style='display:flex;align-items:center;gap:5px'><span class='chip'>"+cv.length+"v</span><span class='chip chip-b'>"+allEq.length+"eq</span>"
         +(isA?"<button onclick='event.stopPropagation();openAsignarVendedor("+cj+")' style='padding:2px 7px;background:#fff8e1;color:#e65100;border:none;border-radius:6px;font-size:11px;cursor:pointer' title='Asignar vendedor'>&#128101;</button>":"")
         +(isA?"<button onclick='event.stopPropagation();openRenameCliente("+cj+")' style='padding:2px 7px;background:#e8f0ff;color:#3456a0;border:none;border-radius:6px;font-size:11px;cursor:pointer'>&#9999;&#65039;</button>":"")
@@ -2799,7 +2866,7 @@ function render(){
     const _pendV=(isA||isAC)&&window._solTec?pend.filter(s=>s.vendedor===window._solTec):pend;
     if(pend.length===0)html+="<div class='empty'><i class='ti ti-checks'></i>Sin solicitudes pendientes</div>";
     _pendV.slice().sort((a,b)=>_solDias(b)-_solDias(a)).forEach(s=>{html+=_solCard(s,isA,isAC);});
-    if(false)pend.forEach(s=>{const sj=JSON.stringify(s.id);html+="<div class='card sl'><div class='ch'><div><div class='ct'>"+s.nombre+"</div><div class='cs'>"+s.vendedor+" &#183; "+fmtD(s.fecha)+" &#183; "+(s.tipo==="prospecto"?"Prospecto":"Cliente")+"</div></div><span class='chip chip-w'>Pendiente</span></div>"+(s.notas?"<div style='font-size:11px;color:var(--M);margin-top:5px'>"+s.notas+"</div>":"")+"<div style='display:flex;gap:6px;margin-top:8px'><button class='be' style='background:#e8f5ee;color:var(--F);font-weight:700' onclick='completarSolicitud("+sj+")'>&#10003; Completada</button>"+(isA?"<button onclick='convertirCliente("+sj+")' style='padding:4px 10px;background:#fef9e7;color:var(--G);border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer'>Convertir</button>":"")+"<button class='del' onclick='cerrarSolicitud("+sj+")'>Cerrar</button></div>"+"</div>";});
+    if(false)pend.forEach(s=>{const sj=JSON.stringify(s.id);html+="<div class='card sl'><div class='ch'><div><div class='ct'>"+s.nombre+"</div><div class='cs'>"+s.vendedor+" &#183; "+fmtD(s.fecha)+" &#183; "+(s.tipo==="prospecto"?"Prospecto":s.tipo==="reclamo"?"<b style='color:var(--D)'>RECLAMO</b>":"Cliente")+"</div></div><span class='chip chip-w'>Pendiente</span></div>"+(s.notas?"<div style='font-size:11px;color:var(--M);margin-top:5px'>"+s.notas+"</div>":"")+"<div style='display:flex;gap:6px;margin-top:8px'><button class='be' style='background:#e8f5ee;color:var(--F);font-weight:700' onclick='completarSolicitud("+sj+")'>&#10003; Completada</button>"+(isA?"<button onclick='convertirCliente("+sj+")' style='padding:4px 10px;background:#fef9e7;color:var(--G);border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer'>Convertir</button>":"")+"<button class='del' onclick='cerrarSolicitud("+sj+")'>Cerrar</button></div>"+"</div>";});
     if(comp.length>0){html+="<p style='font-size:12px;color:var(--M);font-weight:700;margin:16px 0 10px'>COMPLETADAS ("+comp.length+")</p>";comp.slice(0,10).forEach(s=>{const chip=s.estado==="convertido"?"<span class='chip chip-g' style='font-size:10px'>Convertido</span>":s.estado==="completada"?"<span class='chip' style='font-size:10px'>Completada</span>":"<span style='font-size:10px;background:#f0f0f0;padding:2px 8px;border-radius:20px'>Cerrada</span>";html+="<div class='card' style='opacity:.75'><div class='ch'><div><div class='ct' style='font-size:12px'>"+s.nombre+"</div><div class='cs'>"+s.vendedor+(s.completadaPor?" &#183; por "+s.completadaPor:"")+(s.fechaComp?" &#183; "+fmtD(s.fechaComp):"")+((s.seg||[]).length?" &#183; "+s.seg.length+" seguimiento"+(s.seg.length>1?"s":""):"")+"</div></div>"+chip+"</div></div>";});}
     con=html;
   }
@@ -2876,7 +2943,7 @@ function render(){
     const rFrom=window._rFrom||"";const rTo=window._rTo||"";const rType=window._rType||"visitas";const rPais=window._rPais||"todos";
     const pfBtnR=(v,l)=>"<button onclick='window._rPais=\""+v+"\";render()' style='flex:1;padding:7px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid "+(rPais===v?"var(--F)":"#dde8e2")+";background:"+(rPais===v?"var(--F)":"none")+";color:"+(rPais===v?"#fff":"var(--M)")+"'>"+l+"</button>";
     const typBtnR=(v,l)=>"<button onclick='window._rType=\""+v+"\";render()' style='flex:1;padding:7px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid "+(rType===v?"var(--F)":"#dde8e2")+";background:"+(rType===v?"var(--F)":"none")+";color:"+(rType===v?"#fff":"var(--M)")+"'>"+l+"</button>";
-    con="<p class='pt'>Reportes</p>"+(_verMargen()?margenHTML():"")
+    con="<p class='pt'>Reportes</p>"+(_verDesemp()?desempHTML():"")+(_verMargen()?margenHTML():"")
       +"<div class='card' style='margin-bottom:14px'>"
       +"<div class='fw'><label class='lbl'>Fecha inicio</label><input type='date' class='inp' value='"+(rFrom||"")+"' onchange='window._rFrom=this.value;render()'/></div>"
       +"<div class='fw'><label class='lbl'>Fecha fin</label><input type='date' class='inp' value='"+(rTo||"")+"' onchange='window._rTo=this.value;render()'/></div>"
@@ -3005,6 +3072,7 @@ function render(){
     }
     else if(t==="renameCliente"){
       mHTML="<div class='mb-bg' onclick='if(event.target===this){modal=null;render()}'><div class='mb'><div class='mb-t'>Editar cliente</div><p class='ps'>"+modal.c+"</p><div class='fw'><label class='lbl'>Nombre *</label><input class='inp' id='rc_n' value='"+modal.c+"' style='text-transform:uppercase' oninput='this.value=this.value.toUpperCase()'/></div>"
+      +"<div class='fw'><label class='lbl'>Días que funciona el servicio</label><select class='inp' id='rc_dias'>"+[7,6,5].map(d=>"<option value='"+d+"'"+(_diasCli(modal.c)===d?" selected":"")+">"+_DIAS_TXT[d]+"</option>").join("")+"</select><div style='font-size:10px;color:var(--M);margin-top:3px'>Si el cliente apaga los equipos el fin de semana, la app ajusta el consumo y la fecha del próximo refill y de baterías.</div></div>"
       +"<div class='fw'><label class='lbl'>N° de registro (NRC, como en la hoja PEDIDOS)</label><input class='inp' id='rc_reg' value='"+(_regMap()[modal.c]||"")+"' placeholder='Ej. 385362-9'/></div>"
       +(()=>{const cur=modal.pais||((window._clientPais||{})[modal.c]==="GT"?"GT":"SV");const b=(v,t)=>"<button type='button' onclick='modal.pais=\""+v+"\";render()' style='flex:1;padding:8px;border-radius:10px;border:1px solid var(--F);background:"+(cur===v?"var(--F)":"none")+";color:"+(cur===v?"#fff":"var(--F)")+";font-weight:700;cursor:pointer'>"+t+"</button>";return"<div class='fw'><label class='lbl'>País</label><div style='display:flex;gap:8px'>"+b("SV","\ud83c\uddf8\ud83c\uddfb El Salvador")+b("GT","\ud83c\uddec\ud83c\uddf9 Guatemala")+"</div></div>";})()+"<div class='mb-act'><button class='btn-c' onclick='modal=null;render()'>Cancelar</button><button class='btn' onclick='saveRenameCliente()'>Guardar</button></div></div></div>";
     }
@@ -3180,9 +3248,12 @@ function render(){
       const tipo=modal.tipo||"prospecto";
       const activeVnds3=vendors.filter(v=>v.active!==false&&v.role!=="admin");
       mHTML="<div class='mb-bg' onclick='if(event.target===this){modal=null;render()}'><div class='mb'><div class='mb-t'>Nueva solicitud</div>"
-        +"<div style='display:flex;gap:8px;margin-bottom:14px'><button onclick='setSolTipo(\"prospecto\")' style='flex:1;padding:9px;border:1px solid var(--F);border-radius:var(--R);background:"+(tipo==="prospecto"?"var(--F)":"none")+";color:"+(tipo==="prospecto"?"#fff":"var(--F)")+";font-size:13px;font-weight:600;cursor:pointer'>Prospecto</button><button onclick='setSolTipo(\"cliente\")' style='flex:1;padding:9px;border:1px solid var(--F);border-radius:var(--R);background:"+(tipo==="cliente"?"var(--F)":"none")+";color:"+(tipo==="cliente"?"#fff":"var(--F)")+";font-size:13px;font-weight:600;cursor:pointer'>Cliente</button></div>"
-        +"<div class='fw'><label class='lbl'>"+(tipo==="prospecto"?"Nombre del prospecto":"Nombre del contacto")+" *</label><input class='inp' id='sol_n' placeholder='"+(tipo==="prospecto"?"Empresa o persona":"Nombre del contacto")+"'/></div>"
-        +"<div class='fw'><label class='lbl'>Vendedor *</label><select class='inp' id='sol_v'>"+activeVnds3.map(v=>"<option value='"+v.name+"'"+(v.name===sess.name?" selected":"")+">"+v.name+"</option>").join("")+"</select></div>"
+        +"<div style='display:flex;gap:8px;margin-bottom:14px'><button onclick='setSolTipo(\"prospecto\")' style='flex:1;padding:9px;border:1px solid var(--F);border-radius:var(--R);background:"+(tipo==="prospecto"?"var(--F)":"none")+";color:"+(tipo==="prospecto"?"#fff":"var(--F)")+";font-size:13px;font-weight:600;cursor:pointer'>Prospecto</button><button onclick='setSolTipo(\"cliente\")' style='flex:1;padding:9px;border:1px solid var(--F);border-radius:var(--R);background:"+(tipo==="cliente"?"var(--F)":"none")+";color:"+(tipo==="cliente"?"#fff":"var(--F)")+";font-size:13px;font-weight:600;cursor:pointer'>Cliente</button>"+(_puedeReclamo()?"<button onclick='setSolTipo(\"reclamo\")' style='flex:1;padding:9px;border:1px solid var(--D);border-radius:var(--R);background:"+(tipo==="reclamo"?"var(--D)":"none")+";color:"+(tipo==="reclamo"?"#fff":"var(--D)")+";font-size:13px;font-weight:600;cursor:pointer'>Reclamo</button>":"")+"</div>"
+        +(tipo==="reclamo"?"<div class='fw'><label class='lbl'>Cliente que reclama *</label><select class='inp' id='sol_rc' onchange='_recVnd(this.value)'><option value=''>— elegir —</option>"+[...ALL_CLIENTS].sort((a,b)=>a.localeCompare(b)).map(c=>"<option>"+_esc(c)+"</option>").join("")+"</select></div>"
+          +"<div class='fw'><label class='lbl'>Motivo *</label><select class='inp' id='sol_mot'>"+_MOT_REC.map(m=>"<option>"+m+"</option>").join("")+"</select></div>"
+          +"<div class='fw'><label class='lbl'>Técnico responsable (el asignado al cliente)</label><select class='inp' id='sol_v'>"+activeVnds3.map(v=>"<option value='"+v.name+"'>"+v.name+"</option>").join("")+"</select></div>"
+        :"<div class='fw'><label class='lbl'>"+(tipo==="prospecto"?"Nombre del prospecto":"Nombre del contacto")+" *</label><input class='inp' id='sol_n' placeholder='"+(tipo==="prospecto"?"Empresa o persona":"Nombre del contacto")+"'/></div>"
+        +"<div class='fw'><label class='lbl'>Vendedor *</label><select class='inp' id='sol_v'>"+activeVnds3.map(v=>"<option value='"+v.name+"'"+(v.name===sess.name?" selected":"")+">"+v.name+"</option>").join("")+"</select></div>")
         +"<div class='fw'><label class='lbl'>Notas</label><textarea class='inp' id='sol_notas' placeholder='Detalles...'></textarea></div>"
         +"<div class='mb-act'><button class='btn-c' onclick='modal=null;render()'>Cancelar</button><button class='btn' onclick='saveSolicitud()'>Enviar</button></div></div></div>";
     }
@@ -3265,7 +3336,7 @@ function regVisitSimple(){
 // ── INIT ──
 render();
 // ── ACTUALIZACIÓN AUTOMÁTICA DE LA APP ──
-const APP_VER="2026-11-25c";
+const APP_VER="2026-11-26a";
 async function checkUpdate(){
   try{
     const r=await fetch(location.pathname+"?_="+Date.now(),{cache:"no-store"});if(!r.ok)return;
